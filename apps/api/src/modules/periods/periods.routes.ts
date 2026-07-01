@@ -14,6 +14,24 @@ const periodPayloadSchema = z.object({
   paymentType: z.enum(["semanal", "quinzenal", "mensal"])
 });
 
+function parseDateOnly(input: string) {
+  const [yearText, monthText, dayText] = input.split("-");
+
+  return new Date(
+    Date.UTC(
+      Number(yearText),
+      Number(monthText) - 1,
+      Number(dayText)
+    )
+  );
+}
+
+function toDateOnlyString(value: Date) {
+  return new Date(value.getTime() + value.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .split("T")[0];
+}
+
 function serializeBase(base: { id: string; nome: string; tipoPadrao: string }) {
   return {
     id: base.id,
@@ -72,8 +90,8 @@ function serializePeriod(period: {
   return {
     id: period.id,
     name: period.nome,
-    startDate: period.dataInicio,
-    endDate: period.dataFim,
+    startDate: toDateOnlyString(period.dataInicio),
+    endDate: toDateOnlyString(period.dataFim),
     paymentType: period.tipo,
     status: derivedStatus,
     bases: period.bases.map((item) => serializeBase(item.basePagamento)),
@@ -166,8 +184,8 @@ router.post("/", requireAdmin, (req, res) => {
     const period = await prisma.periodoPagamento.create({
       data: {
         nome: parsed.data.name,
-        dataInicio: new Date(parsed.data.startDate),
-        dataFim: new Date(parsed.data.endDate),
+        dataInicio: parseDateOnly(parsed.data.startDate),
+        dataFim: parseDateOnly(parsed.data.endDate),
         tipo: baseType,
         criadoPorId: req.auth.userId,
         bases: {
@@ -221,6 +239,14 @@ router.post("/", requireAdmin, (req, res) => {
 
 router.delete("/:id", requireAdmin, (req, res) => {
   void (async () => {
+    if (!req.auth) {
+      res.status(401).json({
+        message: "Sessao nao autenticada."
+      });
+      return;
+    }
+
+    const userId = req.auth.userId;
     const periodId = String(req.params.id);
     const existing = await prisma.periodoPagamento.findUnique({
       where: {
@@ -239,24 +265,41 @@ router.delete("/:id", requireAdmin, (req, res) => {
       return;
     }
 
-    await prisma.periodoPagamento.delete({
-      where: {
-        id: periodId
-      }
-    });
-
-    await prisma.logAuditoria.create({
-      data: {
-        usuarioId: req.auth?.userId || "system",
-        acao: "excluir_periodo_pagamento",
-        entidade: "periodos_pagamento",
-        entidadeId: periodId,
-        ipOrigem: req.ip,
-        userAgent: req.get("user-agent") || null,
-        detalhes: {
-          nome: existing.nome
+    await prisma.$transaction(async (tx) => {
+      await tx.uploadPdf.updateMany({
+        where: {
+          periodoPagamentoId: periodId
+        },
+        data: {
+          periodoPagamentoId: null
         }
-      }
+      });
+
+      await tx.periodoPagamentoBase.deleteMany({
+        where: {
+          periodoId: periodId
+        }
+      });
+
+      await tx.periodoPagamento.delete({
+        where: {
+          id: periodId
+        }
+      });
+
+      await tx.logAuditoria.create({
+        data: {
+          usuarioId: userId,
+          acao: "excluir_periodo_pagamento",
+          entidade: "periodos_pagamento",
+          entidadeId: periodId,
+          ipOrigem: req.ip,
+          userAgent: req.get("user-agent") || null,
+          detalhes: {
+            nome: existing.nome
+          }
+        }
+      });
     });
 
     res.json({

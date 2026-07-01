@@ -148,6 +148,13 @@ function formatStatusLabel(status: string) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function formatDateOnly(dateValue: string) {
+  const datePart = dateValue.includes("T") ? dateValue.split("T")[0] : dateValue;
+  const [year, month, day] = datePart.split("-");
+
+  return `${day}/${month}/${year}`;
+}
+
 function App() {
   const [view, setView] = useState<View>("login");
   const [activeView, setActiveView] = useState<Exclude<View, "login" | "first-access">>("dashboard");
@@ -1609,8 +1616,7 @@ function PeriodsScreen({
                   <p className="eyebrow">Periodo {period.paymentType.toUpperCase()}</p>
                   <h4>{period.name}</h4>
                   <p>
-                    {new Date(period.startDate).toLocaleDateString("pt-BR")} a{" "}
-                    {new Date(period.endDate).toLocaleDateString("pt-BR")}
+                    {formatDateOnly(period.startDate)} a {formatDateOnly(period.endDate)}
                   </p>
                 </div>
 
@@ -1914,7 +1920,7 @@ function PdfsScreen({
                         <div>
                           <strong>{row.fileName}</strong>
                           <span>
-                            {row.status} Â· {new Date(row.sentAt).toLocaleString("pt-BR")}
+                            {row.status} · {new Date(row.sentAt).toLocaleString("pt-BR")}
                           </span>
                         </div>
 
