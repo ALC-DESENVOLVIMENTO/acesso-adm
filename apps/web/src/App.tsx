@@ -2,6 +2,7 @@ import {
   ArrowRight,
   Bell,
   CalendarBlank,
+  EnvelopeSimple,
   ChartLineUp,
   ClockCounterClockwise,
   Eye,
@@ -12,6 +13,7 @@ import {
   HouseLine,
   List,
   LockKey,
+  LockSimple,
   MagnifyingGlass,
   PencilSimple,
   SignOut,
@@ -113,6 +115,8 @@ const initialSummary: DashboardSummary = {
   closedTickets: 0,
   usersCount: 0
 };
+
+const logoSrc = "/alc-logotipo-dark.png";
 
 function App() {
   const [view, setView] = useState<View>("login");
@@ -584,40 +588,64 @@ function App() {
     return (
       <main className="auth-page">
         <section className="auth-hero">
-          <div className="brand-mark">
-            <span className="brand-mark__title">ALC</span>
-            <span className="brand-mark__caption">Portal Administrativo</span>
+          <div className="auth-brand">
+            <img className="auth-brand__logo" src={logoSrc} alt="ALC Pereira Filho Transportes" />
+            <div className="auth-brand__copy">
+              <span className="auth-brand__title">Portal Administrativo</span>
+              <span className="auth-brand__subtitle">Administracao simplificada</span>
+            </div>
           </div>
-          <p className="eyebrow">Administracao simplificada</p>
-          <h1>Bem-vindo ao Portal Administrativo!</h1>
-          <p className="auth-copy">
-            Acesse sua conta para gerenciar operacoes, acompanhar informacoes e utilizar os
-            recursos do sistema com seguranca.
-          </p>
-          <p className="auth-copy auth-copy--muted">
-            Este ambiente e exclusivo para usuarios autorizados.
-          </p>
+
+          <div className="auth-headline">
+            <h1>Bem-vindo ao Portal Administrativo!</h1>
+            <p className="auth-copy">
+              Acesse sua conta para gerenciar operacoes, acompanhar informacoes e utilizar os
+              recursos do sistema com seguranca.
+            </p>
+            <p className="auth-copy auth-copy--muted">
+              Este ambiente e exclusivo para usuarios autorizados.
+            </p>
+          </div>
+
           <div className="hero-preview">
             <div className="hero-preview__window">
-              <div className="hero-preview__sidebar" />
+              <div className="hero-preview__sidebar">
+                <img className="hero-preview__mini-logo" src={logoSrc} alt="Logo da ALC Pereira Filho Transportes" />
+                <div className="hero-preview__menu">
+                  <span className="hero-preview__menu-item hero-preview__menu-item--active" />
+                  <span className="hero-preview__menu-item" />
+                  <span className="hero-preview__menu-item" />
+                </div>
+              </div>
               <div className="hero-preview__content">
-                <div className="hero-preview__topline" />
-                <div className="hero-preview__chart" />
-                <div className="hero-preview__cards">
+                <div className="hero-preview__topbar" />
+                <div className="hero-preview__kpis">
                   <span />
                   <span />
+                  <span />
+                  <span />
+                </div>
+                <div className="hero-preview__body">
+                  <div className="hero-preview__chart" />
+                  <div className="hero-preview__activity">
+                    <span />
+                    <span />
+                    <span />
+                    <span />
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-          <div className="hero-watermark">
-            <span>ALC</span>
-            <span>TRANSPORTES</span>
+
+          <div className="hero-watermark" aria-hidden="true">
+            <img className="hero-watermark__image" src={logoSrc} alt="" />
           </div>
         </section>
 
         <section className="auth-panel">
-          <div className="auth-card">
+          <div className="auth-card auth-card--login">
+            <img className="auth-card__logo" src={logoSrc} alt="ALC Pereira Filho Transportes" />
             <p className="eyebrow">Acesso seguro</p>
             <h2>Entrar no sistema</h2>
             <p className="panel-copy">
@@ -627,11 +655,17 @@ function App() {
             <form className="form-stack" onSubmit={handleLogin}>
               <label className="field">
                 <span>E-mail</span>
-                <input name="email" type="email" placeholder="seuemail@empresa.com" required />
+                <span className="field__control">
+                  <EnvelopeSimple size={18} />
+                  <input name="email" type="email" placeholder="Digite seu e-mail" required />
+                </span>
               </label>
               <label className="field">
                 <span>Senha</span>
-                <input name="password" type="password" placeholder="Digite sua senha" required />
+                <span className="field__control">
+                  <LockSimple size={18} />
+                  <input name="password" type="password" placeholder="Digite sua senha" required />
+                </span>
               </label>
 
               {loadingMessage ? <p className="loading-note">{loadingMessage}</p> : null}
@@ -657,6 +691,7 @@ function App() {
     return (
       <main className="first-access-page">
         <div className="first-access-card">
+          <img className="first-access-card__logo" src={logoSrc} alt="ALC Pereira Filho Transportes" />
           <p className="eyebrow">Seguranca obrigatoria</p>
           <h2>Altere sua senha para continuar</h2>
           <p className="panel-copy">
@@ -667,20 +702,39 @@ function App() {
           <form className="form-stack" onSubmit={handleChangePassword}>
             <label className="field">
               <span>Senha atual</span>
-              <input name="currentPassword" type="password" placeholder="Informe a senha atual" required />
+              <span className="field__control">
+                <LockSimple size={18} />
+                <input
+                  name="currentPassword"
+                  type="password"
+                  placeholder="Informe a senha atual"
+                  required
+                />
+              </span>
             </label>
             <label className="field">
               <span>Nova senha</span>
-              <input name="newPassword" type="password" placeholder="Minimo de 6 caracteres" required />
+              <span className="field__control">
+                <LockSimple size={18} />
+                <input
+                  name="newPassword"
+                  type="password"
+                  placeholder="Minimo de 6 caracteres"
+                  required
+                />
+              </span>
             </label>
             <label className="field">
               <span>Confirmar nova senha</span>
-              <input
-                name="confirmPassword"
-                type="password"
-                placeholder="Repita a nova senha"
-                required
-              />
+              <span className="field__control">
+                <LockSimple size={18} />
+                <input
+                  name="confirmPassword"
+                  type="password"
+                  placeholder="Repita a nova senha"
+                  required
+                />
+              </span>
             </label>
 
             {loadingMessage ? <p className="loading-note">{loadingMessage}</p> : null}
@@ -701,10 +755,8 @@ function App() {
       <aside className="sidebar">
         <div>
           <div className="sidebar__brand">
-            <div className="brand-mark brand-mark--compact">
-              <span className="brand-mark__title">ALC</span>
-              <span className="brand-mark__caption">Portal</span>
-            </div>
+            <img className="sidebar__logo" src={logoSrc} alt="ALC Pereira Filho Transportes" />
+            <span className="sidebar__brand-caption">Portal Administrativo</span>
           </div>
 
           <nav className="sidebar__nav">
