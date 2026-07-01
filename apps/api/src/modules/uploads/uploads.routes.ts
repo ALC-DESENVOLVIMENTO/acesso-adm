@@ -264,7 +264,7 @@ router.post("/", upload.array("files", 20), (req, res) => {
         detalhes: {
           quantidade: files.length,
           arquivos: files.map((file) => file.originalname),
-          periodoId,
+          periodId,
           basePaymentId
         }
       }
