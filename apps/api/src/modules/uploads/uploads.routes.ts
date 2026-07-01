@@ -250,7 +250,7 @@ router.post("/", upload.array("files", 20), (req, res) => {
         status: UploadStatus.pendente,
         usuarioId: req.auth!.userId,
         periodoPagamentoId: periodId,
-        basePagamentoId
+        basePagamentoId: basePaymentId
       }))
     });
 

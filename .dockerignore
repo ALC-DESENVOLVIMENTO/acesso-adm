@@ -1,0 +1,9 @@
+node_modules
+apps/**/node_modules
+apps/**/dist
+storage
+.git
+.github
+*.log
+web-dev.log
+api-dev.log
