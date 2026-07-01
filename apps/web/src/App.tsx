@@ -21,7 +21,7 @@ import {
   UserCirclePlus,
   UsersThree
 } from "@phosphor-icons/react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   changeFirstAccessPassword,
   createUser,
@@ -133,6 +133,9 @@ function App() {
   const [uploads, setUploads] = useState<UploadRow[]>([]);
   const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null);
   const [uploadHistory, setUploadHistory] = useState<UploadHistoryState>(null);
+  const [createUserSignal, setCreateUserSignal] = useState(0);
+  const [uploadSignal, setUploadSignal] = useState(0);
+  const [deleteUserTarget, setDeleteUserTarget] = useState<UserSummary | null>(null);
 
   const allowedMenu = useMemo(() => {
     if (!currentUser) {
@@ -403,6 +406,27 @@ function App() {
     } finally {
       setLoadingMessage("");
     }
+  };
+
+  const openUsersCreateModal = () => {
+    setActiveView("users");
+    setView("users");
+    setCreateUserSignal((current) => current + 1);
+  };
+
+  const openPdfUploadShortcut = () => {
+    setActiveView("pdfs");
+    setView("pdfs");
+    setUploadSignal((current) => current + 1);
+    setFlashMessage({
+      type: "success",
+      text: "Abra o seletor para enviar um ou mais PDFs."
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const requestDeleteUser = (user: UserSummary) => {
+    setDeleteUserTarget(user);
   };
 
   const handleToggleBlock = async (user: UserSummary) => {
@@ -782,11 +806,6 @@ function App() {
     <main className="shell-page">
       <aside className="sidebar">
         <div>
-          <div className="sidebar__brand">
-            <img className="sidebar__logo" src={logoSrc} alt="ALC Pereira Filho Transportes" />
-            <span className="sidebar__brand-caption">Portal Administrativo</span>
-          </div>
-
           <nav className="sidebar__nav">
             {allowedMenu.map((item) => {
               const Icon = item.icon;
@@ -820,6 +839,9 @@ function App() {
           <button className="icon-button" type="button" aria-label="Abrir menu">
             <List size={24} />
           </button>
+          <div className="topbar__brand" aria-label="ALC Pereira Filho Transportes">
+            <img src={logoSrc} alt="ALC Pereira Filho Transportes" />
+          </div>
           <div className="topbar__actions">
             <button className="icon-button" type="button" aria-label="Notificacoes">
               <Bell size={22} />
@@ -855,7 +877,12 @@ function App() {
         ) : null}
 
         {activeView === "dashboard" ? (
-          <DashboardScreen currentUser={currentUser} summary={dashboardSummary} />
+          <DashboardScreen
+            currentUser={currentUser}
+            summary={dashboardSummary}
+            onOpenCreateUser={openUsersCreateModal}
+            onOpenPdfUpload={openPdfUploadShortcut}
+          />
         ) : null}
         {activeView === "pdfs" ? (
           <PdfsScreen
@@ -868,30 +895,78 @@ function App() {
             onOpenUploadHistory={handleOpenUploadHistory}
             onReplaceUpload={handleReplaceUpload}
             onUploadFiles={handleUploadFiles}
+            uploadSignal={uploadSignal}
           />
         ) : null}
         {activeView === "users" ? (
           <UsersScreen
             users={users}
             onCreateUser={handleCreateUser}
-            onDeleteUser={handleDeleteUser}
+            onDeleteUser={requestDeleteUser}
             onResetPassword={handleResetPassword}
             onToggleActive={handleToggleActive}
             onToggleBlock={handleToggleBlock}
             onUpdateUser={handleUpdateUser}
+            createUserSignal={createUserSignal}
           />
         ) : null}
       </section>
+
+      {deleteUserTarget ? (
+        <div className="modal-overlay" onClick={() => setDeleteUserTarget(null)}>
+          <div
+            className="modal-card modal-card--confirm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-user-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-card__header">
+              <div>
+                <p className="eyebrow">Confirmacao</p>
+                <h3 id="delete-user-title">Excluir usuario</h3>
+                <p>
+                  Excluir permanentemente <strong>{deleteUserTarget.name}</strong> do banco de dados?
+                </p>
+              </div>
+            </div>
+
+            <div className="confirm-actions">
+              <button className="ghost-button" type="button" onClick={() => setDeleteUserTarget(null)}>
+                Cancelar
+              </button>
+              <button
+                className="primary-button primary-button--inline"
+                type="button"
+                onClick={async () => {
+                  const target = deleteUserTarget;
+                  setDeleteUserTarget(null);
+                  if (target) {
+                    await handleDeleteUser(target);
+                  }
+                }}
+              >
+                Excluir agora
+                <TrashSimple size={18} weight="bold" />
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
 
 function DashboardScreen({
   currentUser,
-  summary
+  summary,
+  onOpenCreateUser,
+  onOpenPdfUpload
 }: {
   currentUser: SessionUser | null;
   summary: DashboardSummary;
+  onOpenCreateUser: () => void;
+  onOpenPdfUpload: () => void;
 }) {
   const stats = [
     {
@@ -934,6 +1009,43 @@ function DashboardScreen({
         <div className="quick-meta">
           <span className="quick-meta__chip">Nivel {currentUser?.level as AccessLevel}</span>
           <span className="quick-meta__chip">Ultimos 7 dias</span>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel__header">
+          <div>
+            <h3>Acesso Rapido</h3>
+            <p>Atalhos operacionais para a equipe administrativa</p>
+          </div>
+        </div>
+
+        <div className="quick-actions">
+          {currentUser?.modules.includes("pdfs") ? (
+            <button className="quick-action-card" type="button" onClick={onOpenPdfUpload}>
+              <div className="quick-action-card__icon">
+                <FileArrowUp size={26} />
+              </div>
+              <div>
+                <strong>Enviar PDF</strong>
+                <span>Faca o envio de novos documentos.</span>
+              </div>
+              <ArrowRight size={20} />
+            </button>
+          ) : null}
+
+          {currentUser?.modules.includes("users") ? (
+            <button className="quick-action-card" type="button" onClick={onOpenCreateUser}>
+              <div className="quick-action-card__icon">
+                <UserCirclePlus size={26} />
+              </div>
+              <div>
+                <strong>Cadastrar Usuario</strong>
+                <span>Adicione novos usuarios e niveis de acesso.</span>
+              </div>
+              <ArrowRight size={20} />
+            </button>
+          ) : null}
         </div>
       </section>
 
@@ -1048,39 +1160,6 @@ function DashboardScreen({
           </div>
         </article>
       </section>
-
-      <section className="panel">
-        <div className="panel__header">
-          <div>
-            <h3>Acesso Rapido</h3>
-            <p>Atalhos operacionais para a equipe administrativa</p>
-          </div>
-        </div>
-
-        <div className="quick-actions">
-          <button className="quick-action-card" type="button">
-            <div className="quick-action-card__icon">
-              <FileArrowUp size={26} />
-            </div>
-            <div>
-              <strong>Enviar PDF</strong>
-              <span>Faca o envio de novos documentos.</span>
-            </div>
-            <ArrowRight size={20} />
-          </button>
-
-          <button className="quick-action-card" type="button">
-            <div className="quick-action-card__icon">
-              <UserCirclePlus size={26} />
-            </div>
-            <div>
-              <strong>Cadastrar Usuario</strong>
-              <span>Adicione novos usuarios e niveis de acesso.</span>
-            </div>
-            <ArrowRight size={20} />
-          </button>
-        </div>
-      </section>
     </div>
   );
 }
@@ -1094,7 +1173,8 @@ function PdfsScreen({
   onDownloadUpload,
   onOpenUploadHistory,
   onDeleteUpload,
-  onCloseHistory
+  onCloseHistory,
+  uploadSignal
 }: {
   uploads: UploadRow[];
   uploadProgress: UploadProgressState | null;
@@ -1105,9 +1185,19 @@ function PdfsScreen({
   onOpenUploadHistory: (uploadId: string) => Promise<void> | void;
   onDeleteUpload: (uploadId: string) => Promise<void> | void;
   onCloseHistory: () => void;
+  uploadSignal: number;
 }) {
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const lastUploadSignal = useRef(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
+
+  useEffect(() => {
+    if (uploadSignal > lastUploadSignal.current) {
+      lastUploadSignal.current = uploadSignal;
+      uploadInputRef.current?.click();
+    }
+  }, [uploadSignal]);
 
   const filteredUploads = useMemo(() => {
     return uploads.filter((row) => {
@@ -1128,20 +1218,22 @@ function PdfsScreen({
           <h1>Envio de PDFs</h1>
           <p>Upload multiplo, acompanhamento de status e substituicao de arquivos versionados.</p>
         </div>
-        <label className="primary-button primary-button--inline file-picker">
+        <button className="primary-button primary-button--inline file-picker" type="button" onClick={() => uploadInputRef.current?.click()}>
           Novo upload
           <FileArrowUp size={18} weight="bold" />
-          <input
-            type="file"
-            accept="application/pdf"
-            multiple
-            onChange={(event) => {
-              const files = Array.from(event.target.files || []);
-              void onUploadFiles(files);
-              event.currentTarget.value = "";
-            }}
-          />
-        </label>
+        </button>
+        <input
+          ref={uploadInputRef}
+          className="file-picker__input"
+          type="file"
+          accept="application/pdf"
+          multiple
+          onChange={(event) => {
+            const files = Array.from(event.target.files || []);
+            void onUploadFiles(files);
+            event.currentTarget.value = "";
+          }}
+        />
       </section>
 
       <section className="panel panel--compact">
@@ -1306,15 +1398,17 @@ function UsersScreen({
   onUpdateUser,
   onToggleBlock,
   onToggleActive,
-  onResetPassword
+  onResetPassword,
+  createUserSignal
 }: {
   users: UserSummary[];
   onCreateUser: (payload: UserPayload) => Promise<boolean> | boolean;
-  onDeleteUser: (user: UserSummary) => Promise<boolean> | boolean;
+  onDeleteUser: (user: UserSummary) => void;
   onUpdateUser: (userId: string, payload: UserPayload) => Promise<boolean> | boolean;
   onToggleBlock: (user: UserSummary) => Promise<void> | void;
   onToggleActive: (user: UserSummary) => Promise<void> | void;
   onResetPassword: (userId: string) => Promise<void> | void;
+  createUserSignal: number;
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
@@ -1327,6 +1421,7 @@ function UsersScreen({
     level: "N1" as UserPayload["level"]
   });
   const [selectedModules, setSelectedModules] = useState<string[]>(["dashboard", "pdfs"]);
+  const lastCreateSignal = useRef(0);
 
   const resetForm = () => {
     setEditingUserId(null);
@@ -1358,6 +1453,13 @@ function UsersScreen({
     setIsModalOpen(false);
     resetForm();
   };
+
+  useEffect(() => {
+    if (createUserSignal > lastCreateSignal.current) {
+      lastCreateSignal.current = createUserSignal;
+      openCreateModal();
+    }
+  }, [createUserSignal]);
 
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
@@ -1545,11 +1647,7 @@ function UsersScreen({
                       <button
                         className="ghost-button ghost-button--small ghost-button--danger"
                         type="button"
-                        onClick={() => {
-                          if (window.confirm(`Excluir permanentemente o usuario ${user.name}?`)) {
-                            void onDeleteUser(user);
-                          }
-                        }}
+                        onClick={() => onDeleteUser(user)}
                       >
                         <TrashSimple size={16} />
                         Excluir

@@ -506,27 +506,6 @@ button {
   font-size: 2.3rem;
 }
 
-.sidebar__brand {
-  justify-items: center;
-  padding: 8px 12px 28px;
-  display: grid;
-  gap: 10px;
-  overflow: hidden;
-}
-
-.sidebar__logo {
-  width: 72px;
-  height: auto;
-  object-fit: contain;
-}
-
-.sidebar__brand-caption {
-  opacity: 0;
-  color: #6d7789;
-  font-size: 0.9rem;
-  transition: opacity 0.2s ease;
-}
-
 .sidebar__nav {
   display: grid;
   gap: 10px;
@@ -569,11 +548,28 @@ button {
 }
 
 .topbar {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
   margin-bottom: 24px;
+}
+
+.topbar__brand {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.topbar__brand img {
+  height: 58px;
+  width: auto;
+  object-fit: contain;
 }
 
 .topbar__actions {
@@ -957,6 +953,10 @@ button {
   background: rgba(255, 95, 83, 0.12);
 }
 
+.file-picker__input {
+  display: none;
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -978,11 +978,22 @@ button {
   padding: 28px;
 }
 
+.modal-card--confirm {
+  width: min(560px, 100%);
+}
+
 .modal-card__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 26px;
 }
 
 .checkbox-grid {
