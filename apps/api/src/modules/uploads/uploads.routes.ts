@@ -34,9 +34,86 @@ const upload = multer({
 
 router.use(requireAuth, requireModuleAccess("pdfs"));
 
+type UploadHistoryItem = Awaited<ReturnType<typeof prisma.uploadPdf.findMany>>[number] & {
+  usuario: {
+    nome: string;
+  };
+};
+
+function serializeUpload(upload: UploadHistoryItem) {
+  return {
+    id: upload.id,
+    fileName: upload.nomeOriginal,
+    storageFileName: upload.nomeArquivo,
+    status: upload.status,
+    sentAt: upload.criadoEm,
+    version: upload.versao,
+    owner: upload.usuario.nome,
+    replacedUploadId: upload.substituiUploadId
+  };
+}
+
+async function getUploadHistory(uploadId: string) {
+  const uploads = await prisma.uploadPdf.findMany({
+    include: {
+      usuario: {
+        select: {
+          nome: true
+        }
+      }
+    },
+    orderBy: {
+      criadoEm: "asc"
+    }
+  });
+
+  const target = uploads.find((item) => item.id === uploadId);
+
+  if (!target) {
+    return null;
+  }
+
+  const byId = new Map(uploads.map((item) => [item.id, item]));
+  let cursor: UploadHistoryItem | undefined = target;
+  let rootId = target.id;
+
+  while (cursor?.substituiUploadId) {
+    const parent = byId.get(cursor.substituiUploadId);
+
+    if (!parent) {
+      break;
+    }
+
+    rootId = parent.id;
+    cursor = parent;
+  }
+
+  return uploads
+    .filter((item) => {
+      let current: UploadHistoryItem | undefined = item;
+
+      while (current) {
+        if (current.id === rootId) {
+          return true;
+        }
+
+        current = current.substituiUploadId ? byId.get(current.substituiUploadId) : undefined;
+      }
+
+      return false;
+    })
+    .sort((a, b) => a.versao - b.versao)
+    .map(serializeUpload);
+}
+
 router.get("/", (_req, res) => {
   void (async () => {
     const uploads = await prisma.uploadPdf.findMany({
+      where: {
+        status: {
+          not: UploadStatus.removido
+        }
+      },
       include: {
         usuario: true
       },
@@ -46,19 +123,31 @@ router.get("/", (_req, res) => {
     });
 
     res.json(
-      uploads.map((upload) => ({
-        id: upload.id,
-        fileName: upload.nomeOriginal,
-        storageFileName: upload.nomeArquivo,
-        status: upload.status,
-        sentAt: upload.criadoEm,
-        version: upload.versao,
-        owner: upload.usuario.nome
-      }))
+      uploads.map(serializeUpload)
     );
   })().catch((error) => {
     res.status(500).json({
       message: "Falha ao listar uploads.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
+
+router.get("/:id/history", (req, res) => {
+  void (async () => {
+    const history = await getUploadHistory(String(req.params.id));
+
+    if (!history) {
+      res.status(404).json({
+        message: "Historico do PDF nao encontrado."
+      });
+      return;
+    }
+
+    res.json(history);
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao carregar historico do PDF.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });
@@ -113,6 +202,74 @@ router.post("/", upload.array("files", 20), (req, res) => {
   })().catch((error) => {
     res.status(500).json({
       message: "Falha ao realizar upload dos PDFs.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
+
+router.delete("/:id", (req, res) => {
+  void (async () => {
+    if (!req.auth) {
+      res.status(401).json({
+        message: "Sessao invalida."
+      });
+      return;
+    }
+
+    const upload = await prisma.uploadPdf.findUnique({
+      where: {
+        id: String(req.params.id)
+      }
+    });
+
+    if (!upload) {
+      res.status(404).json({
+        message: "Upload nao encontrado."
+      });
+      return;
+    }
+
+    const canDelete =
+      req.auth.level === "N3" ||
+      req.auth.level === "N4" ||
+      upload.usuarioId === req.auth.userId;
+
+    if (!canDelete) {
+      res.status(403).json({
+        message: "Voce nao possui permissao para remover este PDF."
+      });
+      return;
+    }
+
+    await prisma.uploadPdf.update({
+      where: {
+        id: upload.id
+      },
+      data: {
+        status: UploadStatus.removido
+      }
+    });
+
+    await prisma.logAuditoria.create({
+      data: {
+        usuarioId: req.auth.userId,
+        acao: "remover_pdf_logicamente",
+        entidade: "uploads_pdf",
+        entidadeId: upload.id,
+        ipOrigem: req.ip,
+        userAgent: req.get("user-agent") || null,
+        detalhes: {
+          arquivo: upload.nomeOriginal
+        }
+      }
+    });
+
+    res.json({
+      message: "PDF removido logicamente com sucesso."
+    });
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao remover PDF.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });

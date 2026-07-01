@@ -33,6 +33,7 @@ export type UploadRow = {
   sentAt: string;
   version: number;
   owner: string;
+  replacedUploadId?: string | null;
 };
 
 export type UserSummary = {
@@ -54,6 +55,13 @@ export type UserPayload = {
   email: string;
   level: "N1" | "N2" | "N3" | "N4";
   modules: string[];
+};
+
+export type UploadProgressState = {
+  loaded: number;
+  total: number;
+  percent: number;
+  label: string;
 };
 
 async function request<T>(path: string, options?: RequestInit & { body?: JsonBody }) {
@@ -88,6 +96,49 @@ async function requestFormData<T>(path: string, options: RequestInit & { body: F
   }
 
   return payload as T;
+}
+
+async function requestUpload<T>(params: {
+  path: string;
+  token: string;
+  body: FormData;
+  onProgress?: (progress: UploadProgressState) => void;
+}) {
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE_URL}${params.path}`);
+    xhr.setRequestHeader("Authorization", `Bearer ${params.token}`);
+
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable || !params.onProgress) {
+        return;
+      }
+
+      params.onProgress({
+        loaded: event.loaded,
+        total: event.total,
+        percent: Math.round((event.loaded / event.total) * 100),
+        label: "Enviando arquivos..."
+      });
+    };
+
+    xhr.onload = () => {
+      const payload = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(payload as T);
+        return;
+      }
+
+      reject(new Error(payload?.message || "Falha no upload."));
+    };
+
+    xhr.onerror = () => {
+      reject(new Error("Falha de rede durante o upload."));
+    };
+
+    xhr.send(params.body);
+  });
 }
 
 export function loginRequest(body: { email: string; password: string }) {
@@ -175,29 +226,36 @@ export function resetUserPassword(token: string, userId: string) {
   });
 }
 
-export function uploadPdfs(token: string, files: File[]) {
+export function uploadPdfs(
+  token: string,
+  files: File[],
+  onProgress?: (progress: UploadProgressState) => void
+) {
   const formData = new FormData();
   files.forEach((file) => formData.append("files", file));
 
-  return requestFormData<{ message: string }>("/uploads", {
-    method: "POST",
+  return requestUpload<{ message: string }>({
+    path: "/uploads",
+    token,
     body: formData,
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
+    onProgress
   });
 }
 
-export function replaceUpload(token: string, uploadId: string, file: File) {
+export function replaceUpload(
+  token: string,
+  uploadId: string,
+  file: File,
+  onProgress?: (progress: UploadProgressState) => void
+) {
   const formData = new FormData();
   formData.append("file", file);
 
-  return requestFormData<{ message: string }>(`/uploads/${uploadId}/replace`, {
-    method: "POST",
+  return requestUpload<{ message: string }>({
+    path: `/uploads/${uploadId}/replace`,
+    token,
     body: formData,
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
+    onProgress
   });
 }
 
@@ -224,6 +282,23 @@ export async function downloadUpload(token: string, uploadId: string, fileName: 
 export function logoutRequest(token: string) {
   return request<{ message: string }>("/auth/logout", {
     method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function fetchUploadHistory(token: string, uploadId: string) {
+  return request<UploadRow[]>(`/uploads/${uploadId}/history`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function deleteUpload(token: string, uploadId: string) {
+  return request<{ message: string }>(`/uploads/${uploadId}`, {
+    method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`
     }

@@ -316,6 +316,10 @@ button {
   padding: 10px 12px;
 }
 
+.ghost-button--danger {
+  color: #c5483d;
+}
+
 .icon-button {
   width: 46px;
   height: 46px;
@@ -704,6 +708,34 @@ button {
   flex-wrap: wrap;
 }
 
+.filters-row {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) repeat(2, minmax(180px, 220px));
+  gap: 14px;
+  align-items: center;
+}
+
+.search-field,
+.filter-select {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(31, 36, 48, 0.1);
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #566174;
+}
+
+.search-field input,
+.filter-select select {
+  width: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #263043;
+}
+
 .file-picker {
   position: relative;
   overflow: hidden;
@@ -720,6 +752,40 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.panel--compact {
+  padding: 18px 20px;
+}
+
+.progress-card {
+  margin-top: 16px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  background: rgba(42, 99, 255, 0.05);
+  border: 1px solid rgba(42, 99, 255, 0.08);
+}
+
+.progress-card__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: #31415c;
+}
+
+.progress-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(42, 99, 255, 0.1);
+  overflow: hidden;
+}
+
+.progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ff7267, #ff5143);
 }
 
 .admin-form {
@@ -760,6 +826,57 @@ button {
   color: #404b5f;
 }
 
+.history-list {
+  display: grid;
+  gap: 12px;
+}
+
+.history-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: rgba(244, 246, 250, 0.9);
+}
+
+.history-item__badge {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(255, 95, 83, 0.12);
+  color: #ff5f53;
+}
+
+.history-item__body strong,
+.history-item__body span {
+  display: block;
+}
+
+.history-item__body span {
+  color: var(--muted);
+}
+
+.module-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mini-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 95, 83, 0.1);
+  color: #c94c41;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 @media (max-width: 1180px) {
   .auth-page {
     grid-template-columns: 1fr;
@@ -789,7 +906,8 @@ button {
   .stats-grid--three,
   .dashboard-grid,
   .quick-actions,
-  .admin-form {
+  .admin-form,
+  .filters-row {
     grid-template-columns: 1fr;
   }
 }

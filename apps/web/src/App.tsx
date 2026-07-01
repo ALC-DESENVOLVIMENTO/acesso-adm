@@ -3,14 +3,19 @@ import {
   Bell,
   CalendarBlank,
   ChartLineUp,
+  ClockCounterClockwise,
   Eye,
   FileArrowUp,
   FilePdf,
+  FunnelSimple,
   GearSix,
   HouseLine,
   List,
   LockKey,
+  MagnifyingGlass,
+  PencilSimple,
   SignOut,
+  TrashSimple,
   UserCirclePlus,
   UsersThree
 } from "@phosphor-icons/react";
@@ -18,8 +23,10 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   changeFirstAccessPassword,
   createUser,
+  deleteUpload,
   downloadUpload,
   fetchDashboardSummary,
+  fetchUploadHistory,
   fetchUploads,
   fetchUsers,
   loginRequest,
@@ -31,6 +38,7 @@ import {
   uploadPdfs,
   type DashboardSummary,
   type LoginResponse,
+  type UploadProgressState,
   type UploadRow,
   type UserPayload,
   type UserSummary
@@ -48,10 +56,16 @@ type Activity = {
 };
 
 type SessionUser = LoginResponse["user"];
+
 type FlashMessage = {
   type: "success" | "error";
   text: string;
 };
+
+type UploadHistoryState = {
+  uploadId: string;
+  entries: UploadRow[];
+} | null;
 
 const menuItems = [
   { key: "dashboard", label: "Dashboard", icon: HouseLine },
@@ -112,6 +126,8 @@ function App() {
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary>(initialSummary);
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [uploads, setUploads] = useState<UploadRow[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null);
+  const [uploadHistory, setUploadHistory] = useState<UploadHistoryState>(null);
 
   const allowedMenu = useMemo(() => {
     if (!currentUser) {
@@ -189,6 +205,22 @@ function App() {
       cancelled = true;
     };
   }, [currentUser, token, view]);
+
+  const refreshPortalData = async () => {
+    if (!token || !currentUser) {
+      return;
+    }
+
+    const [summary, uploadsData, usersData] = await Promise.all([
+      fetchDashboardSummary(token),
+      fetchUploads(token),
+      currentUser.modules.includes("users") ? fetchUsers(token) : Promise.resolve([])
+    ]);
+
+    setDashboardSummary(summary);
+    setUploads(uploadsData);
+    setUsers(usersData);
+  };
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -291,25 +323,12 @@ function App() {
     setLoginError("");
     setPasswordError("");
     setLoadingMessage("");
+    setFlashMessage(null);
+    setUploadProgress(null);
+    setUploadHistory(null);
     setActiveView("dashboard");
     setView("login");
     localStorage.removeItem("portal-admin-session");
-  };
-
-  const refreshPortalData = async () => {
-    if (!token || !currentUser) {
-      return;
-    }
-
-    const [summary, uploadsData, usersData] = await Promise.all([
-      fetchDashboardSummary(token),
-      fetchUploads(token),
-      currentUser.modules.includes("users") ? fetchUsers(token) : Promise.resolve([])
-    ]);
-
-    setDashboardSummary(summary);
-    setUploads(uploadsData);
-    setUsers(usersData);
   };
 
   const handleCreateUser = async (payload: UserPayload) => {
@@ -427,9 +446,20 @@ function App() {
     }
 
     setLoadingMessage("Enviando PDFs...");
+    setUploadProgress({
+      loaded: 0,
+      total: 0,
+      percent: 0,
+      label: "Preparando upload..."
+    });
 
     try {
-      const response = await uploadPdfs(token, files);
+      const response = await uploadPdfs(token, files, (progress) => {
+        setUploadProgress({
+          ...progress,
+          label: "Enviando PDFs..."
+        });
+      });
       setFlashMessage({ type: "success", text: response.message });
       await refreshPortalData();
       setActiveView("pdfs");
@@ -441,6 +471,7 @@ function App() {
       });
     } finally {
       setLoadingMessage("");
+      setUploadProgress(null);
     }
   };
 
@@ -450,11 +481,30 @@ function App() {
     }
 
     setLoadingMessage("Substituindo PDF...");
+    setUploadProgress({
+      loaded: 0,
+      total: 0,
+      percent: 0,
+      label: "Preparando substituicao..."
+    });
 
     try {
-      const response = await replaceUpload(token, uploadId, file);
+      const response = await replaceUpload(token, uploadId, file, (progress) => {
+        setUploadProgress({
+          ...progress,
+          label: "Substituindo PDF..."
+        });
+      });
       setFlashMessage({ type: "success", text: response.message });
       await refreshPortalData();
+
+      if (uploadHistory?.uploadId) {
+        const entries = await fetchUploadHistory(token, uploadHistory.uploadId);
+        setUploadHistory({
+          uploadId: uploadHistory.uploadId,
+          entries
+        });
+      }
     } catch (error) {
       setFlashMessage({
         type: "error",
@@ -462,6 +512,7 @@ function App() {
       });
     } finally {
       setLoadingMessage("");
+      setUploadProgress(null);
     }
   };
 
@@ -477,6 +528,55 @@ function App() {
         type: "error",
         text: error instanceof Error ? error.message : "Falha ao baixar arquivo."
       });
+    }
+  };
+
+  const handleOpenUploadHistory = async (uploadId: string) => {
+    if (!token) {
+      return;
+    }
+
+    setLoadingMessage("Carregando historico do PDF...");
+
+    try {
+      const entries = await fetchUploadHistory(token, uploadId);
+      setUploadHistory({
+        uploadId,
+        entries
+      });
+    } catch (error) {
+      setFlashMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Falha ao carregar historico do PDF."
+      });
+    } finally {
+      setLoadingMessage("");
+    }
+  };
+
+  const handleDeleteUpload = async (uploadId: string) => {
+    if (!token) {
+      return;
+    }
+
+    setLoadingMessage("Removendo PDF...");
+
+    try {
+      const response = await deleteUpload(token, uploadId);
+      setFlashMessage({ type: "success", text: response.message });
+
+      if (uploadHistory?.uploadId === uploadId) {
+        setUploadHistory(null);
+      }
+
+      await refreshPortalData();
+    } catch (error) {
+      setFlashMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Falha ao remover PDF."
+      });
+    } finally {
+      setLoadingMessage("");
     }
   };
 
@@ -654,13 +754,13 @@ function App() {
           </div>
         </header>
 
-        {loadingMessage && view !== "login" && view !== "first-access" ? (
+        {loadingMessage ? (
           <div className="panel">
             <p className="loading-note">{loadingMessage}</p>
           </div>
         ) : null}
 
-        {loginError && view !== "login" ? (
+        {loginError ? (
           <div className="panel">
             <p className="form-error">{loginError}</p>
           </div>
@@ -680,7 +780,12 @@ function App() {
         {activeView === "pdfs" ? (
           <PdfsScreen
             uploads={uploads}
+            uploadProgress={uploadProgress}
+            uploadHistory={uploadHistory}
+            onCloseHistory={() => setUploadHistory(null)}
+            onDeleteUpload={handleDeleteUpload}
             onDownloadUpload={handleDownloadUpload}
+            onOpenUploadHistory={handleOpenUploadHistory}
             onReplaceUpload={handleReplaceUpload}
             onUploadFiles={handleUploadFiles}
           />
@@ -901,15 +1006,39 @@ function DashboardScreen({
 
 function PdfsScreen({
   uploads,
+  uploadProgress,
+  uploadHistory,
   onUploadFiles,
   onReplaceUpload,
-  onDownloadUpload
+  onDownloadUpload,
+  onOpenUploadHistory,
+  onDeleteUpload,
+  onCloseHistory
 }: {
   uploads: UploadRow[];
+  uploadProgress: UploadProgressState | null;
+  uploadHistory: UploadHistoryState;
   onUploadFiles: (files: File[]) => Promise<void> | void;
   onReplaceUpload: (uploadId: string, file: File) => Promise<void> | void;
   onDownloadUpload: (upload: UploadRow) => Promise<void> | void;
+  onOpenUploadHistory: (uploadId: string) => Promise<void> | void;
+  onDeleteUpload: (uploadId: string) => Promise<void> | void;
+  onCloseHistory: () => void;
 }) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("todos");
+
+  const filteredUploads = useMemo(() => {
+    return uploads.filter((row) => {
+      const matchesSearch =
+        row.fileName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        row.owner.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === "todos" || row.status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [searchTerm, statusFilter, uploads]);
+
   return (
     <div className="screen">
       <section className="screen__intro">
@@ -934,11 +1063,47 @@ function PdfsScreen({
         </label>
       </section>
 
+      <section className="panel panel--compact">
+        <div className="filters-row">
+          <label className="search-field">
+            <MagnifyingGlass size={18} />
+            <input
+              placeholder="Buscar por arquivo ou responsavel"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+            />
+          </label>
+
+          <label className="filter-select">
+            <FunnelSimple size={18} />
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <option value="todos">Todos os status</option>
+              <option value="pendente">Pendente</option>
+              <option value="processado">Processado</option>
+              <option value="substituido">Substituido</option>
+              <option value="erro">Erro</option>
+            </select>
+          </label>
+        </div>
+
+        {uploadProgress ? (
+          <div className="progress-card">
+            <div className="progress-card__header">
+              <strong>{uploadProgress.label}</strong>
+              <span>{uploadProgress.percent}%</span>
+            </div>
+            <div className="progress-bar">
+              <span style={{ width: `${uploadProgress.percent}%` }} />
+            </div>
+          </div>
+        ) : null}
+      </section>
+
       <section className="panel">
         <div className="panel__header">
           <div>
             <h3>Fila de documentos</h3>
-            <p>Base inicial de acompanhamento com status e responsavel</p>
+            <p>{filteredUploads.length} documento(s) visivel(is) na fila operacional</p>
           </div>
           <div className="quick-meta">
             <span className="quick-meta__chip">Pendente</span>
@@ -958,7 +1123,7 @@ function PdfsScreen({
               </tr>
             </thead>
             <tbody>
-              {uploads.map((row) => (
+              {filteredUploads.map((row) => (
                 <tr key={row.id}>
                   <td>{row.fileName}</td>
                   <td>
@@ -975,6 +1140,13 @@ function PdfsScreen({
                       >
                         Baixar
                       </button>
+                      <button
+                        className="ghost-button ghost-button--small"
+                        type="button"
+                        onClick={() => void onOpenUploadHistory(row.id)}
+                      >
+                        Historico
+                      </button>
                       <label className="ghost-button ghost-button--small file-picker file-picker--ghost">
                         Substituir
                         <input
@@ -989,6 +1161,18 @@ function PdfsScreen({
                           }}
                         />
                       </label>
+                      <button
+                        className="ghost-button ghost-button--small ghost-button--danger"
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm("Deseja remover este PDF logicamente da fila?")) {
+                            void onDeleteUpload(row.id);
+                          }
+                        }}
+                      >
+                        <TrashSimple size={16} />
+                        Remover
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -997,6 +1181,39 @@ function PdfsScreen({
           </table>
         </div>
       </section>
+
+      {uploadHistory ? (
+        <section className="panel">
+          <div className="panel__header">
+            <div>
+              <h3>Historico de Versoes</h3>
+              <p>Linha completa de substituicoes do PDF selecionado</p>
+            </div>
+            <button className="ghost-button" type="button" onClick={onCloseHistory}>
+              Fechar
+            </button>
+          </div>
+
+          <div className="history-list">
+            {uploadHistory.entries.map((entry) => (
+              <article className="history-item" key={entry.id}>
+                <div className="history-item__badge">
+                  <ClockCounterClockwise size={18} />
+                </div>
+                <div className="history-item__body">
+                  <strong>
+                    Versao {entry.version} · {entry.fileName}
+                  </strong>
+                  <span>
+                    {entry.owner} · {new Date(entry.sentAt).toLocaleString("pt-BR")}
+                  </span>
+                </div>
+                <span className="status-pill">{entry.status}</span>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
@@ -1017,12 +1234,29 @@ function UsersScreen({
   onResetPassword: (userId: string) => Promise<void> | void;
 }) {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [levelFilter, setLevelFilter] = useState("todos");
+  const [statusFilter, setStatusFilter] = useState("todos");
   const [formValues, setFormValues] = useState({
     name: "",
     email: "",
     level: "N1" as UserPayload["level"]
   });
   const [selectedModules, setSelectedModules] = useState<string[]>(["dashboard", "pdfs"]);
+
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) => {
+      const normalizedSearch = searchTerm.toLowerCase();
+      const matchesSearch =
+        user.name.toLowerCase().includes(normalizedSearch) ||
+        user.email.toLowerCase().includes(normalizedSearch);
+      const matchesLevel = levelFilter === "todos" || user.level === levelFilter;
+      const computedStatus = !user.active ? "inativo" : user.blocked ? "bloqueado" : "ativo";
+      const matchesStatus = statusFilter === "todos" || computedStatus === statusFilter;
+
+      return matchesSearch && matchesLevel && matchesStatus;
+    });
+  }, [levelFilter, searchTerm, statusFilter, users]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -1100,6 +1334,47 @@ function UsersScreen({
       <section className="panel">
         <div className="panel__header">
           <div>
+            <h3>Busca e filtros</h3>
+            <p>Refine a operacao por nome, e-mail, nivel e situacao</p>
+          </div>
+        </div>
+
+        <div className="filters-row">
+          <label className="search-field">
+            <MagnifyingGlass size={18} />
+            <input
+              placeholder="Buscar usuario por nome ou e-mail"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+            />
+          </label>
+
+          <label className="filter-select">
+            <FunnelSimple size={18} />
+            <select value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)}>
+              <option value="todos">Todos os niveis</option>
+              <option value="N1">N1</option>
+              <option value="N2">N2</option>
+              <option value="N3">N3</option>
+              <option value="N4">N4</option>
+            </select>
+          </label>
+
+          <label className="filter-select">
+            <FunnelSimple size={18} />
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <option value="todos">Todos os status</option>
+              <option value="ativo">Ativo</option>
+              <option value="bloqueado">Bloqueado</option>
+              <option value="inativo">Inativo</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel__header">
+          <div>
             <h3>{editingUserId ? "Editar usuario" : "Novo usuario"}</h3>
             <p>Cadastro com senha temporaria 0000 e controle de modulos por usuario</p>
           </div>
@@ -1121,6 +1396,7 @@ function UsersScreen({
               }
             />
           </label>
+
           <label className="field">
             <span>E-mail</span>
             <input
@@ -1137,6 +1413,7 @@ function UsersScreen({
               }
             />
           </label>
+
           <label className="field">
             <span>Nivel</span>
             <select
@@ -1156,6 +1433,7 @@ function UsersScreen({
               <option value="N4">N4</option>
             </select>
           </label>
+
           <div className="field">
             <span>Modulos</span>
             <div className="checkbox-grid">
@@ -1177,11 +1455,13 @@ function UsersScreen({
               ))}
             </div>
           </div>
+
           <div className="admin-form__actions">
             <button className="primary-button primary-button--inline" type="submit">
               {editingUserId ? "Salvar alteracoes" : "Criar usuario"}
               <ArrowRight size={18} weight="bold" />
             </button>
+
             {editingUserId ? (
               <button
                 className="ghost-button"
@@ -1207,7 +1487,7 @@ function UsersScreen({
         <div className="panel__header">
           <div>
             <h3>Usuarios cadastrados</h3>
-            <p>Base de perfis administrativos e operacionais</p>
+            <p>{filteredUsers.length} usuario(s) retornado(s) pelos filtros atuais</p>
           </div>
         </div>
 
@@ -1219,12 +1499,13 @@ function UsersScreen({
                 <th>E-mail</th>
                 <th>Nivel</th>
                 <th>Status</th>
+                <th>Ultimo acesso</th>
                 <th>Modulos</th>
                 <th>Acoes</th>
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
+              {filteredUsers.map((user) => (
                 <tr key={user.id}>
                   <td>{user.name}</td>
                   <td>{user.email}</td>
@@ -1234,7 +1515,16 @@ function UsersScreen({
                       {user.active ? (user.blocked ? "Bloqueado" : "Ativo") : "Inativo"}
                     </span>
                   </td>
-                  <td>{user.modules.join(", ")}</td>
+                  <td>{user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString("pt-BR") : "Sem acesso"}</td>
+                  <td>
+                    <div className="module-chips">
+                      {user.modules.map((moduleCode) => (
+                        <span className="mini-chip" key={`${user.id}-${moduleCode}`}>
+                          {moduleCode}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
                   <td>
                     <div className="table-actions">
                       <button
@@ -1250,6 +1540,7 @@ function UsersScreen({
                           setSelectedModules(user.modules);
                         }}
                       >
+                        <PencilSimple size={16} />
                         Editar
                       </button>
                       <button

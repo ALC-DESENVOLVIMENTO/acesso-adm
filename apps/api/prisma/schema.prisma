@@ -24,6 +24,7 @@ enum UploadStatus {
   processado
   erro
   substituido
+  removido
 }
 
 enum TicketStatus {
@@ -201,4 +202,3 @@ model Sessao {
   @@index([usuarioId])
   @@map("sessoes")
 }
-
