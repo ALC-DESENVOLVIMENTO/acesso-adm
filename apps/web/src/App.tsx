@@ -175,6 +175,10 @@ function App() {
   const [deleteUserTarget, setDeleteUserTarget] = useState<UserSummary | null>(null);
   const [deleteUploadTarget, setDeleteUploadTarget] = useState<UploadRow | null>(null);
   const [deletePeriodTarget, setDeletePeriodTarget] = useState<PaymentPeriod | null>(null);
+  const [dashboardLoaded, setDashboardLoaded] = useState(false);
+  const [usersLoaded, setUsersLoaded] = useState(false);
+  const [uploadsLoaded, setUploadsLoaded] = useState(false);
+  const [periodDataLoaded, setPeriodDataLoaded] = useState(false);
 
   const allowedMenu = useMemo(() => {
     if (!currentUser) {
@@ -189,6 +193,45 @@ function App() {
       return currentUser.modules.includes(item.key);
     });
   }, [currentUser]);
+
+  const canSeePdfData = useMemo(() => currentUser?.modules.includes("pdfs") ?? false, [currentUser]);
+  const canSeeUsersData = useMemo(() => currentUser?.modules.includes("users") ?? false, [currentUser]);
+  const canSeePeriodData = useMemo(
+    () => canSeePdfData || currentUser?.level === "N3" || currentUser?.level === "N4",
+    [canSeePdfData, currentUser]
+  );
+
+  const clearLoadedState = () => {
+    setDashboardLoaded(false);
+    setUsersLoaded(false);
+    setUploadsLoaded(false);
+    setPeriodDataLoaded(false);
+  };
+
+  const loadDashboardSummary = async () => {
+    const summary = await fetchDashboardSummary(token);
+    setDashboardSummary(summary);
+    setDashboardLoaded(true);
+  };
+
+  const loadUsersData = async () => {
+    const usersData = await fetchUsers(token);
+    setUsers(usersData);
+    setUsersLoaded(true);
+  };
+
+  const loadUploadsData = async () => {
+    const uploadsData = await fetchUploads(token);
+    setUploads(uploadsData);
+    setUploadsLoaded(true);
+  };
+
+  const loadPeriodData = async () => {
+    const [periodsData, basesData] = await Promise.all([fetchPaymentPeriods(token), fetchPaymentBases(token)]);
+    setPaymentPeriods(periodsData);
+    setPaymentBases(basesData);
+    setPeriodDataLoaded(true);
+  };
 
   useEffect(() => {
     const storedSession = localStorage.getItem("portal-admin-session");
@@ -230,32 +273,50 @@ function App() {
     }
 
     let cancelled = false;
-    const canSeePdfData = currentUser.modules.includes("pdfs");
-    const canSeePeriodData = canSeePdfData || currentUser.level === "N3" || currentUser.level === "N4";
-
     const loadData = async () => {
       setLoadingMessage("Carregando dados do portal...");
 
       try {
-        const [summary, uploadsData, usersData] = await Promise.all([
-          fetchDashboardSummary(token),
-          canSeePdfData ? fetchUploads(token) : Promise.resolve([]),
-          currentUser.modules.includes("users") ? fetchUsers(token) : Promise.resolve([])
-        ]);
-        const periodsData: PaymentPeriod[] = canSeePeriodData
-          ? await fetchPaymentPeriods(token)
-          : [];
-        const basesData: PaymentBase[] = canSeePeriodData ? await fetchPaymentBases(token) : [];
+        if (activeView === "dashboard") {
+          if (!dashboardLoaded) {
+            await loadDashboardSummary();
+          }
+
+          return;
+        }
+
+        const tasks: Promise<unknown>[] = [];
+
+        if (activeView === "users") {
+          if (canSeeUsersData && !usersLoaded) {
+            tasks.push(loadUsersData());
+          }
+        }
+
+        if (activeView === "pdfs") {
+          if (canSeePdfData && !uploadsLoaded) {
+            tasks.push(loadUploadsData());
+          }
+
+          if (canSeePeriodData && !periodDataLoaded) {
+            tasks.push(loadPeriodData());
+          }
+        }
+
+        if (activeView === "periods" && canSeePeriodData && !periodDataLoaded) {
+          tasks.push(loadPeriodData());
+        }
+
+        if (tasks.length === 0) {
+          return;
+        }
+
+        await Promise.all(tasks);
 
         if (cancelled) {
           return;
         }
 
-        setDashboardSummary(summary);
-        setUploads(uploadsData);
-        setUsers(usersData);
-        setPaymentPeriods(periodsData);
-        setPaymentBases(basesData);
         setFlashMessage(null);
       } catch (error) {
         if (cancelled) {
@@ -275,30 +336,20 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [currentUser, token, view]);
+  }, [
+    activeView,
+    canSeePdfData,
+    canSeePeriodData,
+    canSeeUsersData,
+    currentUser,
+    dashboardLoaded,
+    periodDataLoaded,
+    token,
+    uploadsLoaded,
+    usersLoaded,
+    view
+  ]);
 
-  const refreshPortalData = async () => {
-    if (!token || !currentUser) {
-      return;
-    }
-
-    const canSeePdfData = currentUser.modules.includes("pdfs");
-    const canSeePeriodData = canSeePdfData || currentUser.level === "N3" || currentUser.level === "N4";
-
-    const [summary, uploadsData, usersData] = await Promise.all([
-      fetchDashboardSummary(token),
-      canSeePdfData ? fetchUploads(token) : Promise.resolve([]),
-      currentUser.modules.includes("users") ? fetchUsers(token) : Promise.resolve([])
-    ]);
-    const periodsData: PaymentPeriod[] = canSeePeriodData ? await fetchPaymentPeriods(token) : [];
-    const basesData: PaymentBase[] = canSeePeriodData ? await fetchPaymentBases(token) : [];
-
-    setDashboardSummary(summary);
-    setUploads(uploadsData);
-    setUsers(usersData);
-    setPaymentPeriods(periodsData);
-    setPaymentBases(basesData);
-  };
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -313,6 +364,12 @@ function App() {
       const response = await loginRequest({ email, password });
       setCurrentUser(response.user);
       setToken(response.token);
+      clearLoadedState();
+      setDashboardSummary(initialSummary);
+      setUploads([]);
+      setUsers([]);
+      setPaymentPeriods([]);
+      setPaymentBases([]);
       localStorage.setItem(
         "portal-admin-session",
         JSON.stringify({
@@ -411,6 +468,7 @@ function App() {
     setDeletePeriodTarget(null);
     setActiveView("dashboard");
     setView("login");
+    clearLoadedState();
     localStorage.removeItem("portal-admin-session");
   };
 
@@ -424,7 +482,7 @@ function App() {
     try {
       const response = await createUser(token, payload);
       setFlashMessage({ type: "success", text: response.message });
-      await refreshPortalData();
+      await Promise.all([loadUsersData(), loadDashboardSummary()]);
       return true;
     } catch (error) {
       setFlashMessage({
@@ -447,7 +505,7 @@ function App() {
     try {
       const response = await updateUser(token, userId, payload);
       setFlashMessage({ type: "success", text: response.message });
-      await refreshPortalData();
+      await Promise.all([loadUsersData(), loadDashboardSummary()]);
       return true;
     } catch (error) {
       setFlashMessage({
@@ -470,7 +528,7 @@ function App() {
     try {
       const response = await deleteUser(token, user.id);
       setFlashMessage({ type: "success", text: response.message });
-      await refreshPortalData();
+      await Promise.all([loadUsersData(), loadDashboardSummary()]);
       return true;
     } catch (error) {
       setFlashMessage({
@@ -498,7 +556,7 @@ function App() {
     try {
       const response = await createPaymentPeriod(token, payload);
       setFlashMessage({ type: "success", text: response.message });
-      await refreshPortalData();
+      await loadPeriodData();
       return true;
     } catch (error) {
       setFlashMessage({
@@ -551,7 +609,7 @@ function App() {
         blocked: !user.blocked
       });
       setFlashMessage({ type: "success", text: response.message });
-      await refreshPortalData();
+      await Promise.all([loadUsersData(), loadDashboardSummary()]);
     } catch (error) {
       setFlashMessage({
         type: "error",
@@ -574,7 +632,7 @@ function App() {
         active: !user.active
       });
       setFlashMessage({ type: "success", text: response.message });
-      await refreshPortalData();
+      await Promise.all([loadUsersData(), loadDashboardSummary()]);
     } catch (error) {
       setFlashMessage({
         type: "error",
@@ -595,7 +653,7 @@ function App() {
     try {
       const response = await resetUserPassword(token, userId);
       setFlashMessage({ type: "success", text: response.message });
-      await refreshPortalData();
+      await Promise.all([loadUsersData(), loadDashboardSummary()]);
     } catch (error) {
       setFlashMessage({
         type: "error",
@@ -630,7 +688,7 @@ function App() {
         });
       });
       setFlashMessage({ type: "success", text: response.message });
-      await refreshPortalData();
+      await Promise.all([loadUploadsData(), loadDashboardSummary()]);
       setActiveView("pdfs");
       setView("pdfs");
     } catch (error) {
@@ -665,7 +723,7 @@ function App() {
         });
       });
       setFlashMessage({ type: "success", text: response.message });
-      await refreshPortalData();
+      await Promise.all([loadUploadsData(), loadDashboardSummary()]);
 
       if (uploadHistory?.uploadId) {
         const entries = await fetchUploadHistory(token, uploadHistory.uploadId);
@@ -738,7 +796,7 @@ function App() {
         setUploadHistory(null);
       }
 
-      await refreshPortalData();
+      await Promise.all([loadUploadsData(), loadDashboardSummary()]);
     } catch (error) {
       setFlashMessage({
         type: "error",
@@ -759,7 +817,7 @@ function App() {
     try {
       const response = await deletePaymentPeriod(token, periodId);
       setFlashMessage({ type: "success", text: response.message });
-      await refreshPortalData();
+      await loadPeriodData();
     } catch (error) {
       setFlashMessage({
         type: "error",
