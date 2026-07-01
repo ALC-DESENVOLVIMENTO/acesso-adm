@@ -2,6 +2,7 @@ import {
   ArrowRight,
   Bell,
   CalendarBlank,
+  ChatCenteredDots,
   EnvelopeSimple,
   ChartLineUp,
   ClockCounterClockwise,
@@ -30,20 +31,33 @@ import {
   deleteUpload,
   downloadUpload,
   fetchDashboardSummary,
+  fetchAtendimentoClassificacoes,
+  fetchAtendimentoMotorista,
   fetchPaymentBases,
   fetchPaymentPeriods,
   fetchSession,
   fetchUploadHistory,
   fetchUploads,
+  searchAtendimentoMotoristas,
   fetchUsers,
   loginRequest,
   logoutRequest,
+  updateMotoristaClassificacoes,
+  createAtendimentoNota,
+  updateAtendimentoNota,
+  deleteAtendimentoNota,
+  createAtendimentoChamado,
+  createAtendimentoMovimento,
+  closeAtendimentoChamado,
   replaceUpload,
   resetUserPassword,
   updateUser,
   updateUserStatus,
   uploadPdfs,
   type DashboardSummary,
+  type AtendimentoClassificacao,
+  type AtendimentoDetail,
+  type AtendimentoMotoristaSearch,
   type LoginResponse,
   type PaymentBase,
   type PaymentPeriod,
@@ -54,7 +68,7 @@ import {
 } from "./lib/api";
 
 type AccessLevel = "N1" | "N2" | "N3" | "N4";
-type View = "login" | "first-access" | "dashboard" | "pdfs" | "users" | "periods";
+type View = "login" | "first-access" | "dashboard" | "pdfs" | "users" | "periods" | "atendimento";
 
 type Activity = {
   icon: "pdf" | "user" | "view";
@@ -80,7 +94,8 @@ const menuItems = [
   { key: "dashboard", label: "Dashboard", icon: HouseLine },
   { key: "pdfs", label: "Envio de PDFs", icon: FileArrowUp },
   { key: "users", label: "Cadastro de Usuarios", icon: UserCirclePlus },
-  { key: "periods", label: "Criação de Periodo", icon: CalendarBlank }
+  { key: "periods", label: "Criação de Periodo", icon: CalendarBlank },
+  { key: "atendimento", label: "Atendimento", icon: ChatCenteredDots }
 ] as const;
 
 const activities: Activity[] = [
@@ -1002,6 +1017,9 @@ function App() {
             onUpdateUser={handleUpdateUser}
             createUserSignal={createUserSignal}
           />
+        ) : null}
+        {activeView === "atendimento" ? (
+          <AtendimentoScreen token={token} currentUser={currentUser} />
         ) : null}
       </section>
 
@@ -2219,6 +2237,921 @@ function UsersScreen({
 
                 <button className="ghost-button" type="button" onClick={closeModal}>
                   Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function AtendimentoScreen({
+  token,
+  currentUser
+}: {
+  token: string;
+  currentUser: SessionUser | null;
+}) {
+  const isAdmin = currentUser?.level === "N3" || currentUser?.level === "N4";
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState<AtendimentoMotoristaSearch[]>([]);
+  const [selectedMotoristaId, setSelectedMotoristaId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<AtendimentoDetail | null>(null);
+  const [classificacoes, setClassificacoes] = useState<AtendimentoClassificacao[]>([]);
+  const [selectedClassificacoes, setSelectedClassificacoes] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<AtendimentoDetail["chamados"][number]["status"] | "todos">(
+    "todos"
+  );
+  const [loading, setLoading] = useState("");
+  const [noteContent, setNoteContent] = useState("");
+  const [editingNote, setEditingNote] = useState<{ id: string; content: string } | null>(null);
+  const [newTicketOpen, setNewTicketOpen] = useState(false);
+  const [ticketAction, setTicketAction] = useState<
+    | { mode: "move"; chamadoId: string; subject: string }
+    | { mode: "close"; chamadoId: string; subject: string }
+    | null
+  >(null);
+  const [ticketFiles, setTicketFiles] = useState<File[]>([]);
+  const searchTimerRef = useRef<number | null>(null);
+
+  const filteredChamados = useMemo(() => {
+    if (!detail) {
+      return [];
+    }
+
+    return detail.chamados.filter((ticket) => statusFilter === "todos" || ticket.status === statusFilter);
+  }, [detail, statusFilter]);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    void (async () => {
+      try {
+        const tags = await fetchAtendimentoClassificacoes(token);
+        setClassificacoes(tags);
+      } catch {
+        setClassificacoes([]);
+      }
+    })();
+  }, [token]);
+
+  useEffect(() => {
+    if (searchTimerRef.current) {
+      window.clearTimeout(searchTimerRef.current);
+    }
+
+    const query = searchTerm.trim();
+
+    if (query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    searchTimerRef.current = window.setTimeout(() => {
+      void (async () => {
+        setLoading("Buscando motorista...");
+
+        try {
+          const results = await searchAtendimentoMotoristas(token, query);
+          setSearchResults(results);
+
+          if (results.length > 0 && !selectedMotoristaId) {
+            setSelectedMotoristaId(results[0].id);
+          }
+        } catch (error) {
+          setSearchResults([]);
+          setDetail(null);
+          setSelectedMotoristaId(null);
+          setLoading(error instanceof Error ? error.message : "Falha ao buscar motorista.");
+        } finally {
+          setLoading("");
+        }
+      })();
+    }, 250);
+
+    return () => {
+      if (searchTimerRef.current) {
+        window.clearTimeout(searchTimerRef.current);
+      }
+    };
+  }, [searchTerm, selectedMotoristaId, token]);
+
+  useEffect(() => {
+    if (!token || !selectedMotoristaId) {
+      setDetail(null);
+      return;
+    }
+
+    void (async () => {
+      setLoading("Carregando atendimento do motorista...");
+
+      try {
+        const motorista = await fetchAtendimentoMotorista(token, selectedMotoristaId);
+        setDetail(motorista);
+        setSelectedClassificacoes(motorista.motorista.classificacoes.map((item) => item.id));
+        setNoteContent("");
+      } catch (error) {
+        setDetail(null);
+        setLoading(error instanceof Error ? error.message : "Falha ao carregar motorista.");
+      } finally {
+        setLoading("");
+      }
+    })();
+  }, [selectedMotoristaId, token]);
+
+  useEffect(() => {
+    if (!detail) {
+      setSelectedClassificacoes([]);
+      return;
+    }
+
+    setSelectedClassificacoes(detail.motorista.classificacoes.map((item) => item.id));
+  }, [detail]);
+
+  const refreshDetail = async (motoristaId = selectedMotoristaId) => {
+    if (!token || !motoristaId) {
+      return;
+    }
+
+    const motorista = await fetchAtendimentoMotorista(token, motoristaId);
+    setDetail(motorista);
+    setSelectedClassificacoes(motorista.motorista.classificacoes.map((item) => item.id));
+  };
+
+  const handleToggleTag = (id: string) => {
+    setSelectedClassificacoes((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+    );
+  };
+
+  const handleSaveTags = async () => {
+    if (!detail) {
+      return;
+    }
+
+    setLoading("Atualizando classificacoes...");
+
+    try {
+      const response = await updateMotoristaClassificacoes(
+        token,
+        detail.motorista.id,
+        selectedClassificacoes
+      );
+      if (response.detail) {
+        setDetail(response.detail);
+        setSelectedClassificacoes(response.detail.motorista.classificacoes.map((item) => item.id));
+      } else {
+        await refreshDetail(detail.motorista.id);
+      }
+    } catch (error) {
+      setLoading(error instanceof Error ? error.message : "Falha ao atualizar classificacoes.");
+    } finally {
+      setLoading("");
+    }
+  };
+
+  const handleCreateNote = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!detail) {
+      return;
+    }
+
+    const content = noteContent.trim();
+
+    if (!content) {
+      return;
+    }
+
+    setLoading("Salvando nota...");
+
+    try {
+      const response = await createAtendimentoNota(token, detail.motorista.id, content);
+      if (response.detail) {
+        setDetail(response.detail);
+      } else {
+        await refreshDetail(detail.motorista.id);
+      }
+      setNoteContent("");
+    } catch (error) {
+      setLoading(error instanceof Error ? error.message : "Falha ao salvar nota.");
+    } finally {
+      setLoading("");
+    }
+  };
+
+  const handleUpdateNote = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!detail || !editingNote) {
+      return;
+    }
+
+    setLoading("Atualizando nota...");
+
+    try {
+      const response = await updateAtendimentoNota(
+        token,
+        detail.motorista.id,
+        editingNote.id,
+        editingNote.content.trim()
+      );
+
+      if (response.detail) {
+        setDetail(response.detail);
+      } else {
+        await refreshDetail(detail.motorista.id);
+      }
+
+      setEditingNote(null);
+    } catch (error) {
+      setLoading(error instanceof Error ? error.message : "Falha ao atualizar nota.");
+    } finally {
+      setLoading("");
+    }
+  };
+
+  const handleDeleteNote = async (noteId: string) => {
+    if (!detail) {
+      return;
+    }
+
+    setLoading("Excluindo nota...");
+
+    try {
+      await deleteAtendimentoNota(token, detail.motorista.id, noteId);
+      await refreshDetail(detail.motorista.id);
+    } catch (error) {
+      setLoading(error instanceof Error ? error.message : "Falha ao excluir nota.");
+    } finally {
+      setLoading("");
+    }
+  };
+
+  const handleCreateTicket = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!detail) {
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    const assunto = String(formData.get("assunto") || "").trim();
+    const categoria = String(formData.get("categoria") || "").trim();
+    const prioridade = String(formData.get("prioridade") || "media") as
+      | "baixa"
+      | "media"
+      | "alta"
+      | "critica";
+    const descricao = String(formData.get("descricao") || "").trim();
+    const responsavelId = String(formData.get("responsavelId") || currentUser?.id || "").trim();
+
+    if (!assunto || !categoria || !descricao) {
+      return;
+    }
+
+    setLoading("Criando chamado...");
+
+    try {
+      const response = await createAtendimentoChamado(token, detail.motorista.id, {
+        assunto,
+        categoria,
+        prioridade,
+        descricao,
+        responsavelId,
+        attachments: ticketFiles
+      });
+      if (response.detail) {
+        setDetail(response.detail);
+      } else {
+        await refreshDetail(detail.motorista.id);
+      }
+      setTicketFiles([]);
+      setNewTicketOpen(false);
+    } catch (error) {
+      setLoading(error instanceof Error ? error.message : "Falha ao criar chamado.");
+    } finally {
+      setLoading("");
+    }
+  };
+
+  const handleMovement = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!ticketAction || !detail) {
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    const description = String(formData.get("description") || "").trim();
+
+    if (!description) {
+      return;
+    }
+
+    setLoading("Registrando movimentacao...");
+
+    try {
+      await createAtendimentoMovimento(token, ticketAction.chamadoId, description, ticketFiles);
+      await refreshDetail(detail.motorista.id);
+      setTicketFiles([]);
+      setTicketAction(null);
+    } catch (error) {
+      setLoading(error instanceof Error ? error.message : "Falha ao registrar movimentacao.");
+    } finally {
+      setLoading("");
+    }
+  };
+
+  const handleCloseTicket = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!ticketAction || !detail) {
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    const motivoConclusao = String(formData.get("motivoConclusao") || "").trim();
+    const solucaoAplicada = String(formData.get("solucaoAplicada") || "").trim();
+    const observacoesFinais = String(formData.get("observacoesFinais") || "").trim();
+
+    setLoading("Encerrando chamado...");
+
+    try {
+      await closeAtendimentoChamado(token, ticketAction.chamadoId, {
+        motivoConclusao,
+        solucaoAplicada,
+        observacoesFinais
+      });
+      await refreshDetail(detail.motorista.id);
+      setTicketAction(null);
+    } catch (error) {
+      setLoading(error instanceof Error ? error.message : "Falha ao encerrar chamado.");
+    } finally {
+      setLoading("");
+    }
+  };
+
+  return (
+    <div className="screen screen--crm">
+      <section className="screen__intro screen__intro--crm">
+        <div>
+          <p className="eyebrow">Atendimento</p>
+          <h1>CRM do Motorista</h1>
+          <p>
+            Localize o motorista por nome ou CPF, acompanhe o historico completo e resolva os
+            chamados em uma unica tela.
+          </p>
+        </div>
+        <div className="quick-meta">
+          <span className="quick-meta__chip">RBAC</span>
+          <span className="quick-meta__chip">{isAdmin ? "N3/N4" : "Modulo liberado"}</span>
+        </div>
+      </section>
+
+      <section className="panel panel--crm-search">
+        <div className="panel__header">
+          <div>
+            <h3>Pesquisa do motorista</h3>
+            <p>Busque por nome completo ou CPF para carregar todos os dados do cadastro.</p>
+          </div>
+        </div>
+
+        <div className="filters-row filters-row--crm">
+          <label className="search-field">
+            <MagnifyingGlass size={18} />
+            <input
+              placeholder="Digite o nome ou CPF do motorista"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+            />
+          </label>
+
+          <div className="crm-search-results">
+            {searchResults.length > 0 ? (
+              searchResults.map((result) => (
+                <button
+                  key={result.id}
+                  className={`crm-search-card ${
+                    selectedMotoristaId === result.id ? "crm-search-card--active" : ""
+                  }`}
+                  type="button"
+                  onClick={() => setSelectedMotoristaId(result.id)}
+                >
+                  <strong>{result.name}</strong>
+                  <span>{result.cpf}</span>
+                  <small>
+                    {result.city || "Sem cidade"} · {result.status}
+                  </small>
+                </button>
+              ))
+            ) : (
+              <div className="crm-search-empty">Digite ao menos 2 caracteres para iniciar a busca.</div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {loading ? (
+        <section className="panel">
+          <p className="loading-note">{loading}</p>
+        </section>
+      ) : null}
+
+      {detail ? (
+        <>
+          <section className="crm-grid">
+            <article className="panel crm-card">
+              <div className="panel__header">
+                <div>
+                  <h3>Dados do Motorista</h3>
+                  <p>Informacoes cadastrais carregadas diretamente do banco de dados.</p>
+                </div>
+                <span className="status-pill status-pill--active">{detail.motorista.statusCadastro}</span>
+              </div>
+
+              <div className="crm-driver">
+                <div className="crm-driver__hero">
+                  <div>
+                    <p className="eyebrow">Motorista selecionado</p>
+                    <h4>{detail.motorista.nome}</h4>
+                    <p>{detail.motorista.cpf}</p>
+                  </div>
+                  <div className="crm-driver__meta">
+                    <span>{detail.motorista.cidade || "Cidade nao informada"}</span>
+                    <span>{detail.motorista.estado || "--"}</span>
+                    <span>{detail.motorista.empresaVinculada || "Sem empresa vinculada"}</span>
+                  </div>
+                </div>
+
+                <div className="crm-driver__grid">
+                  <div><strong>CPF</strong><span>{detail.motorista.cpf}</span></div>
+                  <div><strong>RG</strong><span>{detail.motorista.rg || "Nao informado"}</span></div>
+                  <div><strong>Nascimento</strong><span>{detail.motorista.dataNascimento ? new Date(detail.motorista.dataNascimento).toLocaleDateString("pt-BR") : "Nao informado"}</span></div>
+                  <div><strong>Telefone</strong><span>{detail.motorista.telefone || "Nao informado"}</span></div>
+                  <div><strong>WhatsApp</strong><span>{detail.motorista.whatsapp || "Nao informado"}</span></div>
+                  <div><strong>E-mail</strong><span>{detail.motorista.email || "Nao informado"}</span></div>
+                  <div><strong>Endereco</strong><span>{detail.motorista.endereco || "Nao informado"}</span></div>
+                  <div><strong>Cidade / UF</strong><span>{detail.motorista.cidade || "Nao informado"} {detail.motorista.estado ? `· ${detail.motorista.estado}` : ""}</span></div>
+                  <div><strong>CEP</strong><span>{detail.motorista.cep || "Nao informado"}</span></div>
+                  <div><strong>Criado em</strong><span>{new Date(detail.motorista.dataCriacao).toLocaleString("pt-BR")}</span></div>
+                  <div><strong>Atualizado em</strong><span>{new Date(detail.motorista.ultimaAtualizacao).toLocaleString("pt-BR")}</span></div>
+                  <div><strong>Observacoes</strong><span>{detail.motorista.observacoesGerais || "Sem observacoes"}</span></div>
+                </div>
+              </div>
+            </article>
+
+            <article className="panel crm-card">
+              <div className="panel__header">
+                <div>
+                  <h3>Classificacoes do perfil</h3>
+                  <p>Etiquetas comportamentais editaveis sem alterar codigo.</p>
+                </div>
+                <button className="ghost-button" type="button" onClick={handleSaveTags}>
+                  Salvar tags
+                </button>
+              </div>
+
+              <div className="checkbox-grid crm-tags">
+                {classificacoes.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`checkbox-chip ${
+                      selectedClassificacoes.includes(item.id) ? "checkbox-chip--active" : ""
+                    }`}
+                    onClick={() => handleToggleTag(item.id)}
+                  >
+                    {item.name}
+                  </button>
+                ))}
+              </div>
+            </article>
+          </section>
+
+          <section className="crm-grid crm-grid--two">
+            <article className="panel crm-card">
+              <div className="panel__header">
+                <div>
+                  <h3>Historico de PDFs</h3>
+                  <p>Arquivos mais recentes para os mais antigos.</p>
+                </div>
+              </div>
+
+              <div className="crm-list">
+                {detail.pdfs.length > 0 ? (
+                  detail.pdfs.map((pdf) => (
+                    <article className="crm-list__item" key={pdf.id}>
+                      <div>
+                        <strong>{pdf.nomeDocumento}</strong>
+                        <span>
+                          {pdf.tipo} · {new Date(pdf.dataEnvio).toLocaleString("pt-BR")}
+                        </span>
+                        <small>{pdf.usuarioResponsavel}</small>
+                      </div>
+                      <div className="table-actions">
+                        <span className="status-pill">{formatStatusLabel(pdf.status)}</span>
+                        <button
+                          className="ghost-button ghost-button--small"
+                          type="button"
+                          onClick={() => window.open(`${pdf.downloadUrl}`, "_blank")}
+                        >
+                          Visualizar
+                        </button>
+                        <button
+                          className="ghost-button ghost-button--small"
+                          type="button"
+                          onClick={() => window.open(`${pdf.downloadUrl}`, "_blank")}
+                        >
+                          Download
+                        </button>
+                      </div>
+                    </article>
+                  ))
+                ) : (
+                  <div className="crm-empty">Nenhum PDF vinculado a este motorista.</div>
+                )}
+              </div>
+            </article>
+
+            <article className="panel crm-card">
+              <div className="panel__header">
+                <div>
+                  <h3>Notas internas</h3>
+                  <p>Conteudo restrito a equipe interna.</p>
+                </div>
+              </div>
+
+              <form className="crm-note-form" onSubmit={handleCreateNote}>
+                <textarea
+                  className="crm-textarea"
+                  placeholder="Escreva uma nota interna..."
+                  value={noteContent}
+                  onChange={(event) => setNoteContent(event.target.value)}
+                />
+                <div className="crm-note-form__actions">
+                  <button className="primary-button primary-button--inline" type="submit">
+                    Salvar nota
+                  </button>
+                </div>
+              </form>
+
+              <div className="crm-list">
+                {detail.notas.length > 0 ? (
+                  detail.notas.map((note) => (
+                    <article className="crm-list__item" key={note.id}>
+                      <div>
+                        <strong>{note.usuario}</strong>
+                        <span>{new Date(note.dataHora).toLocaleString("pt-BR")}</span>
+                        <p>{note.conteudo}</p>
+                      </div>
+                      <div className="table-actions">
+                        <button
+                          className="ghost-button ghost-button--small"
+                          type="button"
+                          onClick={() => setEditingNote({ id: note.id, content: note.conteudo })}
+                        >
+                          Editar
+                        </button>
+                        {isAdmin ? (
+                          <button
+                            className="ghost-button ghost-button--small ghost-button--danger"
+                            type="button"
+                            onClick={() => void handleDeleteNote(note.id)}
+                          >
+                            Excluir
+                          </button>
+                        ) : null}
+                      </div>
+                    </article>
+                  ))
+                ) : (
+                  <div className="crm-empty">Nenhuma nota interna registrada.</div>
+                )}
+              </div>
+            </article>
+          </section>
+
+          <section className="crm-grid crm-grid--two">
+            <article className="panel crm-card">
+              <div className="panel__header">
+                <div>
+                  <h3>Historico de Atendimento</h3>
+                  <p>Timeline unica com chamadas, PDFs, notas e logs.</p>
+                </div>
+              </div>
+
+              <div className="timeline">
+                {detail.timeline.length > 0 ? (
+                  detail.timeline.map((item) => (
+                    <article className={`timeline-item timeline-item--${item.type}`} key={item.id}>
+                      <div className="timeline-item__marker" />
+                      <div className="timeline-item__content">
+                        <strong>{item.title}</strong>
+                        <span>{item.subtitle}</span>
+                      </div>
+                      <div className="timeline-item__meta">
+                        <strong>{item.date}</strong>
+                        <span>{item.time}</span>
+                      </div>
+                    </article>
+                  ))
+                ) : (
+                  <div className="crm-empty">Sem eventos no historico ainda.</div>
+                )}
+              </div>
+            </article>
+
+            <article className="panel crm-card">
+              <div className="panel__header">
+                <div>
+                  <h3>Chamados</h3>
+                  <p>Abertos, em andamento e resolvidos.</p>
+                </div>
+                <button className="primary-button primary-button--inline" type="button" onClick={() => setNewTicketOpen(true)}>
+                  Novo Chamado
+                </button>
+              </div>
+
+              <div className="quick-meta">
+                {(["todos", "aberto", "em_andamento", "aguardando_motorista", "concluido", "cancelado"] as const).map(
+                  (status) => (
+                    <button
+                      key={status}
+                      type="button"
+                      className={`quick-meta__chip ${statusFilter === status ? "quick-meta__chip--active" : ""}`}
+                      onClick={() => setStatusFilter(status)}
+                    >
+                      {status === "todos" ? "Todos" : formatStatusLabel(status)}
+                    </button>
+                  )
+                )}
+              </div>
+
+              <div className="crm-list crm-list--tickets">
+                {filteredChamados.length > 0 ? (
+                  filteredChamados.map((ticket) => (
+                    <article className="crm-ticket" key={ticket.id}>
+                      <div className="crm-ticket__header">
+                        <div>
+                          <strong>{ticket.assunto}</strong>
+                          <span>
+                            #{ticket.numero} · {ticket.categoria} · {ticket.responsavel || "Sem responsavel"}
+                          </span>
+                        </div>
+                        <div className="crm-ticket__badges">
+                          <span className="status-pill">{formatStatusLabel(ticket.status)}</span>
+                          <span className="status-pill">{formatStatusLabel(ticket.prioridade)}</span>
+                        </div>
+                      </div>
+
+                      <p>{ticket.titulo}</p>
+
+                      <div className="crm-ticket__meta">
+                        <small>
+                          Abertura: {new Date(ticket.dataAbertura).toLocaleString("pt-BR")} · Atualizacao:{" "}
+                          {new Date(ticket.ultimaAtualizacao).toLocaleString("pt-BR")}
+                        </small>
+                      </div>
+
+                      <div className="crm-ticket__history">
+                        {ticket.historico.slice(0, 2).map((entry) => (
+                          <div key={entry.id} className="crm-ticket__history-item">
+                            <span>{entry.usuario}</span>
+                            <small>{entry.descricao}</small>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="table-actions">
+                        <button
+                          className="ghost-button ghost-button--small"
+                          type="button"
+                          onClick={() => setTicketAction({ mode: "move", chamadoId: ticket.id, subject: ticket.assunto })}
+                        >
+                          Atualizar
+                        </button>
+                        <button
+                          className="ghost-button ghost-button--small"
+                          type="button"
+                          onClick={() => setTicketAction({ mode: "close", chamadoId: ticket.id, subject: ticket.assunto })}
+                        >
+                          Encerrar
+                        </button>
+                      </div>
+                    </article>
+                  ))
+                ) : (
+                  <div className="crm-empty">Nenhum chamado para o filtro selecionado.</div>
+                )}
+              </div>
+            </article>
+          </section>
+        </>
+      ) : (
+        <section className="panel crm-empty-screen">
+          <h3>Sem motorista carregado</h3>
+          <p>Pesquise por nome ou CPF para abrir o painel completo do motorista.</p>
+        </section>
+      )}
+
+      {newTicketOpen && detail ? (
+        <div className="modal-overlay" onClick={() => setNewTicketOpen(false)}>
+          <div
+            className="modal-card modal-card--crm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="new-ticket-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-card__header">
+              <div>
+                <p className="eyebrow">Chamados</p>
+                <h3 id="new-ticket-title">Novo Chamado</h3>
+                <p>O atendimento sera registrado e refletido na timeline do motorista.</p>
+              </div>
+              <button className="ghost-button ghost-button--small" type="button" onClick={() => setNewTicketOpen(false)}>
+                Fechar
+              </button>
+            </div>
+
+            <form className="admin-form admin-form--modal" onSubmit={handleCreateTicket}>
+              <label className="field">
+                <span>Assunto</span>
+                <input name="assunto" placeholder="Ex.: Duvida sobre rota" required />
+              </label>
+              <label className="field">
+                <span>Categoria</span>
+                <input name="categoria" placeholder="Ex.: Documentacao" required />
+              </label>
+              <label className="field">
+                <span>Prioridade</span>
+                <select className="field__select" name="prioridade" defaultValue="media">
+                  <option value="baixa">Baixa</option>
+                  <option value="media">Media</option>
+                  <option value="alta">Alta</option>
+                  <option value="critica">Critica</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>Responsavel</span>
+                <input name="responsavelId" defaultValue={currentUser?.id} placeholder={currentUser?.name || "Responsavel"} />
+              </label>
+              <label className="field" style={{ gridColumn: "1 / -1" }}>
+                <span>Descricao</span>
+                <textarea className="crm-textarea" name="descricao" placeholder="Descreva o chamado" required />
+              </label>
+              <label className="field" style={{ gridColumn: "1 / -1" }}>
+                <span>Anexos</span>
+                <input
+                  className="field__select"
+                  type="file"
+                  multiple
+                  onChange={(event) => setTicketFiles(Array.from(event.target.files || []))}
+                />
+              </label>
+              <div className="admin-form__actions">
+                <button className="ghost-button" type="button" onClick={() => setNewTicketOpen(false)}>
+                  Cancelar
+                </button>
+                <button className="primary-button primary-button--inline" type="submit">
+                  Criar chamado
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {ticketAction?.mode === "move" ? (
+        <div className="modal-overlay" onClick={() => setTicketAction(null)}>
+          <div
+            className="modal-card modal-card--crm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="move-ticket-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-card__header">
+              <div>
+                <p className="eyebrow">Chamados</p>
+                <h3 id="move-ticket-title">Atualizar chamado</h3>
+                <p>{ticketAction.subject}</p>
+              </div>
+              <button className="ghost-button ghost-button--small" type="button" onClick={() => setTicketAction(null)}>
+                Fechar
+              </button>
+            </div>
+
+            <form className="admin-form admin-form--modal" onSubmit={handleMovement}>
+              <label className="field" style={{ gridColumn: "1 / -1" }}>
+                <span>Texto da atualizacao</span>
+                <textarea className="crm-textarea" name="description" placeholder="Atualizacao do chamado" required />
+              </label>
+              <label className="field" style={{ gridColumn: "1 / -1" }}>
+                <span>Anexos opcionais</span>
+                <input className="field__select" type="file" multiple onChange={(event) => setTicketFiles(Array.from(event.target.files || []))} />
+              </label>
+              <div className="admin-form__actions">
+                <button className="ghost-button" type="button" onClick={() => setTicketAction(null)}>
+                  Cancelar
+                </button>
+                <button className="primary-button primary-button--inline" type="submit">
+                  Registrar movimentacao
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {ticketAction?.mode === "close" ? (
+        <div className="modal-overlay" onClick={() => setTicketAction(null)}>
+          <div
+            className="modal-card modal-card--crm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="close-ticket-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-card__header">
+              <div>
+                <p className="eyebrow">Chamados</p>
+                <h3 id="close-ticket-title">Encerrar chamado</h3>
+                <p>{ticketAction.subject}</p>
+              </div>
+              <button className="ghost-button ghost-button--small" type="button" onClick={() => setTicketAction(null)}>
+                Fechar
+              </button>
+            </div>
+
+            <form className="admin-form admin-form--modal" onSubmit={handleCloseTicket}>
+              <label className="field" style={{ gridColumn: "1 / -1" }}>
+                <span>Motivo da conclusao</span>
+                <textarea className="crm-textarea" name="motivoConclusao" required />
+              </label>
+              <label className="field" style={{ gridColumn: "1 / -1" }}>
+                <span>Solucao aplicada</span>
+                <textarea className="crm-textarea" name="solucaoAplicada" required />
+              </label>
+              <label className="field" style={{ gridColumn: "1 / -1" }}>
+                <span>Observacoes finais</span>
+                <textarea className="crm-textarea" name="observacoesFinais" />
+              </label>
+              <div className="admin-form__actions">
+                <button className="ghost-button" type="button" onClick={() => setTicketAction(null)}>
+                  Cancelar
+                </button>
+                <button className="primary-button primary-button--inline" type="submit">
+                  Encerrar chamado
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {editingNote ? (
+        <div className="modal-overlay" onClick={() => setEditingNote(null)}>
+          <div
+            className="modal-card modal-card--confirm modal-card--crm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-note-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-card__header">
+              <div>
+                <p className="eyebrow">Notas</p>
+                <h3 id="edit-note-title">Editar nota</h3>
+              </div>
+              <button className="ghost-button ghost-button--small" type="button" onClick={() => setEditingNote(null)}>
+                Fechar
+              </button>
+            </div>
+
+            <form className="admin-form admin-form--modal" onSubmit={handleUpdateNote}>
+              <label className="field" style={{ gridColumn: "1 / -1" }}>
+                <span>Conteudo</span>
+                <textarea
+                  className="crm-textarea"
+                  value={editingNote.content}
+                  onChange={(event) =>
+                    setEditingNote((current) => (current ? { ...current, content: event.target.value } : current))
+                  }
+                  required
+                />
+              </label>
+              <div className="admin-form__actions">
+                <button className="ghost-button" type="button" onClick={() => setEditingNote(null)}>
+                  Cancelar
+                </button>
+                <button className="primary-button primary-button--inline" type="submit">
+                  Salvar alteracao
                 </button>
               </div>
             </form>

@@ -3,6 +3,7 @@ import express from "express";
 import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import authRoutes from "./modules/auth/auth.routes.js";
+import atendimentoRoutes from "./modules/atendimento/atendimento.routes.js";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes.js";
 import periodsRoutes from "./modules/periods/periods.routes.js";
 import uploadsRoutes from "./modules/uploads/uploads.routes.js";
@@ -31,6 +32,7 @@ export function createApp() {
   });
 
   app.use("/api/auth", authRoutes);
+  app.use("/api/atendimento", atendimentoRoutes);
   app.use("/api/dashboard", dashboardRoutes);
   app.use("/api/periods", periodsRoutes);
   app.use("/api/uploads", uploadsRoutes);

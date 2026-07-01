@@ -87,6 +87,128 @@ export type PaymentPeriod = {
   uploadedByBase: Record<string, number>;
 };
 
+export type AtendimentoClassificacao = {
+  id: string;
+  name: string;
+  description: string | null;
+  active: boolean;
+};
+
+export type AtendimentoMotoristaSearch = {
+  id: string;
+  name: string;
+  cpf: string;
+  status: "ativo" | "inativo" | "bloqueado";
+  city: string | null;
+  state: string | null;
+  company: string | null;
+  classifiedAs: string[];
+  totalPdfs: number;
+  totalChamados: number;
+};
+
+export type AtendimentoPdf = {
+  id: string;
+  nomeDocumento: string;
+  tipo: string;
+  dataEnvio: string;
+  dataAprovacao: string | null;
+  status: string;
+  usuarioResponsavel: string;
+  periodName: string | null;
+  baseName: string | null;
+  downloadUrl: string;
+};
+
+export type AtendimentoTimelineItem = {
+  id: string;
+  type: "upload" | "atendimento" | "chamado" | "nota" | "log";
+  title: string;
+  subtitle: string;
+  status: string;
+  iso: string;
+  date: string;
+  time: string;
+};
+
+export type AtendimentoDetail = {
+  motorista: {
+    id: string;
+    nome: string;
+    cpf: string;
+    rg: string | null;
+    dataNascimento: string | null;
+    telefone: string | null;
+    whatsapp: string | null;
+    email: string | null;
+    endereco: string | null;
+    cidade: string | null;
+    estado: string | null;
+    cep: string | null;
+    statusCadastro: "ativo" | "inativo" | "bloqueado";
+    dataCriacao: string;
+    ultimaAtualizacao: string;
+    empresaVinculada: string | null;
+    observacoesGerais: string | null;
+    classificacoes: AtendimentoClassificacao[];
+  };
+  pdfs: AtendimentoPdf[];
+  atendimentos: Array<{
+    id: string;
+    dataHora: string;
+    atendente: string;
+    canal: string;
+    resumo: string;
+    observacoes: string | null;
+    tempoAtendimento: number | null;
+  }>;
+  chamados: Array<{
+    id: string;
+    numero: string;
+    assunto: string;
+    titulo: string;
+    categoria: string;
+    prioridade: "baixa" | "media" | "alta" | "critica";
+    status: "aberto" | "em_andamento" | "aguardando" | "aguardando_motorista" | "resolvido" | "cancelado" | "concluido";
+    responsavel: string | null;
+    dataAbertura: string;
+    ultimaAtualizacao: string;
+    encerradoEm: string | null;
+    motivoConclusao: string | null;
+    solucaoAplicada: string | null;
+    observacoesFinais: string | null;
+    historico: Array<{
+      id: string;
+      dataHora: string;
+      usuario: string;
+      descricao: string;
+    }>;
+    anexos: Array<{
+      id: string;
+      fileName: string;
+      storageFileName: string;
+      downloadUrl: string;
+      createdAt: string;
+    }>;
+  }>;
+  notas: Array<{
+    id: string;
+    conteudo: string;
+    usuario: string;
+    dataHora: string;
+  }>;
+  timeline: AtendimentoTimelineItem[];
+  logs: Array<{
+    id: string;
+    acao: string;
+    entidade: string;
+    entidadeId: string | null;
+    detalhes: unknown;
+    usuario: string;
+    dataHora: string;
+  }>;
+};
+
 export type CreatePaymentPeriodPayload = {
   name: string;
   startDate: string;
@@ -183,6 +305,16 @@ async function requestUpload<T>(params: {
 
     xhr.send(params.body);
   });
+}
+
+async function requestMultipart<T>(params: {
+  path: string;
+  token: string;
+  body: FormData;
+  fields?: Record<string, string>;
+  onProgress?: (progress: UploadProgressState) => void;
+}) {
+  return requestUpload<T>(params);
 }
 
 export function loginRequest(body: { email: string; password: string }) {
@@ -388,6 +520,151 @@ export function fetchUploadHistory(token: string, uploadId: string) {
 export function deleteUpload(token: string, uploadId: string) {
   return request<{ message: string }>(`/uploads/${uploadId}`, {
     method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function fetchAtendimentoClassificacoes(token: string) {
+  return request<AtendimentoClassificacao[]>("/atendimento/classificacoes", {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function searchAtendimentoMotoristas(token: string, q: string) {
+  const query = encodeURIComponent(q);
+  return request<AtendimentoMotoristaSearch[]>(`/atendimento/motoristas/search?q=${query}`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function fetchAtendimentoMotorista(token: string, motoristaId: string) {
+  return request<AtendimentoDetail>(`/atendimento/motoristas/${motoristaId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function updateMotoristaClassificacoes(
+  token: string,
+  motoristaId: string,
+  classificacaoIds: string[]
+) {
+  return request<{ message: string; detail: AtendimentoDetail | null }>(
+    `/atendimento/motoristas/${motoristaId}/classificacoes`,
+    {
+      method: "PATCH",
+      body: { classificacaoIds },
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }
+  );
+}
+
+export function createAtendimentoNota(token: string, motoristaId: string, content: string) {
+  return request<{ message: string; detail: AtendimentoDetail | null }>(
+    `/atendimento/motoristas/${motoristaId}/notas`,
+    {
+      method: "POST",
+      body: { content },
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }
+  );
+}
+
+export function updateAtendimentoNota(
+  token: string,
+  motoristaId: string,
+  notaId: string,
+  content: string
+) {
+  return request<{ message: string; detail: AtendimentoDetail | null }>(
+    `/atendimento/motoristas/${motoristaId}/notas/${notaId}`,
+    {
+      method: "PATCH",
+      body: { content },
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }
+  );
+}
+
+export function deleteAtendimentoNota(token: string, motoristaId: string, notaId: string) {
+  return request<{ message: string }>(`/atendimento/motoristas/${motoristaId}/notas/${notaId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function createAtendimentoChamado(
+  token: string,
+  motoristaId: string,
+  body: {
+    assunto: string;
+    categoria: string;
+    prioridade: "baixa" | "media" | "alta" | "critica";
+    descricao: string;
+    responsavelId: string;
+    attachments?: File[];
+  }
+) {
+  const formData = new FormData();
+  formData.append("assunto", body.assunto);
+  formData.append("categoria", body.categoria);
+  formData.append("prioridade", body.prioridade);
+  formData.append("descricao", body.descricao);
+  formData.append("responsavelId", body.responsavelId);
+
+  body.attachments?.forEach((file) => formData.append("attachments", file));
+
+  return requestMultipart<{ message: string; detail: AtendimentoDetail | null }>({
+    path: `/atendimento/motoristas/${motoristaId}/chamados`,
+    token,
+    body: formData
+  });
+}
+
+export function createAtendimentoMovimento(
+  token: string,
+  chamadoId: string,
+  description: string,
+  attachments?: File[]
+) {
+  const formData = new FormData();
+  formData.append("description", description);
+  attachments?.forEach((file) => formData.append("attachments", file));
+
+  return requestMultipart<{ message: string }>({
+    path: `/atendimento/chamados/${chamadoId}/movimentos`,
+    token,
+    body: formData
+  });
+}
+
+export function closeAtendimentoChamado(
+  token: string,
+  chamadoId: string,
+  body: {
+    motivoConclusao: string;
+    solucaoAplicada: string;
+    observacoesFinais: string;
+  }
+) {
+  return request<{ message: string }>(`/atendimento/chamados/${chamadoId}/encerrar`, {
+    method: "POST",
+    body,
     headers: {
       Authorization: `Bearer ${token}`
     }

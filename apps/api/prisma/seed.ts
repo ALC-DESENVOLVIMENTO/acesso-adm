@@ -20,7 +20,8 @@ const modules = [
   { codigo: "dashboard", nome: "Dashboard", descricao: "Visao geral do sistema" },
   { codigo: "pdfs", nome: "Envio de PDFs", descricao: "Operacao de upload e versionamento de PDFs" },
   { codigo: "users", nome: "Usuarios", descricao: "Gestao de usuarios e niveis de acesso" },
-  { codigo: "financeiro", nome: "Financeiro", descricao: "Bases e visoes financeiras" }
+  { codigo: "financeiro", nome: "Financeiro", descricao: "Bases e visoes financeiras" },
+  { codigo: "atendimento", nome: "Atendimento", descricao: "CRM do motorista e chamados" }
 ];
 
 const permissions = [
@@ -30,7 +31,24 @@ const permissions = [
   { codigo: "pdfs.replace", nome: "Substituir PDFs", moduloCodigo: "pdfs" },
   { codigo: "users.view", nome: "Visualizar usuarios", moduloCodigo: "users" },
   { codigo: "users.manage", nome: "Gerenciar usuarios", moduloCodigo: "users" },
-  { codigo: "financeiro.view", nome: "Visualizar financeiro", moduloCodigo: "financeiro" }
+  { codigo: "financeiro.view", nome: "Visualizar financeiro", moduloCodigo: "financeiro" },
+  { codigo: "atendimento.view", nome: "Visualizar atendimento", moduloCodigo: "atendimento" },
+  { codigo: "atendimento.manage", nome: "Gerenciar atendimento", moduloCodigo: "atendimento" }
+];
+
+const classifications = [
+  "Calmo",
+  "Educado",
+  "Cordial",
+  "Colaborativo",
+  "Impaciente",
+  "Atritado",
+  "Irritado",
+  "Agressivo",
+  "Ameacou processar",
+  "Solicitou supervisor",
+  "Cliente VIP",
+  "Atencao especial"
 ];
 
 const paymentBases = [
@@ -157,10 +175,10 @@ async function main() {
   );
 
   const levelPermissions: Record<AccessLevelCode, string[]> = {
-    N1: ["dashboard.view", "pdfs.view", "pdfs.upload"],
-    N2: ["dashboard.view", "pdfs.view", "pdfs.upload", "financeiro.view"],
-    N3: ["dashboard.view", "pdfs.view", "pdfs.upload", "pdfs.replace", "users.view", "users.manage", "financeiro.view"],
-    N4: ["dashboard.view", "pdfs.view", "pdfs.upload", "pdfs.replace", "users.view", "users.manage", "financeiro.view"]
+  N1: ["dashboard.view", "pdfs.view", "pdfs.upload"],
+  N2: ["dashboard.view", "pdfs.view", "pdfs.upload", "financeiro.view"],
+  N3: ["dashboard.view", "pdfs.view", "pdfs.upload", "pdfs.replace", "users.view", "users.manage", "financeiro.view", "atendimento.view", "atendimento.manage"],
+  N4: ["dashboard.view", "pdfs.view", "pdfs.upload", "pdfs.replace", "users.view", "users.manage", "financeiro.view", "atendimento.view", "atendimento.manage"]
   };
 
   for (const [levelCode, permissionCodes] of Object.entries(levelPermissions) as Array<[AccessLevelCode, string[]]>) {
@@ -203,6 +221,18 @@ async function main() {
     });
   }
 
+  for (const classificationName of classifications) {
+    await prisma.classificacaoMotorista.upsert({
+      where: { nome: classificationName },
+      update: {
+        ativa: true
+      },
+      create: {
+        nome: classificationName
+      }
+    });
+  }
+
   const [adminUser, amandaUser, lukaUser] = await Promise.all([
     prisma.usuario.findUniqueOrThrow({ where: { email: "adrian.ribeiro@alcepereirafilho.com.br" } }),
     prisma.usuario.findUniqueOrThrow({ where: { email: "amanda.francisco@alcepereirafilho.com.br" } }),
@@ -228,6 +258,141 @@ async function main() {
     }
   });
 
+  const motoristaSeeds = [
+    {
+      nome: "Lucas Almeida",
+      cpf: "12345678900",
+      rg: "MG-12.345.678",
+      dataNascimento: new Date("1990-01-15T00:00:00.000Z"),
+      telefone: "(31) 98888-1111",
+      whatsapp: "(31) 98888-1111",
+      email: "lucas.almeida@email.com",
+      endereco: "Rua Central, 100",
+      cidade: "Belo Horizonte",
+      estado: "MG",
+      cep: "30110-000",
+      empresaVinculada: "ALC Transportes",
+      observacoesGerais: "Motorista de apoio para testes do CRM."
+    },
+    {
+      nome: "Marina Costa",
+      cpf: "98765432100",
+      rg: "SP-98.765.432",
+      dataNascimento: new Date("1987-08-20T00:00:00.000Z"),
+      telefone: "(11) 97777-2222",
+      whatsapp: "(11) 97777-2222",
+      email: "marina.costa@email.com",
+      endereco: "Av. Brasil, 2000",
+      cidade: "Sao Paulo",
+      estado: "SP",
+      cep: "01000-000",
+      empresaVinculada: "ALC Transportes",
+      observacoesGerais: "Perfil de teste para classificacao e chamados."
+    }
+  ];
+
+  for (const motorista of motoristaSeeds) {
+    await prisma.motorista.upsert({
+      where: { cpf: motorista.cpf },
+      update: motorista,
+      create: motorista
+    });
+  }
+
+  const [motoristaLucas, motoristaMarina] = await Promise.all([
+    prisma.motorista.findUniqueOrThrow({ where: { cpf: "12345678900" } }),
+    prisma.motorista.findUniqueOrThrow({ where: { cpf: "98765432100" } })
+  ]);
+
+  const [classCalmo, classVIP, classAtencao] = await Promise.all([
+    prisma.classificacaoMotorista.findUniqueOrThrow({ where: { nome: "Calmo" } }),
+    prisma.classificacaoMotorista.findUniqueOrThrow({ where: { nome: "Cliente VIP" } }),
+    prisma.classificacaoMotorista.findUniqueOrThrow({ where: { nome: "Atencao especial" } })
+  ]);
+
+  for (const tag of [
+    { motoristaId: motoristaLucas.id, classificacaoId: classCalmo.id },
+    { motoristaId: motoristaLucas.id, classificacaoId: classVIP.id },
+    { motoristaId: motoristaMarina.id, classificacaoId: classAtencao.id }
+  ]) {
+    await prisma.motoristaClassificacao.upsert({
+      where: {
+        motoristaId_classificacaoId: {
+          motoristaId: tag.motoristaId,
+          classificacaoId: tag.classificacaoId
+        }
+      },
+      update: {},
+      create: tag
+    });
+  }
+
+  const atendimentoExiste = await prisma.atendimento.findFirst({
+    where: {
+      motoristaId: motoristaLucas.id
+    }
+  });
+
+  if (!atendimentoExiste) {
+    await prisma.atendimento.create({
+      data: {
+        motoristaId: motoristaLucas.id,
+        atendenteId: adminUser.id,
+        canal: "whatsapp",
+        resumo: "Primeiro contato com o motorista para validacao de rota.",
+        observacoes: "Atendimento de exemplo carregado no seed.",
+        tempoMinutos: 18
+      }
+    });
+  }
+
+  const chamadoExiste = await prisma.chamado.findFirst({
+    where: {
+      motoristaId: motoristaLucas.id
+    }
+  });
+
+  if (!chamadoExiste) {
+    const chamado = await prisma.chamado.create({
+      data: {
+        motoristaId: motoristaLucas.id,
+        titulo: "Suporte inicial do motorista",
+        assunto: "Suporte inicial do motorista",
+        categoria: "Cadastro",
+        prioridade: "media",
+        descricao: "Chamado de demonstracao para o modulo de atendimento.",
+        status: "aberto",
+        solicitanteId: adminUser.id,
+        responsavelId: adminUser.id,
+        abertoEm: new Date()
+      }
+    });
+
+    await prisma.historicoChamado.create({
+      data: {
+        chamadoId: chamado.id,
+        usuarioId: adminUser.id,
+        descricao: "Chamado criado automaticamente no seed para demonstracao."
+      }
+    });
+  }
+
+  const notaExiste = await prisma.notaAtendimento.findFirst({
+    where: {
+      motoristaId: motoristaLucas.id
+    }
+  });
+
+  if (!notaExiste) {
+    await prisma.notaAtendimento.create({
+      data: {
+        motoristaId: motoristaLucas.id,
+        usuarioId: adminUser.id,
+        conteudo: "Observacao interna inicial para testes do CRM."
+      }
+    });
+  }
+
   const uploadSeeds = [
     {
       nomeArquivo: "conhecimento_12345_v1.pdf",
@@ -235,7 +400,8 @@ async function main() {
       caminhoArquivo: "/uploads/conhecimento_12345_v1.pdf",
       versao: 1,
       status: UploadStatus.processado,
-      usuarioId: amandaUser.id
+      usuarioId: amandaUser.id,
+      motoristaId: motoristaLucas.id
     },
     {
       nomeArquivo: "romaneio_99987_v1.pdf",
@@ -243,7 +409,8 @@ async function main() {
       caminhoArquivo: "/uploads/romaneio_99987_v1.pdf",
       versao: 1,
       status: UploadStatus.pendente,
-      usuarioId: lukaUser.id
+      usuarioId: lukaUser.id,
+      motoristaId: motoristaMarina.id
     }
   ];
 

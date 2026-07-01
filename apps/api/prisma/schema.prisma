@@ -29,7 +29,11 @@ enum UploadStatus {
 
 enum TicketStatus {
   aberto
+  em_andamento
   aguardando
+  aguardando_motorista
+  resolvido
+  cancelado
   concluido
 }
 
@@ -49,6 +53,27 @@ enum PeriodStatus {
   disponivel
   aguardando_aprovacao
   aprovado
+}
+
+enum MotoristaStatusCode {
+  ativo
+  inativo
+  bloqueado
+}
+
+enum TicketPriorityCode {
+  baixa
+  media
+  alta
+  critica
+}
+
+enum AtendimentoChannelCode {
+  chat
+  whatsapp
+  telefone
+  email
+  presencial
 }
 
 model Nivel {
@@ -80,7 +105,11 @@ model Usuario {
   uploads                      UploadPdf[]
   chamadosSolicitados          Chamado[]               @relation("ChamadoSolicitante")
   chamadosResponsaveis         Chamado[]               @relation("ChamadoResponsavel")
+  atendimentosRealizados       Atendimento[]
+  notasInternas                NotaAtendimento[]
+  historicosChamado            HistoricoChamado[]
   logs                         LogAuditoria[]
+  logsAtendimento              LogAtendimento[]
   sessoes                      Sessao[]
   periodosCriados              PeriodoPagamento[]
 
@@ -190,37 +219,192 @@ model UploadPdf {
   versao             Int           @default(1)
   status             UploadStatus
   usuarioId          String        @map("usuario_id") @db.Uuid
+  motoristaId        String?       @map("motorista_id") @db.Uuid
   periodoPagamentoId String?       @map("periodo_pagamento_id") @db.Uuid
   basePagamentoId    String?       @map("base_pagamento_id") @db.Uuid
   substituiUploadId  String?       @map("substitui_upload_id") @db.Uuid
   criadoEm           DateTime      @default(now()) @map("criado_em")
   usuario            Usuario       @relation(fields: [usuarioId], references: [id])
+  motorista          Motorista?    @relation(fields: [motoristaId], references: [id])
   periodoPagamento   PeriodoPagamento? @relation(fields: [periodoPagamentoId], references: [id])
   basePagamento      BasePagamento? @relation(fields: [basePagamentoId], references: [id])
   substituiUpload    UploadPdf?    @relation("UploadVersao", fields: [substituiUploadId], references: [id])
   novasVersoes       UploadPdf[]   @relation("UploadVersao")
 
   @@index([usuarioId])
+  @@index([motoristaId])
   @@index([periodoPagamentoId])
   @@index([basePagamentoId])
   @@index([substituiUploadId])
   @@map("uploads_pdf")
 }
 
+model Motorista {
+  id                  String                    @id @default(uuid()) @db.Uuid
+  nome                String                    @db.VarChar(150)
+  cpf                 String                    @unique @db.VarChar(20)
+  rg                  String?                   @db.VarChar(30)
+  dataNascimento      DateTime?                 @map("data_nascimento")
+  telefone            String?                   @db.VarChar(30)
+  whatsapp            String?                   @db.VarChar(30)
+  email               String?                   @db.VarChar(150)
+  endereco            String?                   @db.VarChar(255)
+  cidade              String?                   @db.VarChar(120)
+  estado              String?                   @db.VarChar(80)
+  cep                 String?                   @db.VarChar(20)
+  statusCadastro      MotoristaStatusCode       @default(ativo) @map("status_cadastro")
+  empresaVinculada    String?                   @map("empresa_vinculada") @db.VarChar(150)
+  observacoesGerais   String?                   @map("observacoes_gerais")
+  criadoEm            DateTime                  @default(now()) @map("criado_em")
+  atualizadoEm        DateTime                  @updatedAt @map("atualizado_em")
+  uploads             UploadPdf[]
+  atendimentos        Atendimento[]
+  chamados            Chamado[]
+  notas               NotaAtendimento[]
+  classificacoes      MotoristaClassificacao[]
+  logs                LogAtendimento[]
+
+  @@index([nome])
+  @@index([cpf])
+  @@map("motoristas")
+}
+
+model ClassificacaoMotorista {
+  id            String                    @id @default(uuid()) @db.Uuid
+  nome          String                    @unique @db.VarChar(120)
+  descricao     String?
+  ativa         Boolean                   @default(true)
+  criadaEm      DateTime                  @default(now()) @map("criada_em")
+  atualizadaEm  DateTime                  @updatedAt @map("atualizada_em")
+  motoristas    MotoristaClassificacao[]
+
+  @@map("classificacoes_motorista")
+}
+
+model MotoristaClassificacao {
+  id                 String                 @id @default(uuid()) @db.Uuid
+  motoristaId        String                 @map("motorista_id") @db.Uuid
+  classificacaoId    String                 @map("classificacao_id") @db.Uuid
+  criadoEm           DateTime               @default(now()) @map("criado_em")
+  motorista          Motorista              @relation(fields: [motoristaId], references: [id])
+  classificacao      ClassificacaoMotorista  @relation(fields: [classificacaoId], references: [id])
+
+  @@unique([motoristaId, classificacaoId])
+  @@index([classificacaoId])
+  @@map("motorista_classificacoes")
+}
+
+model Atendimento {
+  id                String         @id @default(uuid()) @db.Uuid
+  motoristaId       String         @map("motorista_id") @db.Uuid
+  atendenteId       String         @map("atendente_id") @db.Uuid
+  canal             AtendimentoChannelCode
+  resumo            String         @db.VarChar(255)
+  observacoes       String?
+  tempoMinutos      Int?           @map("tempo_minutos")
+  dataHora          DateTime       @default(now()) @map("data_hora")
+  motorista         Motorista      @relation(fields: [motoristaId], references: [id])
+  atendente         Usuario        @relation(fields: [atendenteId], references: [id])
+
+  @@index([motoristaId])
+  @@index([atendenteId])
+  @@map("atendimentos")
+}
+
 model Chamado {
   id             String        @id @default(uuid()) @db.Uuid
+  motoristaId    String?       @map("motorista_id") @db.Uuid
   titulo         String        @db.VarChar(180)
+  assunto        String?       @db.VarChar(180)
+  categoria      String?       @db.VarChar(120)
+  prioridade     TicketPriorityCode @default(media)
   descricao      String
-  status         TicketStatus
+  status         TicketStatus  @default(aberto)
   solicitanteId  String        @map("solicitante_id") @db.Uuid
   responsavelId  String?       @map("responsavel_id") @db.Uuid
+  abertoEm       DateTime      @default(now()) @map("aberto_em")
+  atualizadoEm   DateTime      @updatedAt @map("atualizado_em")
+  encerradoEm    DateTime?     @map("encerrado_em")
+  motivoConclusao String?      @map("motivo_conclusao")
+  solucaoAplicada String?      @map("solucao_aplicada")
+  observacoesFinais String?    @map("observacoes_finais")
+  tempoTotalMinutos Int?       @map("tempo_total_minutos")
   criadoEm       DateTime      @default(now()) @map("criado_em")
+  motorista      Motorista?    @relation(fields: [motoristaId], references: [id])
   solicitante    Usuario       @relation("ChamadoSolicitante", fields: [solicitanteId], references: [id])
   responsavel    Usuario?      @relation("ChamadoResponsavel", fields: [responsavelId], references: [id])
+  historicos     HistoricoChamado[]
+  anexos         AnexoChamado[]
 
+  @@index([motoristaId])
   @@index([solicitanteId])
   @@index([responsavelId])
   @@map("chamados")
+}
+
+model HistoricoChamado {
+  id             String      @id @default(uuid()) @db.Uuid
+  chamadoId      String      @map("chamado_id") @db.Uuid
+  usuarioId      String      @map("usuario_id") @db.Uuid
+  descricao      String
+  criadoEm       DateTime    @default(now()) @map("criado_em")
+  chamado        Chamado     @relation(fields: [chamadoId], references: [id])
+  usuario        Usuario     @relation(fields: [usuarioId], references: [id])
+  anexos         AnexoChamado[]
+
+  @@index([chamadoId])
+  @@index([usuarioId])
+  @@map("historico_chamados")
+}
+
+model AnexoChamado {
+  id                 String            @id @default(uuid()) @db.Uuid
+  chamadoId          String            @map("chamado_id") @db.Uuid
+  historicoChamadoId  String?           @map("historico_chamado_id") @db.Uuid
+  nomeArquivo        String            @map("nome_arquivo") @db.VarChar(255)
+  nomeOriginal       String            @map("nome_original") @db.VarChar(255)
+  caminhoArquivo     String            @map("caminho_arquivo")
+  criadoEm           DateTime          @default(now()) @map("criado_em")
+  chamado            Chamado           @relation(fields: [chamadoId], references: [id])
+  historicoChamado   HistoricoChamado? @relation(fields: [historicoChamadoId], references: [id])
+
+  @@index([chamadoId])
+  @@index([historicoChamadoId])
+  @@map("anexos_chamados")
+}
+
+model NotaAtendimento {
+  id            String      @id @default(uuid()) @db.Uuid
+  motoristaId   String      @map("motorista_id") @db.Uuid
+  usuarioId     String      @map("usuario_id") @db.Uuid
+  conteudo      String
+  criadoEm      DateTime    @default(now()) @map("criado_em")
+  atualizadoEm  DateTime    @updatedAt @map("atualizado_em")
+  motorista     Motorista   @relation(fields: [motoristaId], references: [id])
+  usuario       Usuario     @relation(fields: [usuarioId], references: [id])
+
+  @@index([motoristaId])
+  @@index([usuarioId])
+  @@map("notas_atendimento")
+}
+
+model LogAtendimento {
+  id           String     @id @default(uuid()) @db.Uuid
+  motoristaId  String?    @map("motorista_id") @db.Uuid
+  chamadoId    String?    @map("chamado_id") @db.Uuid
+  usuarioId    String?    @map("usuario_id") @db.Uuid
+  acao         String     @db.VarChar(100)
+  entidade     String     @db.VarChar(100)
+  entidadeId   String?    @map("entidade_id") @db.Uuid
+  detalhes     Json?
+  criadoEm     DateTime   @default(now()) @map("criado_em")
+  motorista    Motorista? @relation(fields: [motoristaId], references: [id])
+  usuario      Usuario?    @relation(fields: [usuarioId], references: [id])
+
+  @@index([motoristaId])
+  @@index([chamadoId])
+  @@index([usuarioId])
+  @@map("logs_atendimento")
 }
 
 model NotaFiscal {
