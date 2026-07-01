@@ -26,6 +26,403 @@ const upload = multer({
   storage: attachmentStorage
 });
 
+const DRIVER_REGISTRY_TABLE = "driver_registry_entities";
+const DRIVER_REGISTRY_PREFIX = "driver-registry:";
+const DRIVER_REGISTRY_SEARCH_LIMIT = 20;
+const DRIVER_REGISTRY_NAME_CANDIDATES = [
+  "display_name",
+  "normalized_name",
+  "nome",
+  "name",
+  "full_name",
+  "nome_completo",
+  "driver_name",
+  "razao_social"
+];
+const DRIVER_REGISTRY_CPF_CANDIDATES = [
+  "cpf",
+  "cpf_digits",
+  "document_number",
+  "documento",
+  "documento_numero",
+  "cpf_numero",
+  "cpf_cnpj"
+];
+
+type DriverRegistryMetadata = {
+  schema: string;
+  columns: Set<string>;
+};
+
+type DriverRegistryRawRow = Record<string, unknown>;
+
+let driverRegistryMetadata: DriverRegistryMetadata | null | undefined;
+
+const DRIVER_STATUS_MAP = {
+  ativo: "ativo",
+  inativo: "inativo",
+  bloqueado: "bloqueado"
+} as const;
+
+function isSafeIdentifier(value: string) {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(value);
+}
+
+function stripDiacritics(value: string) {
+  return value.normalize("NFD").replace(/\p{Diacritic}/gu, "");
+}
+
+function formatCpf(value: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  const cpf = digitsOnly(value);
+
+  if (cpf.length !== 11) {
+    return value;
+  }
+
+  return `${cpf.slice(0, 3)}.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-${cpf.slice(9)}`;
+}
+
+function firstNonEmpty(values: Array<unknown>) {
+  for (const value of values) {
+    if (value === null || value === undefined) {
+      continue;
+    }
+
+    if (typeof value === "string") {
+      const normalized = value.trim();
+      if (normalized) {
+        return normalized;
+      }
+      continue;
+    }
+
+    if (typeof value === "number" || typeof value === "bigint" || typeof value === "boolean") {
+      return String(value);
+    }
+
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+  }
+
+  return null;
+}
+
+function getRecordValue(row: DriverRegistryRawRow, candidates: string[]) {
+  const normalized = new Map<string, unknown>();
+
+  for (const [key, value] of Object.entries(row)) {
+    normalized.set(key.toLowerCase(), value);
+  }
+
+  return firstNonEmpty(
+    candidates.flatMap((key) => {
+      const value = normalized.get(key.toLowerCase());
+      return value === undefined ? [] : [value];
+    })
+  );
+}
+
+function getDateValue(row: DriverRegistryRawRow, candidates: string[]) {
+  const value = getRecordValue(row, candidates);
+
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+
+  if (Number.isFinite(parsed.getTime())) {
+    return parsed.toISOString();
+  }
+
+  return null;
+}
+
+function getColumn(metadata: DriverRegistryMetadata, candidates: string[]) {
+  for (const candidate of candidates) {
+    if (metadata.columns.has(candidate.toLowerCase())) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function normalizeDriverStatus(rawStatus: string | boolean | null) {
+  if (rawStatus === false) {
+    return DRIVER_STATUS_MAP.inativo;
+  }
+
+  if (rawStatus === true) {
+    return DRIVER_STATUS_MAP.ativo;
+  }
+
+  if (rawStatus === null || rawStatus === undefined) {
+    return DRIVER_STATUS_MAP.ativo;
+  }
+
+  const normalized = stripDiacritics(rawStatus.toLowerCase());
+  if (normalized.includes("bloq") || normalized.includes("susp") || normalized.includes("ban")) {
+    return DRIVER_STATUS_MAP.bloqueado;
+  }
+
+  if (normalized.includes("inativ")) {
+    return DRIVER_STATUS_MAP.inativo;
+  }
+
+  return DRIVER_STATUS_MAP.ativo;
+}
+
+async function getDriverRegistryMetadata() {
+  if (driverRegistryMetadata !== undefined) {
+    return driverRegistryMetadata;
+  }
+
+  const tables = await prisma.$queryRaw<
+    Array<{
+      table_schema: string;
+      table_type: string;
+    }>
+  >`SELECT table_schema, table_type FROM information_schema.tables WHERE table_name = ${DRIVER_REGISTRY_TABLE} AND table_type IN ('BASE TABLE', 'VIEW', 'MATERIALIZED VIEW')`;
+
+  if (tables.length === 0) {
+    driverRegistryMetadata = null;
+    return null;
+  }
+
+  const targetSchema =
+    tables.find((row) => row.table_schema === "public")?.table_schema ||
+    tables.find((row) => row.table_schema === "portal_administrativo")?.table_schema ||
+    tables[0]?.table_schema ||
+    null;
+
+  if (!targetSchema) {
+    driverRegistryMetadata = null;
+    return null;
+  }
+
+  const columns = await prisma.$queryRaw<
+    Array<{
+      column_name: string;
+    }>
+  >`SELECT column_name FROM information_schema.columns WHERE table_schema = ${targetSchema} AND table_name = ${DRIVER_REGISTRY_TABLE}`;
+
+  driverRegistryMetadata = {
+    schema: targetSchema,
+    columns: new Set(columns.map((row) => row.column_name.toLowerCase()))
+  };
+
+  return driverRegistryMetadata;
+}
+
+function quoteDriverRegistryIdentifier(value: string) {
+  if (!isSafeIdentifier(value)) {
+    throw new Error(`Identificador invalido da tabela driver_registry_entities: ${value}`);
+  }
+
+  return `"${value}"`;
+}
+
+async function fetchDriverRegistryRows(query: string) {
+  const metadata = await getDriverRegistryMetadata();
+  if (!metadata) {
+    return [];
+  }
+
+  const normalizedQuery = normalizeText(query);
+  const normalizedDigits = digitsOnly(query);
+
+  if (!normalizedQuery && !normalizedDigits) {
+    return [];
+  }
+
+  const nameColumn = getColumn(metadata, DRIVER_REGISTRY_NAME_CANDIDATES);
+  const cpfColumn = getColumn(metadata, [
+    ...DRIVER_REGISTRY_CPF_CANDIDATES,
+    "cpf_numero",
+    "cpf_cnpj"
+  ]);
+
+  const conditions: string[] = [];
+  const params: string[] = [];
+
+  if (nameColumn) {
+    conditions.push(`COALESCE(${quoteDriverRegistryIdentifier(nameColumn)}, '') ILIKE $${params.length + 1}`);
+    params.push(`%${normalizedQuery}%`);
+  }
+
+  if (cpfColumn) {
+    conditions.push(`COALESCE(${quoteDriverRegistryIdentifier(cpfColumn)}, '') ILIKE $${params.length + 1}`);
+    params.push(`%${normalizedQuery}%`);
+
+    if (normalizedDigits) {
+      conditions.push(
+        `regexp_replace(COALESCE(${quoteDriverRegistryIdentifier(cpfColumn)}, ''), '\\D', '', 'g') ILIKE $${params.length + 1}`
+      );
+      params.push(`%${normalizedDigits}%`);
+    }
+  }
+
+  if (conditions.length === 0) {
+    return [];
+  }
+
+  const tableRef = `${quoteDriverRegistryIdentifier(metadata.schema)}.${quoteDriverRegistryIdentifier(
+    DRIVER_REGISTRY_TABLE
+  )}`;
+
+  const orderBy = nameColumn ? quoteDriverRegistryIdentifier(nameColumn) : quoteDriverRegistryIdentifier("id");
+  const sql = `SELECT * FROM ${tableRef} WHERE ${conditions.join(" OR ")} ORDER BY ${orderBy} ASC LIMIT ${DRIVER_REGISTRY_SEARCH_LIMIT}`;
+
+  return (await prisma.$queryRawUnsafe<DriverRegistryRawRow[]>(sql, ...params)) as DriverRegistryRawRow[];
+}
+
+async function fetchDriverRegistryById(id: string) {
+  const metadata = await getDriverRegistryMetadata();
+  if (!metadata) {
+    return null;
+  }
+
+  const idColumn = getColumn(metadata, ["id", "uuid", "codigo", "driver_id", "identificador"]);
+  if (!idColumn) {
+    return null;
+  }
+
+  const tableRef = `${quoteDriverRegistryIdentifier(metadata.schema)}.${quoteDriverRegistryIdentifier(
+    DRIVER_REGISTRY_TABLE
+  )}`;
+  const sql = `SELECT * FROM ${tableRef} WHERE ${quoteDriverRegistryIdentifier(idColumn)} = $1 LIMIT 1`;
+  const rows = await prisma.$queryRawUnsafe<DriverRegistryRawRow[]>(sql, id);
+
+  return rows[0] || null;
+}
+
+function driverRegistryAsAtendimentoPayload(row: DriverRegistryRawRow) {
+  const metadata = {
+    id: getRecordValue(row, ["id", "uuid", "codigo", "driver_id", "identificador"]),
+    name: getRecordValue(row, ["display_name", "normalized_name", "nome", "name", "full_name", "nome_completo", "driver_name", "razao_social"]),
+    cpf: getRecordValue(row, [...DRIVER_REGISTRY_CPF_CANDIDATES, "documento", "document_number", "documento_numero"]),
+    rg: getRecordValue(row, ["rg", "registro_geral", "rg_numero"]),
+    city: getRecordValue(row, ["cidade", "municipio", "city"]),
+    state: getRecordValue(row, ["estado", "uf", "state"]),
+    company: getRecordValue(row, ["empresa_vinculada", "empresa", "company", "company_name"]),
+    observacoes: getRecordValue(row, ["observacoes_gerais", "observacao_geral", "observacoes", "observacao"])
+  };
+
+  const rawStatus = getRecordValue(row, ["status", "status_cadastro", "statusCadastro", "situacao", "ativo", "active"]);
+
+  return {
+    externalId: String(metadata.id || ""),
+    nome: metadata.name || "Sem nome",
+    cpf: metadata.cpf || "",
+    cpfFormatado: formatCpf(metadata.cpf),
+    rg: metadata.rg,
+    telefone: getRecordValue(row, ["telefone", "telefone_contato", "fone", "phone"]),
+    whatsapp: getRecordValue(row, ["whatsapp", "wpp", "telefone_whatsapp"]),
+    email: getRecordValue(row, ["email", "e_mail"]),
+    endereco: getRecordValue(row, ["endereco", "address", "logradouro"]),
+    cidade: metadata.city,
+    estado: metadata.state,
+    cep: getRecordValue(row, ["cep", "cep_numero"]),
+    statusCadastro: normalizeDriverStatus((rawStatus as string | boolean | null) ?? null),
+    empresaVinculada: metadata.company,
+    observacoesGerais: metadata.observacoes,
+    dataNascimento: getDateValue(row, ["data_nascimento", "dt_nascimento", "nascimento", "birth_date"])
+  };
+}
+
+function mapDriverRegistryForSearch(row: DriverRegistryRawRow, localDriver?: { id: string; statusCadastro: string }) {
+  const mapped = driverRegistryAsAtendimentoPayload(row);
+
+  return {
+    id: localDriver?.id || `${DRIVER_REGISTRY_PREFIX}${mapped.externalId}`,
+    name: mapped.nome,
+    cpf: mapped.cpfFormatado || mapped.cpf || "",
+    status: localDriver?.statusCadastro || mapped.statusCadastro,
+    city: mapped.cidade,
+    state: mapped.estado,
+    company: mapped.empresaVinculada,
+    classifiedAs: [],
+    totalPdfs: 0,
+    totalChamados: 0
+  };
+}
+
+async function getOrCreateMotoristaFromRegistry(id: string) {
+  const row = await fetchDriverRegistryById(id);
+  if (!row) {
+    return null;
+  }
+
+  const mapped = driverRegistryAsAtendimentoPayload(row);
+  const normalizedCpf = digitsOnly(mapped.cpf || "");
+
+  if (!normalizedCpf) {
+    return null;
+  }
+
+  const existing = await prisma.motorista.findUnique({
+    where: {
+      cpf: normalizedCpf
+    },
+    select: {
+      id: true
+    }
+  });
+
+  if (existing?.id) {
+    return existing.id;
+  }
+
+  const created = await prisma.motorista.create({
+    data: {
+      nome: mapped.nome,
+      cpf: normalizedCpf,
+      rg: mapped.rg,
+      dataNascimento: mapped.dataNascimento ? new Date(mapped.dataNascimento) : null,
+      telefone: mapped.telefone,
+      whatsapp: mapped.whatsapp,
+      email: mapped.email,
+      endereco: mapped.endereco,
+      cidade: mapped.cidade,
+      estado: mapped.estado,
+      cep: mapped.cep,
+      statusCadastro: mapped.statusCadastro,
+      empresaVinculada: mapped.empresaVinculada,
+      observacoesGerais: mapped.observacoesGerais
+    }
+  });
+
+  return created.id;
+}
+
+async function resolveMotoristaId(rawId: string) {
+  const inputId = rawId.startsWith(DRIVER_REGISTRY_PREFIX)
+    ? rawId.slice(DRIVER_REGISTRY_PREFIX.length)
+    : rawId;
+
+  const direct = await prisma.motorista.findUnique({
+    where: {
+      id: inputId
+    },
+    select: {
+      id: true
+    }
+  });
+
+  if (direct?.id) {
+    return direct.id;
+  }
+
+  const syncedFromRegistry = await getOrCreateMotoristaFromRegistry(inputId);
+  return syncedFromRegistry;
+}
+
 router.use(requireAuth, requireModuleAccess("atendimento"));
 
 function normalizeText(value: string) {
@@ -201,9 +598,14 @@ function buildTimeline(
 }
 
 async function loadMotoristaDetail(motoristaId: string) {
+  const resolvedMotoristaId = await resolveMotoristaId(motoristaId);
+  if (!resolvedMotoristaId) {
+    return null;
+  }
+
   const motorista = await prisma.motorista.findUnique({
     where: {
-      id: motoristaId
+      id: resolvedMotoristaId
     },
     include: {
       uploads: {
@@ -482,6 +884,90 @@ router.get("/motoristas/search", (_req, res) => {
     const query = normalizeText(String(_req.query.q || "").trim());
     const digits = digitsOnly(query);
 
+    if (!query && !digits) {
+      res.json([]);
+      return;
+    }
+
+    let registryRows: DriverRegistryRawRow[] = [];
+    try {
+      registryRows = await fetchDriverRegistryRows(query);
+    } catch (error) {
+      registryRows = [];
+    }
+    const localCpfMap = new Map<
+      string,
+      {
+        id: string;
+        statusCadastro: "ativo" | "inativo" | "bloqueado";
+        cidade: string | null;
+        estado: string | null;
+        empresaVinculada: string | null;
+        classificacoes: Array<{ classificacao: { nome: string } }>;
+        uploads: Array<{ id: string }>;
+        chamados: Array<{ id: string }>;
+      }
+    >();
+
+    const mappedRows = registryRows
+      .map((row) => driverRegistryAsAtendimentoPayload(row))
+      .filter((row) => Boolean(row.externalId));
+
+    const cpfs = Array.from(new Set(mappedRows.map((row) => digitsOnly(row.cpf || "")).filter(Boolean)));
+    const localMotoristas = cpfs.length > 0
+      ? await prisma.motorista.findMany({
+          where: {
+            cpf: {
+              in: cpfs
+            }
+          },
+          include: {
+            classificacoes: {
+              include: {
+                classificacao: true
+              }
+            },
+            uploads: {
+              select: {
+                id: true
+              }
+            },
+            chamados: {
+              select: {
+                id: true
+              }
+            }
+          }
+        })
+      : [];
+
+    for (const motorista of localMotoristas) {
+      localCpfMap.set(digitsOnly(motorista.cpf), motorista);
+    }
+
+    const registryResults = mappedRows.map((driver) => {
+      const driverCpf = digitsOnly(driver.cpf || "");
+      const matchedLocal = localCpfMap.get(driverCpf);
+
+      return {
+        id: matchedLocal?.id || `${DRIVER_REGISTRY_PREFIX}${driver.externalId}`,
+        name: driver.nome,
+        cpf: driver.cpfFormatado || driver.cpf || "",
+        status: matchedLocal?.statusCadastro || driver.statusCadastro,
+        city: driver.cidade || matchedLocal?.cidade || null,
+        state: driver.estado || matchedLocal?.estado || null,
+        company: driver.empresaVinculada || matchedLocal?.empresaVinculada || null,
+        classifiedAs: matchedLocal ? matchedLocal.classificacoes.map((item) => item.classificacao.nome) : [],
+        totalPdfs: matchedLocal?.uploads.length || 0,
+        totalChamados: matchedLocal?.chamados.length || 0
+      };
+    });
+
+    if (registryResults.length > 0) {
+      res.json(registryResults);
+      return;
+    }
+
     const motoristas = await prisma.motorista.findMany({
       where: query
         ? {
@@ -512,7 +998,7 @@ router.get("/motoristas/search", (_req, res) => {
       orderBy: {
         nome: "asc"
       },
-      take: 20,
+      take: DRIVER_REGISTRY_SEARCH_LIMIT,
       include: {
         classificacoes: {
           include: {
@@ -577,7 +1063,12 @@ router.get("/motoristas/:id", (req, res) => {
 
 router.patch("/motoristas/:id/classificacoes", (req, res) => {
   void (async () => {
-    const motoristaId = routeParam(req.params.id);
+    const motoristaId = await resolveMotoristaId(routeParam(req.params.id));
+    if (!motoristaId) {
+      res.status(404).json({ message: "Motorista nao encontrado." });
+      return;
+    }
+
     const body = req.body as Record<string, unknown>;
     const classificacaoIds = Array.isArray(body.classificacaoIds)
       ? body.classificacaoIds.map((value: unknown) => String(value))
@@ -630,7 +1121,11 @@ router.post("/motoristas/:id/notas", (req, res) => {
       return;
     }
 
-    const motoristaId = routeParam(req.params.id);
+    const motoristaId = await resolveMotoristaId(routeParam(req.params.id));
+    if (!motoristaId) {
+      res.status(404).json({ message: "Motorista nao encontrado." });
+      return;
+    }
     const body = req.body as Record<string, unknown>;
     const content = String(body.content || "").trim();
 
@@ -683,7 +1178,11 @@ router.patch("/motoristas/:id/notas/:notaId", (req, res) => {
       return;
     }
 
-    const motoristaId = routeParam(req.params.id);
+    const motoristaId = await resolveMotoristaId(routeParam(req.params.id));
+    if (!motoristaId) {
+      res.status(404).json({ message: "Motorista nao encontrado." });
+      return;
+    }
     const notaId = routeParam(req.params.notaId);
     const body = req.body as Record<string, unknown>;
     const content = String(body.content || "").trim();
@@ -738,7 +1237,11 @@ router.delete("/motoristas/:id/notas/:notaId", requireAdmin, (req, res) => {
       return;
     }
 
-    const motoristaId = routeParam(req.params.id);
+    const motoristaId = await resolveMotoristaId(routeParam(req.params.id));
+    if (!motoristaId) {
+      res.status(404).json({ message: "Motorista nao encontrado." });
+      return;
+    }
     const notaId = routeParam(req.params.notaId);
     await prisma.notaAtendimento.delete({
       where: {
@@ -774,7 +1277,11 @@ router.post("/motoristas/:id/atendimentos", upload.array("attachments", 6), (req
       return;
     }
 
-    const motoristaId = routeParam(req.params.id);
+    const motoristaId = await resolveMotoristaId(routeParam(req.params.id));
+    if (!motoristaId) {
+      res.status(404).json({ message: "Motorista nao encontrado." });
+      return;
+    }
     const body = req.body as Record<string, unknown>;
     const resumo = String(body.resumo || "").trim();
     const observacoes = String(body.observacoes || "").trim() || null;
@@ -836,7 +1343,11 @@ router.post("/motoristas/:id/chamados", upload.array("attachments", 10), (req, r
       return;
     }
 
-    const motoristaId = routeParam(req.params.id);
+    const motoristaId = await resolveMotoristaId(routeParam(req.params.id));
+    if (!motoristaId) {
+      res.status(404).json({ message: "Motorista nao encontrado." });
+      return;
+    }
     const body = req.body as Record<string, unknown>;
     const assunto = String(body.assunto || "").trim();
     const categoria = String(body.categoria || "").trim();
