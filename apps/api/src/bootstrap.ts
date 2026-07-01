@@ -1,17 +1,28 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { withDatabaseSchema } from "./lib/database-url.js";
+import { resolveDatabaseUrlWithSchema } from "./lib/database-url.js";
 
 function runCommand(command: string, args: string[], cwd: string) {
   return new Promise<void>((resolve, reject) => {
+    const databaseUrl = resolveDatabaseUrlWithSchema();
+
+    if (!databaseUrl) {
+      reject(
+        new Error(
+          "Nenhuma string de conexao foi encontrada. Defina DATABASE_URL, DATABASE_PUBLIC_URL ou DATABASE_PRIVATE_URL no Railway."
+        )
+      );
+      return;
+    }
+
     const child = spawn(command, args, {
       cwd,
       stdio: "inherit",
       shell: process.platform === "win32",
       env: {
         ...process.env,
-        DATABASE_URL: withDatabaseSchema(process.env.DATABASE_URL)
+        DATABASE_URL: databaseUrl
       }
     });
 
@@ -38,4 +49,3 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
-

@@ -1,3 +1,11 @@
+export function resolveDatabaseUrl() {
+  return (
+    process.env.DATABASE_URL ||
+    process.env.DATABASE_PUBLIC_URL ||
+    process.env.DATABASE_PRIVATE_URL
+  );
+}
+
 export function withDatabaseSchema(databaseUrl?: string) {
   if (!databaseUrl) {
     return undefined;
@@ -13,3 +21,6 @@ export function withDatabaseSchema(databaseUrl?: string) {
   return parsed.toString();
 }
 
+export function resolveDatabaseUrlWithSchema() {
+  return withDatabaseSchema(resolveDatabaseUrl());
+}
