@@ -206,8 +206,7 @@ async function main() {
         nome: user.nome,
         nivelId: levelMap[user.nivel],
         ativo: true,
-        bloqueado: false,
-        primeiroAcesso: true
+        bloqueado: false
       },
       create: {
         nome: user.nome,
