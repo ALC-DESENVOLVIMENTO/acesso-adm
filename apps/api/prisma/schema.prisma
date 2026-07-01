@@ -1,0 +1,204 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccessLevelCode {
+  N1
+  N2
+  N3
+  N4
+}
+
+enum PermissionOverrideType {
+  grant
+  deny
+}
+
+enum UploadStatus {
+  pendente
+  processado
+  erro
+  substituido
+}
+
+enum TicketStatus {
+  aberto
+  aguardando
+  concluido
+}
+
+enum InvoiceStatus {
+  pendente
+  aprovada
+  rejeitada
+}
+
+model Nivel {
+  id                  String              @id @default(uuid()) @db.Uuid
+  codigo              AccessLevelCode     @unique
+  nome                String              @db.VarChar(100)
+  descricao           String?
+  usuarios            Usuario[]
+  permissoesPorNivel  PermissaoPorNivel[]
+
+  @@map("niveis")
+}
+
+model Usuario {
+  id                           String                  @id @default(uuid()) @db.Uuid
+  nome                         String                  @db.VarChar(150)
+  email                        String                  @unique @db.VarChar(150)
+  senhaHash                    String                  @map("senha_hash")
+  nivelId                      String                  @map("nivel_id") @db.Uuid
+  ativo                        Boolean                 @default(true)
+  bloqueado                    Boolean                 @default(false)
+  primeiroAcesso               Boolean                 @default(true) @map("primeiro_acesso")
+  ultimoLoginEm                DateTime?               @map("ultimo_login_em")
+  criadoEm                     DateTime                @default(now()) @map("criado_em")
+  atualizadoEm                 DateTime                @updatedAt @map("atualizado_em")
+  nivel                        Nivel                   @relation(fields: [nivelId], references: [id])
+  permissoesPorUsuario         PermissaoPorUsuario[]   @relation("PermissaoDestinoUsuario")
+  permissoesConcedidas         PermissaoPorUsuario[]   @relation("PermissaoConcedidaPor")
+  uploads                      UploadPdf[]
+  chamadosSolicitados          Chamado[]               @relation("ChamadoSolicitante")
+  chamadosResponsaveis         Chamado[]               @relation("ChamadoResponsavel")
+  logs                         LogAuditoria[]
+  sessoes                      Sessao[]
+
+  @@index([nivelId])
+  @@map("usuarios")
+}
+
+model Modulo {
+  id            String       @id @default(uuid()) @db.Uuid
+  codigo        String       @unique @db.VarChar(50)
+  nome          String       @db.VarChar(100)
+  descricao     String?
+  ativo         Boolean      @default(true)
+  permissoes    Permissao[]
+
+  @@map("modulos")
+}
+
+model Permissao {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  codigo                String                 @unique @db.VarChar(80)
+  nome                  String                 @db.VarChar(120)
+  moduloId              String                 @map("modulo_id") @db.Uuid
+  modulo                Modulo                 @relation(fields: [moduloId], references: [id])
+  permissoesPorNivel    PermissaoPorNivel[]
+  permissoesPorUsuario  PermissaoPorUsuario[]
+
+  @@index([moduloId])
+  @@map("permissoes")
+}
+
+model PermissaoPorNivel {
+  id           String      @id @default(uuid()) @db.Uuid
+  nivelId      String      @map("nivel_id") @db.Uuid
+  permissaoId  String      @map("permissao_id") @db.Uuid
+  nivel        Nivel       @relation(fields: [nivelId], references: [id])
+  permissao    Permissao   @relation(fields: [permissaoId], references: [id])
+
+  @@unique([nivelId, permissaoId])
+  @@index([permissaoId])
+  @@map("permissoes_por_nivel")
+}
+
+model PermissaoPorUsuario {
+  id            String                  @id @default(uuid()) @db.Uuid
+  usuarioId     String                  @map("usuario_id") @db.Uuid
+  permissaoId   String                  @map("permissao_id") @db.Uuid
+  tipo          PermissionOverrideType
+  concedidoPor  String                  @map("concedido_por") @db.Uuid
+  criadoEm      DateTime                @default(now()) @map("criado_em")
+  usuario       Usuario                 @relation("PermissaoDestinoUsuario", fields: [usuarioId], references: [id])
+  permissao     Permissao               @relation(fields: [permissaoId], references: [id])
+  concedente    Usuario                 @relation("PermissaoConcedidaPor", fields: [concedidoPor], references: [id])
+
+  @@unique([usuarioId, permissaoId])
+  @@index([permissaoId])
+  @@index([concedidoPor])
+  @@map("permissoes_por_usuario")
+}
+
+model UploadPdf {
+  id                 String        @id @default(uuid()) @db.Uuid
+  nomeArquivo        String        @map("nome_arquivo") @db.VarChar(255)
+  nomeOriginal       String        @map("nome_original") @db.VarChar(255)
+  caminhoArquivo     String        @map("caminho_arquivo")
+  versao             Int           @default(1)
+  status             UploadStatus
+  usuarioId          String        @map("usuario_id") @db.Uuid
+  substituiUploadId  String?       @map("substitui_upload_id") @db.Uuid
+  criadoEm           DateTime      @default(now()) @map("criado_em")
+  usuario            Usuario       @relation(fields: [usuarioId], references: [id])
+  substituiUpload    UploadPdf?    @relation("UploadVersao", fields: [substituiUploadId], references: [id])
+  novasVersoes       UploadPdf[]   @relation("UploadVersao")
+
+  @@index([usuarioId])
+  @@index([substituiUploadId])
+  @@map("uploads_pdf")
+}
+
+model Chamado {
+  id             String        @id @default(uuid()) @db.Uuid
+  titulo         String        @db.VarChar(180)
+  descricao      String
+  status         TicketStatus
+  solicitanteId  String        @map("solicitante_id") @db.Uuid
+  responsavelId  String?       @map("responsavel_id") @db.Uuid
+  criadoEm       DateTime      @default(now()) @map("criado_em")
+  solicitante    Usuario       @relation("ChamadoSolicitante", fields: [solicitanteId], references: [id])
+  responsavel    Usuario?      @relation("ChamadoResponsavel", fields: [responsavelId], references: [id])
+
+  @@index([solicitanteId])
+  @@index([responsavelId])
+  @@map("chamados")
+}
+
+model NotaFiscal {
+  id         String         @id @default(uuid()) @db.Uuid
+  numero     String         @db.VarChar(60)
+  fornecedor String         @db.VarChar(150)
+  valor      Decimal        @db.Decimal(14, 2)
+  status     InvoiceStatus
+  criadoEm   DateTime       @default(now()) @map("criado_em")
+
+  @@map("notas_fiscais")
+}
+
+model LogAuditoria {
+  id         String    @id @default(uuid()) @db.Uuid
+  usuarioId  String?   @map("usuario_id") @db.Uuid
+  acao       String    @db.VarChar(80)
+  entidade   String    @db.VarChar(80)
+  entidadeId String?   @map("entidade_id") @db.Uuid
+  detalhes   Json?
+  ipOrigem   String?   @map("ip_origem") @db.VarChar(64)
+  userAgent  String?   @map("user_agent")
+  criadoEm   DateTime  @default(now()) @map("criado_em")
+  usuario    Usuario?  @relation(fields: [usuarioId], references: [id])
+
+  @@index([usuarioId])
+  @@map("logs_auditoria")
+}
+
+model Sessao {
+  id          String    @id @default(uuid()) @db.Uuid
+  usuarioId   String    @map("usuario_id") @db.Uuid
+  tokenHash   String    @map("token_hash")
+  expiraEm    DateTime  @map("expira_em")
+  revogadaEm  DateTime? @map("revogada_em")
+  criadoEm    DateTime  @default(now()) @map("criado_em")
+  usuario     Usuario   @relation(fields: [usuarioId], references: [id])
+
+  @@index([usuarioId])
+  @@map("sessoes")
+}
+

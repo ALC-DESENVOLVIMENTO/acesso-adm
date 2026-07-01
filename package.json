@@ -1,0 +1,20 @@
+{
+  "name": "acesso-adm",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "apps/api"
+  ],
+  "scripts": {
+    "dev": "npm-run-all --parallel dev:web dev:api",
+    "dev:web": "npm run dev -w @portal/web",
+    "dev:api": "npm run dev -w @portal/api",
+    "build": "npm run build -w @portal/web && npm run build -w @portal/api",
+    "start": "npm run start -w @portal/api"
+  },
+  "devDependencies": {
+    "npm-run-all": "^4.1.5"
+  }
+}
+
