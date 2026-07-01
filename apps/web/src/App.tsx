@@ -25,10 +25,14 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   changeFirstAccessPassword,
   createUser,
+  createPaymentPeriod,
   deleteUser,
   deleteUpload,
   downloadUpload,
   fetchDashboardSummary,
+  fetchPaymentBases,
+  fetchPaymentPeriods,
+  fetchSession,
   fetchUploadHistory,
   fetchUploads,
   fetchUsers,
@@ -41,6 +45,8 @@ import {
   uploadPdfs,
   type DashboardSummary,
   type LoginResponse,
+  type PaymentBase,
+  type PaymentPeriod,
   type UploadProgressState,
   type UploadRow,
   type UserPayload,
@@ -48,7 +54,7 @@ import {
 } from "./lib/api";
 
 type AccessLevel = "N1" | "N2" | "N3" | "N4";
-type View = "login" | "first-access" | "dashboard" | "pdfs" | "users";
+type View = "login" | "first-access" | "dashboard" | "pdfs" | "users" | "periods";
 
 type Activity = {
   icon: "pdf" | "user" | "view";
@@ -73,7 +79,8 @@ type UploadHistoryState = {
 const menuItems = [
   { key: "dashboard", label: "Dashboard", icon: HouseLine },
   { key: "pdfs", label: "Envio de PDFs", icon: FileArrowUp },
-  { key: "users", label: "Cadastro de Usuarios", icon: UserCirclePlus }
+  { key: "users", label: "Cadastro de Usuarios", icon: UserCirclePlus },
+  { key: "periods", label: "Criação de Periodo", icon: CalendarBlank }
 ] as const;
 
 const activities: Activity[] = [
@@ -119,6 +126,12 @@ const initialSummary: DashboardSummary = {
 
 const logoSrc = "/alc-logotipo-dark.png";
 
+function formatStatusLabel(status: string) {
+  return status
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 function App() {
   const [view, setView] = useState<View>("login");
   const [activeView, setActiveView] = useState<Exclude<View, "login" | "first-access">>("dashboard");
@@ -131,18 +144,26 @@ function App() {
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary>(initialSummary);
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [uploads, setUploads] = useState<UploadRow[]>([]);
+  const [paymentPeriods, setPaymentPeriods] = useState<PaymentPeriod[]>([]);
+  const [paymentBases, setPaymentBases] = useState<PaymentBase[]>([]);
   const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null);
   const [uploadHistory, setUploadHistory] = useState<UploadHistoryState>(null);
   const [createUserSignal, setCreateUserSignal] = useState(0);
-  const [uploadSignal, setUploadSignal] = useState(0);
   const [deleteUserTarget, setDeleteUserTarget] = useState<UserSummary | null>(null);
+  const [deleteUploadTarget, setDeleteUploadTarget] = useState<UploadRow | null>(null);
 
   const allowedMenu = useMemo(() => {
     if (!currentUser) {
       return [];
     }
 
-    return menuItems.filter((item) => currentUser.modules.includes(item.key));
+    return menuItems.filter((item) => {
+      if (item.key === "periods") {
+        return currentUser.level === "N3" || currentUser.level === "N4";
+      }
+
+      return currentUser.modules.includes(item.key);
+    });
   }, [currentUser]);
 
   useEffect(() => {
@@ -152,21 +173,31 @@ function App() {
       return;
     }
 
-    try {
-      const parsed = JSON.parse(storedSession) as { token: string; user: SessionUser };
-      setToken(parsed.token);
-      setCurrentUser(parsed.user);
+    void (async () => {
+      try {
+        const { token: storedToken } = JSON.parse(storedSession) as { token: string; user: SessionUser };
+        const session = await fetchSession(storedToken);
+        setToken(session.token);
+        setCurrentUser(session.user);
+        localStorage.setItem(
+          "portal-admin-session",
+          JSON.stringify({
+            token: session.token,
+            user: session.user
+          })
+        );
 
-      if (parsed.user.firstAccess) {
-        setView("first-access");
-        return;
+        if (session.firstAccess) {
+          setView("first-access");
+          return;
+        }
+
+        setActiveView("dashboard");
+        setView("dashboard");
+      } catch {
+        localStorage.removeItem("portal-admin-session");
       }
-
-      setActiveView("dashboard");
-      setView("dashboard");
-    } catch {
-      localStorage.removeItem("portal-admin-session");
-    }
+    })();
   }, []);
 
   useEffect(() => {
@@ -175,6 +206,8 @@ function App() {
     }
 
     let cancelled = false;
+    const canSeePdfData = currentUser.modules.includes("pdfs");
+    const canSeePeriodData = canSeePdfData || currentUser.level === "N3" || currentUser.level === "N4";
 
     const loadData = async () => {
       setLoadingMessage("Carregando dados do portal...");
@@ -182,9 +215,13 @@ function App() {
       try {
         const [summary, uploadsData, usersData] = await Promise.all([
           fetchDashboardSummary(token),
-          fetchUploads(token),
+          canSeePdfData ? fetchUploads(token) : Promise.resolve([]),
           currentUser.modules.includes("users") ? fetchUsers(token) : Promise.resolve([])
         ]);
+        const periodsData: PaymentPeriod[] = canSeePeriodData
+          ? await fetchPaymentPeriods(token)
+          : [];
+        const basesData: PaymentBase[] = canSeePeriodData ? await fetchPaymentBases(token) : [];
 
         if (cancelled) {
           return;
@@ -193,6 +230,8 @@ function App() {
         setDashboardSummary(summary);
         setUploads(uploadsData);
         setUsers(usersData);
+        setPaymentPeriods(periodsData);
+        setPaymentBases(basesData);
         setFlashMessage(null);
       } catch (error) {
         if (cancelled) {
@@ -219,15 +258,22 @@ function App() {
       return;
     }
 
+    const canSeePdfData = currentUser.modules.includes("pdfs");
+    const canSeePeriodData = canSeePdfData || currentUser.level === "N3" || currentUser.level === "N4";
+
     const [summary, uploadsData, usersData] = await Promise.all([
       fetchDashboardSummary(token),
-      fetchUploads(token),
+      canSeePdfData ? fetchUploads(token) : Promise.resolve([]),
       currentUser.modules.includes("users") ? fetchUsers(token) : Promise.resolve([])
     ]);
+    const periodsData: PaymentPeriod[] = canSeePeriodData ? await fetchPaymentPeriods(token) : [];
+    const basesData: PaymentBase[] = canSeePeriodData ? await fetchPaymentBases(token) : [];
 
     setDashboardSummary(summary);
     setUploads(uploadsData);
     setUsers(usersData);
+    setPaymentPeriods(periodsData);
+    setPaymentBases(basesData);
   };
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
@@ -327,6 +373,8 @@ function App() {
     setToken("");
     setUsers([]);
     setUploads([]);
+    setPaymentPeriods([]);
+    setPaymentBases([]);
     setDashboardSummary(initialSummary);
     setLoginError("");
     setPasswordError("");
@@ -334,6 +382,8 @@ function App() {
     setFlashMessage(null);
     setUploadProgress(null);
     setUploadHistory(null);
+    setDeleteUserTarget(null);
+    setDeleteUploadTarget(null);
     setActiveView("dashboard");
     setView("login");
     localStorage.removeItem("portal-admin-session");
@@ -408,6 +458,34 @@ function App() {
     }
   };
 
+  const handleCreatePeriod = async (payload: {
+    name: string;
+    startDate: string;
+    endDate: string;
+    paymentType: "semanal" | "quinzenal" | "mensal";
+  }) => {
+    if (!token) {
+      return false;
+    }
+
+    setLoadingMessage("Criando periodo...");
+
+    try {
+      const response = await createPaymentPeriod(token, payload);
+      setFlashMessage({ type: "success", text: response.message });
+      await refreshPortalData();
+      return true;
+    } catch (error) {
+      setFlashMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Falha ao criar periodo."
+      });
+      return false;
+    } finally {
+      setLoadingMessage("");
+    }
+  };
+
   const openUsersCreateModal = () => {
     setActiveView("users");
     setView("users");
@@ -417,16 +495,19 @@ function App() {
   const openPdfUploadShortcut = () => {
     setActiveView("pdfs");
     setView("pdfs");
-    setUploadSignal((current) => current + 1);
     setFlashMessage({
       type: "success",
-      text: "Abra o seletor para enviar um ou mais PDFs."
+      text: "A tela de envio de PDFs foi aberta."
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const requestDeleteUser = (user: UserSummary) => {
     setDeleteUserTarget(user);
+  };
+
+  const requestDeleteUpload = (upload: UploadRow) => {
+    setDeleteUploadTarget(upload);
   };
 
   const handleToggleBlock = async (user: UserSummary) => {
@@ -496,7 +577,10 @@ function App() {
     }
   };
 
-  const handleUploadFiles = async (files: File[]) => {
+  const handleUploadFiles = async (
+    files: File[],
+    fields?: { periodId?: string; basePaymentId?: string }
+  ) => {
     if (!token || files.length === 0) {
       return;
     }
@@ -510,7 +594,7 @@ function App() {
     });
 
     try {
-      const response = await uploadPdfs(token, files, (progress) => {
+      const response = await uploadPdfs(token, files, fields, (progress) => {
         setUploadProgress({
           ...progress,
           label: "Enviando PDFs..."
@@ -884,18 +968,27 @@ function App() {
             onOpenPdfUpload={openPdfUploadShortcut}
           />
         ) : null}
+        {activeView === "periods" ? (
+          <PeriodsScreen
+            currentUser={currentUser}
+            bases={paymentBases}
+            periods={paymentPeriods}
+            onCreatePeriod={handleCreatePeriod}
+          />
+        ) : null}
         {activeView === "pdfs" ? (
           <PdfsScreen
             uploads={uploads}
             uploadProgress={uploadProgress}
             uploadHistory={uploadHistory}
             onCloseHistory={() => setUploadHistory(null)}
-            onDeleteUpload={handleDeleteUpload}
+            onDeleteUpload={requestDeleteUpload}
             onDownloadUpload={handleDownloadUpload}
             onOpenUploadHistory={handleOpenUploadHistory}
             onReplaceUpload={handleReplaceUpload}
             onUploadFiles={handleUploadFiles}
-            uploadSignal={uploadSignal}
+            periods={paymentPeriods}
+            bases={paymentBases}
           />
         ) : null}
         {activeView === "users" ? (
@@ -947,6 +1040,48 @@ function App() {
                 }}
               >
                 Excluir agora
+                <TrashSimple size={18} weight="bold" />
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {deleteUploadTarget ? (
+        <div className="modal-overlay" onClick={() => setDeleteUploadTarget(null)}>
+          <div
+            className="modal-card modal-card--confirm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-upload-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-card__header">
+              <div>
+                <p className="eyebrow">Confirmacao</p>
+                <h3 id="delete-upload-title">Remover PDF</h3>
+                <p>
+                  Remover permanentemente <strong>{deleteUploadTarget.fileName}</strong> da fila operacional?
+                </p>
+              </div>
+            </div>
+
+            <div className="confirm-actions">
+              <button className="ghost-button" type="button" onClick={() => setDeleteUploadTarget(null)}>
+                Cancelar
+              </button>
+              <button
+                className="primary-button primary-button--inline"
+                type="button"
+                onClick={async () => {
+                  const target = deleteUploadTarget;
+                  setDeleteUploadTarget(null);
+                  if (target) {
+                    await handleDeleteUpload(target.id);
+                  }
+                }}
+              >
+                Remover agora
                 <TrashSimple size={18} weight="bold" />
               </button>
             </div>
@@ -1164,6 +1299,258 @@ function DashboardScreen({
   );
 }
 
+function PeriodsScreen({
+  currentUser,
+  bases,
+  periods,
+  onCreatePeriod
+}: {
+  currentUser: SessionUser | null;
+  bases: PaymentBase[];
+  periods: PaymentPeriod[];
+  onCreatePeriod: (payload: {
+    name: string;
+    startDate: string;
+    endDate: string;
+    paymentType: "semanal" | "quinzenal" | "mensal";
+  }) => Promise<boolean> | boolean;
+}) {
+  const [formValues, setFormValues] = useState({
+    name: "",
+    startDate: "",
+    endDate: "",
+    paymentType: "semanal" as "semanal" | "quinzenal" | "mensal"
+  });
+
+  const baseByType = useMemo(
+    () =>
+      bases.reduce<Record<string, PaymentBase[]>>((accumulator, base) => {
+        const key = base.paymentType;
+        accumulator[key] = [...(accumulator[key] || []), base];
+        return accumulator;
+      }, {}),
+    [bases]
+  );
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const success = await onCreatePeriod(formValues);
+
+    if (success) {
+      setFormValues({
+        name: "",
+        startDate: "",
+        endDate: "",
+        paymentType: "semanal"
+      });
+    }
+  };
+
+  if (!currentUser || (currentUser.level !== "N3" && currentUser.level !== "N4")) {
+    return (
+      <div className="screen">
+        <section className="panel">
+          <h3>Acesso restrito</h3>
+          <p>Esta funcionalidade esta liberada apenas para N3 e N4.</p>
+        </section>
+      </div>
+    );
+  }
+
+  return (
+    <div className="screen">
+      <section className="screen__intro">
+        <div>
+          <p className="eyebrow">Administracao de periodos</p>
+          <h1>Criacao de Periodo</h1>
+          <p>Cadastre intervalos de pagamento e vincule automaticamente as bases corretas por tipo.</p>
+        </div>
+      </section>
+
+      <section className="stats-grid stats-grid--three">
+        <article className="stat-card">
+          <div className="stat-card__icon">
+            <CalendarBlank size={30} />
+          </div>
+          <div>
+            <strong>{periods.length}</strong>
+            <span>Periodos cadastrados</span>
+            <small>Disponiveis para envio de PDFs</small>
+          </div>
+        </article>
+        <article className="stat-card">
+          <div className="stat-card__icon">
+            <GearSix size={30} />
+          </div>
+          <div>
+            <strong>{bases.length}</strong>
+            <span>Bases ativas</span>
+            <small>Carregadas do banco de dados</small>
+          </div>
+        </article>
+        <article className="stat-card">
+          <div className="stat-card__icon">
+            <UsersThree size={30} />
+          </div>
+          <div>
+            <strong>N3/N4</strong>
+            <span>Autorizacao</span>
+            <small>Controle administrativo total</small>
+          </div>
+        </article>
+      </section>
+
+      <section className="panel">
+        <div className="panel__header">
+          <div>
+            <h3>Novo periodo de pagamento</h3>
+            <p>Escolha o intervalo, a descricao e o tipo de periodicidade.</p>
+          </div>
+        </div>
+
+        <form className="admin-form" onSubmit={handleSubmit}>
+          <label className="field">
+            <span>Descricao do periodo</span>
+            <input
+              name="name"
+              placeholder="Pagamento Semanal 1 a 7"
+              required
+              value={formValues.name}
+              onChange={(event) =>
+                setFormValues((current) => ({
+                  ...current,
+                  name: event.target.value
+                }))
+              }
+            />
+          </label>
+
+          <label className="field">
+            <span>Tipo de pagamento</span>
+            <select
+              name="paymentType"
+              className="field__select"
+              value={formValues.paymentType}
+              onChange={(event) =>
+                setFormValues((current) => ({
+                  ...current,
+                  paymentType: event.target.value as "semanal" | "quinzenal" | "mensal"
+                }))
+              }
+            >
+              <option value="semanal">SEMANAL</option>
+              <option value="quinzenal">QUINZENAL</option>
+              <option value="mensal">MENSAL</option>
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Data de inicio</span>
+            <input
+              name="startDate"
+              type="date"
+              required
+              value={formValues.startDate}
+              onChange={(event) =>
+                setFormValues((current) => ({
+                  ...current,
+                  startDate: event.target.value
+                }))
+              }
+            />
+          </label>
+
+          <label className="field">
+            <span>Data de fim</span>
+            <input
+              name="endDate"
+              type="date"
+              required
+              value={formValues.endDate}
+              onChange={(event) =>
+                setFormValues((current) => ({
+                  ...current,
+                  endDate: event.target.value
+                }))
+              }
+            />
+          </label>
+
+          <div className="field">
+            <span>Bases vinculadas automaticamente</span>
+            <div className="checkbox-grid">
+              {(formValues.paymentType === "mensal" ? bases : baseByType[formValues.paymentType] || []).map(
+                (base) => (
+                  <span className="mini-chip" key={base.id}>
+                    {base.name}
+                  </span>
+                )
+              )}
+            </div>
+          </div>
+
+          <div className="admin-form__actions">
+            <button className="primary-button primary-button--inline" type="submit">
+              Criar periodo
+              <ArrowRight size={18} weight="bold" />
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section className="panel">
+        <div className="panel__header">
+          <div>
+            <h3>Periodos cadastrados</h3>
+            <p>Os periodos aparecem aqui e tambem ficam disponiveis na tela de envio de PDFs.</p>
+          </div>
+        </div>
+
+        <div className="period-list">
+          {periods.map((period) => {
+            const totalBases = period.bases.length;
+            const completion = totalBases > 0 ? `${period.uploadedTotal}/${totalBases}` : "0/0";
+            return (
+              <article className="period-card" key={period.id}>
+                <div>
+                  <p className="eyebrow">Periodo {period.paymentType.toUpperCase()}</p>
+                  <h4>{period.name}</h4>
+                  <p>
+                    {new Date(period.startDate).toLocaleDateString("pt-BR")} a{" "}
+                    {new Date(period.endDate).toLocaleDateString("pt-BR")}
+                  </p>
+                </div>
+
+                <div className="period-card__meta">
+                  <span className={`status-pill ${period.status === "disponivel" ? "status-pill--active" : ""}`}>
+                    {formatStatusLabel(period.status)}
+                  </span>
+                  <strong>{completion}</strong>
+                  <small>PDFs por base</small>
+                </div>
+
+                <div className="module-chips">
+                  {period.bases.map((base) => (
+                    <span className="mini-chip" key={`${period.id}-${base.id}`}>
+                      {base.name}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="period-card__actions">
+                  <button className="ghost-button ghost-button--small" type="button" disabled>
+                    Aprovar periodo
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function PdfsScreen({
   uploads,
   uploadProgress,
@@ -1174,30 +1561,39 @@ function PdfsScreen({
   onOpenUploadHistory,
   onDeleteUpload,
   onCloseHistory,
-  uploadSignal
+  periods,
+  bases
 }: {
   uploads: UploadRow[];
   uploadProgress: UploadProgressState | null;
   uploadHistory: UploadHistoryState;
-  onUploadFiles: (files: File[]) => Promise<void> | void;
+  onUploadFiles: (files: File[], fields?: { periodId?: string; basePaymentId?: string }) => Promise<void> | void;
   onReplaceUpload: (uploadId: string, file: File) => Promise<void> | void;
   onDownloadUpload: (upload: UploadRow) => Promise<void> | void;
   onOpenUploadHistory: (uploadId: string) => Promise<void> | void;
-  onDeleteUpload: (uploadId: string) => Promise<void> | void;
+  onDeleteUpload: (upload: UploadRow) => void;
   onCloseHistory: () => void;
-  uploadSignal: number;
+  periods: PaymentPeriod[];
+  bases: PaymentBase[];
 }) {
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
-  const lastUploadSignal = useRef(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
+  const [selectedPeriodId, setSelectedPeriodId] = useState("");
+  const [selectedBaseId, setSelectedBaseId] = useState("");
+
+  const selectedPeriod = periods.find((period) => period.id === selectedPeriodId) || null;
+  const allowedBases = selectedPeriod
+    ? selectedPeriod.paymentType === "mensal"
+      ? bases
+      : bases.filter((base) => base.paymentType === selectedPeriod.paymentType)
+    : [];
 
   useEffect(() => {
-    if (uploadSignal > lastUploadSignal.current) {
-      lastUploadSignal.current = uploadSignal;
-      uploadInputRef.current?.click();
+    if (selectedPeriod && !allowedBases.some((base) => base.id === selectedBaseId)) {
+      setSelectedBaseId(allowedBases[0]?.id || "");
     }
-  }, [uploadSignal]);
+  }, [allowedBases, selectedBaseId, selectedPeriod]);
 
   const filteredUploads = useMemo(() => {
     return uploads.filter((row) => {
@@ -1218,10 +1614,62 @@ function PdfsScreen({
           <h1>Envio de PDFs</h1>
           <p>Upload multiplo, acompanhamento de status e substituicao de arquivos versionados.</p>
         </div>
-        <button className="primary-button primary-button--inline file-picker" type="button" onClick={() => uploadInputRef.current?.click()}>
-          Novo upload
-          <FileArrowUp size={18} weight="bold" />
-        </button>
+      </section>
+
+      <section className="panel">
+        <div className="panel__header">
+          <div>
+            <h3>Periodo ativo para envio</h3>
+            <p>Escolha o periodo e a base antes de anexar os PDFs.</p>
+          </div>
+        </div>
+
+        <div className="filters-row filters-row--stack">
+          <label className="filter-select">
+            <CalendarBlank size={18} />
+            <select value={selectedPeriodId} onChange={(event) => setSelectedPeriodId(event.target.value)}>
+              <option value="">Selecione um periodo</option>
+              {periods.map((period) => (
+                <option key={period.id} value={period.id}>
+                  {period.name} - {formatStatusLabel(period.status)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="filter-select">
+            <GearSix size={18} />
+            <select value={selectedBaseId} onChange={(event) => setSelectedBaseId(event.target.value)}>
+              <option value="">Selecione uma base</option>
+              {allowedBases.map((base) => (
+                <option key={base.id} value={base.id}>
+                  {base.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <button
+            className="primary-button primary-button--inline file-picker"
+            type="button"
+            onClick={() => uploadInputRef.current?.click()}
+            disabled={!selectedPeriodId || !selectedBaseId}
+          >
+            Novo upload
+            <FileArrowUp size={18} weight="bold" />
+          </button>
+        </div>
+
+        <div className="period-tiles">
+          {periods.map((period) => (
+            <article className="period-tile" key={period.id}>
+              <strong>{period.name}</strong>
+              <span>{period.paymentType.toUpperCase()}</span>
+              <small>{formatStatusLabel(period.status)}</small>
+            </article>
+          ))}
+        </div>
+
         <input
           ref={uploadInputRef}
           className="file-picker__input"
@@ -1230,7 +1678,10 @@ function PdfsScreen({
           multiple
           onChange={(event) => {
             const files = Array.from(event.target.files || []);
-            void onUploadFiles(files);
+            void onUploadFiles(files, {
+              periodId: selectedPeriodId,
+              basePaymentId: selectedBaseId
+            });
             event.currentTarget.value = "";
           }}
         />
@@ -1337,11 +1788,7 @@ function PdfsScreen({
                       <button
                         className="ghost-button ghost-button--small ghost-button--danger"
                         type="button"
-                        onClick={() => {
-                          if (window.confirm("Deseja remover este PDF logicamente da fila?")) {
-                            void onDeleteUpload(row.id);
-                          }
-                        }}
+                        onClick={() => onDeleteUpload(row)}
                       >
                         <TrashSimple size={16} />
                         Remover

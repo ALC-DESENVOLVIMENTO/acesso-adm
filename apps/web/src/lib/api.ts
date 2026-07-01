@@ -15,6 +15,8 @@ export type LoginResponse = {
   };
 };
 
+export type SessionResponse = LoginResponse;
+
 export type DashboardSummary = {
   pdfsSent: number;
   pendingPdfs: number;
@@ -33,6 +35,10 @@ export type UploadRow = {
   sentAt: string;
   version: number;
   owner: string;
+  periodId?: string | null;
+  periodName?: string | null;
+  baseId?: string | null;
+  baseName?: string | null;
   replacedUploadId?: string | null;
 };
 
@@ -55,6 +61,37 @@ export type UserPayload = {
   email: string;
   level: "N1" | "N2" | "N3" | "N4";
   modules: string[];
+};
+
+export type PaymentFrequency = "semanal" | "quinzenal" | "mensal";
+
+export type PeriodBase = {
+  id: string;
+  name: string;
+  paymentType: PaymentFrequency;
+};
+
+export type PaymentBase = PeriodBase & {
+  active: boolean;
+};
+
+export type PaymentPeriod = {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  paymentType: PaymentFrequency;
+  status: "disponivel" | "aguardando_aprovacao" | "aprovado";
+  bases: PeriodBase[];
+  uploadedTotal: number;
+  uploadedByBase: Record<string, number>;
+};
+
+export type CreatePaymentPeriodPayload = {
+  name: string;
+  startDate: string;
+  endDate: string;
+  paymentType: PaymentFrequency;
 };
 
 export type UploadProgressState = {
@@ -102,6 +139,7 @@ async function requestUpload<T>(params: {
   path: string;
   token: string;
   body: FormData;
+  fields?: Record<string, string>;
   onProgress?: (progress: UploadProgressState) => void;
 }) {
   return new Promise<T>((resolve, reject) => {
@@ -137,6 +175,12 @@ async function requestUpload<T>(params: {
       reject(new Error("Falha de rede durante o upload."));
     };
 
+    if (params.fields) {
+      Object.entries(params.fields).forEach(([key, value]) => {
+        params.body.append(key, value);
+      });
+    }
+
     xhr.send(params.body);
   });
 }
@@ -145,6 +189,14 @@ export function loginRequest(body: { email: string; password: string }) {
   return request<LoginResponse>("/auth/login", {
     method: "POST",
     body
+  });
+}
+
+export function fetchSession(token: string) {
+  return request<SessionResponse>("/auth/me", {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
   });
 }
 
@@ -169,6 +221,32 @@ export function fetchDashboardSummary(token: string) {
 
 export function fetchUploads(token: string) {
   return request<UploadRow[]>("/uploads", {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function fetchPaymentPeriods(token: string) {
+  return request<PaymentPeriod[]>("/periods", {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function fetchPaymentBases(token: string) {
+  return request<PaymentBase[]>("/periods/bases", {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function createPaymentPeriod(token: string, body: CreatePaymentPeriodPayload) {
+  return request<{ message: string }>("/periods", {
+    method: "POST",
+    body,
     headers: {
       Authorization: `Bearer ${token}`
     }
@@ -238,6 +316,7 @@ export function resetUserPassword(token: string, userId: string) {
 export function uploadPdfs(
   token: string,
   files: File[],
+  fields?: { periodId?: string; basePaymentId?: string },
   onProgress?: (progress: UploadProgressState) => void
 ) {
   const formData = new FormData();
@@ -247,6 +326,7 @@ export function uploadPdfs(
     path: "/uploads",
     token,
     body: formData,
+    fields,
     onProgress
   });
 }

@@ -1,5 +1,11 @@
 import bcrypt from "bcryptjs";
-import { PrismaClient, AccessLevelCode, PermissionOverrideType, UploadStatus } from "@prisma/client";
+import {
+  PrismaClient,
+  AccessLevelCode,
+  PermissionOverrideType,
+  PaymentFrequencyCode,
+  UploadStatus
+} from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -25,6 +31,52 @@ const permissions = [
   { codigo: "users.view", nome: "Visualizar usuarios", moduloCodigo: "users" },
   { codigo: "users.manage", nome: "Gerenciar usuarios", moduloCodigo: "users" },
   { codigo: "financeiro.view", nome: "Visualizar financeiro", moduloCodigo: "financeiro" }
+];
+
+const paymentBases = [
+  { nome: "ARAÇATUBA", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "ARAPUTANGA", tipoPadrao: PaymentFrequencyCode.quinzenal },
+  { nome: "ARAXÁ", tipoPadrao: PaymentFrequencyCode.quinzenal },
+  { nome: "BARRETOS", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "BARUERI", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "BAURU", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "CÁCERES", tipoPadrao: PaymentFrequencyCode.quinzenal },
+  { nome: "CAMPO GRANDE", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "CAMPOS DOS GOYTACAZES", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "CHAPADÃO DO SUL", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "CONCEIÇÃO DO MATO DENTRO", tipoPadrao: PaymentFrequencyCode.quinzenal },
+  { nome: "CONTAGEM", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "CORDOVIL", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "CUIABÁ", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "GOIANIA", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "GUANHAES", tipoPadrao: PaymentFrequencyCode.quinzenal },
+  { nome: "GUAXUPE", tipoPadrao: PaymentFrequencyCode.quinzenal },
+  { nome: "IPATINGA", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "ITABORAI", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "JALES", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "MARILIA", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "MINAÇU", tipoPadrao: PaymentFrequencyCode.quinzenal },
+  { nome: "MOZARLANDIA", tipoPadrao: PaymentFrequencyCode.quinzenal },
+  { nome: "NOVA LIMA", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "PATOS DE MINAS", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "POÇOS DE CALDAS", tipoPadrao: PaymentFrequencyCode.quinzenal },
+  { nome: "PONTES E LACERDA", tipoPadrao: PaymentFrequencyCode.quinzenal },
+  { nome: "POUSO ALEGRE", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "PRESIDENTE PRUDENTE", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "QUEIMADOS", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "RIBEIRAO PRETO", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "RIO VERDE", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "SÃO CARLOS", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "SÃO JOAO DE MERITI", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "SÃO JOSE DO RIO PRETO", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "SINOP", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "TEÓFILO OTONI", tipoPadrao: PaymentFrequencyCode.quinzenal },
+  { nome: "UBERABA", tipoPadrao: PaymentFrequencyCode.quinzenal },
+  { nome: "UBERLANDIA", tipoPadrao: PaymentFrequencyCode.quinzenal },
+  { nome: "VESPASIANO", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "HIDROLANDIA", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "VOLTA REDONDA", tipoPadrao: PaymentFrequencyCode.semanal },
+  { nome: "SANTO ANTONIO DA PLATINA", tipoPadrao: PaymentFrequencyCode.quinzenal }
 ];
 
 const users = [
@@ -83,6 +135,17 @@ async function main() {
         nome: permission.nome,
         moduloId: modulesMap[permission.moduloCodigo]
       }
+    });
+  }
+
+  for (const base of paymentBases) {
+    await prisma.basePagamento.upsert({
+      where: { nome: base.nome },
+      update: {
+        tipoPadrao: base.tipoPadrao,
+        ativo: true
+      },
+      create: base
     });
   }
 

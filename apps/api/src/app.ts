@@ -4,6 +4,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import authRoutes from "./modules/auth/auth.routes.js";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes.js";
+import periodsRoutes from "./modules/periods/periods.routes.js";
 import uploadsRoutes from "./modules/uploads/uploads.routes.js";
 import usersRoutes from "./modules/users/users.routes.js";
 
@@ -31,6 +32,7 @@ export function createApp() {
 
   app.use("/api/auth", authRoutes);
   app.use("/api/dashboard", dashboardRoutes);
+  app.use("/api/periods", periodsRoutes);
   app.use("/api/uploads", uploadsRoutes);
   app.use("/api/users", usersRoutes);
 

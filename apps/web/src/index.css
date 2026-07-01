@@ -567,7 +567,7 @@ button {
 }
 
 .topbar__brand img {
-  height: 58px;
+  height: 54px;
   width: auto;
   object-fit: contain;
 }
@@ -788,6 +788,71 @@ button {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
+}
+
+.filters-row--stack {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px) auto;
+  align-items: end;
+}
+
+.period-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.period-tile {
+  border-radius: 18px;
+  padding: 16px 18px;
+  background: rgba(255, 95, 83, 0.06);
+  border: 1px solid rgba(255, 95, 83, 0.12);
+  display: grid;
+  gap: 4px;
+}
+
+.period-tile strong {
+  font-size: 1rem;
+}
+
+.period-tile span,
+.period-tile small {
+  color: var(--muted);
+}
+
+.period-list {
+  display: grid;
+  gap: 16px;
+}
+
+.period-card {
+  border-radius: 24px;
+  border: 1px solid rgba(255, 95, 83, 0.08);
+  background: rgba(255, 255, 255, 0.88);
+  padding: 22px;
+  display: grid;
+  gap: 14px;
+}
+
+.period-card h4 {
+  margin: 4px 0;
+  font-size: 1.3rem;
+}
+
+.period-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.period-card__meta strong {
+  font-size: 1.2rem;
+}
+
+.period-card__actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .quick-action-card {

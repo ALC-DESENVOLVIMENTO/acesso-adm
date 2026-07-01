@@ -38,6 +38,12 @@ type UploadHistoryItem = Awaited<ReturnType<typeof prisma.uploadPdf.findMany>>[n
   usuario: {
     nome: string;
   };
+  periodoPagamento: {
+    nome: string;
+  } | null;
+  basePagamento: {
+    nome: string;
+  } | null;
 };
 
 function serializeUpload(upload: UploadHistoryItem) {
@@ -49,6 +55,10 @@ function serializeUpload(upload: UploadHistoryItem) {
     sentAt: upload.criadoEm,
     version: upload.versao,
     owner: upload.usuario.nome,
+    periodId: upload.periodoPagamentoId,
+    periodName: upload.periodoPagamento?.nome || null,
+    baseId: upload.basePagamentoId,
+    baseName: upload.basePagamento?.nome || null,
     replacedUploadId: upload.substituiUploadId
   };
 }
@@ -57,6 +67,16 @@ async function getUploadHistory(uploadId: string) {
   const uploads = await prisma.uploadPdf.findMany({
     include: {
       usuario: {
+        select: {
+          nome: true
+        }
+      },
+      periodoPagamento: {
+        select: {
+          nome: true
+        }
+      },
+      basePagamento: {
         select: {
           nome: true
         }
@@ -115,16 +135,30 @@ router.get("/", (_req, res) => {
         }
       },
       include: {
-        usuario: true
+        usuario: true,
+        periodoPagamento: {
+          select: {
+            nome: true
+          }
+        },
+        basePagamento: {
+          select: {
+            nome: true
+          }
+        }
       },
       orderBy: {
         criadoEm: "desc"
       }
     });
 
-    res.json(
-      uploads.map(serializeUpload)
+    const childReferences = new Set(
+      uploads
+        .map((item) => item.substituiUploadId)
+        .filter((value): value is string => Boolean(value))
     );
+
+    res.json(uploads.filter((item) => !childReferences.has(item.id)).map(serializeUpload));
   })().catch((error) => {
     res.status(500).json({
       message: "Falha ao listar uploads.",
@@ -163,10 +197,46 @@ router.post("/", upload.array("files", 20), (req, res) => {
     }
 
     const files = (req.files as Express.Multer.File[]) || [];
+    const periodId = String(req.body?.periodId || "").trim();
+    const basePaymentId = String(req.body?.basePaymentId || "").trim();
 
     if (files.length === 0) {
       res.status(400).json({
         message: "Selecione ao menos um PDF para upload."
+      });
+      return;
+    }
+
+    if (!periodId || !basePaymentId) {
+      res.status(400).json({
+        message: "Selecione um periodo e uma base antes de enviar PDFs."
+      });
+      return;
+    }
+
+    const period = await prisma.periodoPagamento.findUnique({
+      where: {
+        id: periodId
+      },
+      include: {
+        bases: {
+          include: {
+            basePagamento: true
+          }
+        }
+      }
+    });
+
+    if (!period) {
+      res.status(404).json({
+        message: "Periodo de pagamento nao encontrado."
+      });
+      return;
+    }
+
+    if (!period.bases.some((item) => item.basePagamentoId === basePaymentId)) {
+      res.status(400).json({
+        message: "Base invalida para o periodo selecionado."
       });
       return;
     }
@@ -178,7 +248,9 @@ router.post("/", upload.array("files", 20), (req, res) => {
         caminhoArquivo: path.relative(process.cwd(), file.path).replace(/\\/g, "/"),
         versao: 1,
         status: UploadStatus.pendente,
-        usuarioId: req.auth!.userId
+        usuarioId: req.auth!.userId,
+        periodoPagamentoId: periodId,
+        basePagamentoId
       }))
     });
 
@@ -191,7 +263,9 @@ router.post("/", upload.array("files", 20), (req, res) => {
         userAgent: req.get("user-agent") || null,
         detalhes: {
           quantidade: files.length,
-          arquivos: files.map((file) => file.originalname)
+          arquivos: files.map((file) => file.originalname),
+          periodoId,
+          basePaymentId
         }
       }
     });
@@ -335,6 +409,8 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
           versao: currentUpload.versao + 1,
           status: UploadStatus.pendente,
           usuarioId: req.auth.userId,
+          periodoPagamentoId: currentUpload.periodoPagamentoId,
+          basePagamentoId: currentUpload.basePagamentoId,
           substituiUploadId: currentUpload.id
         }
       })

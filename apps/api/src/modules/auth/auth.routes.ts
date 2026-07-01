@@ -190,11 +190,59 @@ router.post("/first-access/change-password", (req, res) => {
     });
 
     res.json({
-      message: "Senha alterada com sucesso."
+      message: "Senha alterada com sucesso.",
+      firstAccess: false
     });
   })().catch((error) => {
     res.status(500).json({
       message: "Falha ao alterar senha.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
+
+router.get("/me", requireAuth, (req, res) => {
+  void (async () => {
+    if (!req.auth) {
+      res.status(401).json({
+        message: "Sessao invalida."
+      });
+      return;
+    }
+
+    const account = await prisma.usuario.findUnique({
+      where: {
+        id: req.auth.userId
+      },
+      include: getUserAccessInclude()
+    });
+
+    if (!account) {
+      res.status(404).json({
+        message: "Usuario nao encontrado."
+      });
+      return;
+    }
+
+    const modules = resolveEffectiveModules(account);
+
+    res.json({
+      token: req.auth.token,
+      firstAccess: account.primeiroAcesso,
+      user: {
+        id: account.id,
+        name: account.nome,
+        email: account.email,
+        level: account.nivel.codigo,
+        active: account.ativo,
+        blocked: account.bloqueado,
+        firstAccess: account.primeiroAcesso,
+        modules
+      }
+    });
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao recuperar sessao.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });
