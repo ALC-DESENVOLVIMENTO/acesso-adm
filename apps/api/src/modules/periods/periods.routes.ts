@@ -219,4 +219,55 @@ router.post("/", requireAdmin, (req, res) => {
   });
 });
 
+router.delete("/:id", requireAdmin, (req, res) => {
+  void (async () => {
+    const periodId = String(req.params.id);
+    const existing = await prisma.periodoPagamento.findUnique({
+      where: {
+        id: periodId
+      },
+      select: {
+        id: true,
+        nome: true
+      }
+    });
+
+    if (!existing) {
+      res.status(404).json({
+        message: "Periodo nao encontrado."
+      });
+      return;
+    }
+
+    await prisma.periodoPagamento.delete({
+      where: {
+        id: periodId
+      }
+    });
+
+    await prisma.logAuditoria.create({
+      data: {
+        usuarioId: req.auth?.userId || "system",
+        acao: "excluir_periodo_pagamento",
+        entidade: "periodos_pagamento",
+        entidadeId: periodId,
+        ipOrigem: req.ip,
+        userAgent: req.get("user-agent") || null,
+        detalhes: {
+          nome: existing.nome
+        }
+      }
+    });
+
+    res.json({
+      message: "Periodo excluido com sucesso."
+    });
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao excluir periodo.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
+
 export default router;

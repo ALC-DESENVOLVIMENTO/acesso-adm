@@ -385,6 +385,15 @@ export function createPaymentPeriod(token: string, body: CreatePaymentPeriodPayl
   });
 }
 
+export function deletePaymentPeriod(token: string, periodId: string) {
+  return request<{ message: string }>(`/periods/${periodId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
 export function fetchUsers(token: string) {
   return request<UserSummary[]>("/users", {
     headers: {

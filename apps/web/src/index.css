@@ -858,6 +858,8 @@ button {
 .period-card__actions {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .quick-action-card {
@@ -988,6 +990,25 @@ button {
   gap: 16px;
 }
 
+.admin-form.period-form .field input,
+.admin-form.period-form .field__select,
+.admin-form.period-form .field select {
+  border: 1px solid rgba(255, 95, 83, 0.22);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.94);
+  padding: 12px 16px;
+  outline: none;
+  box-shadow: 0 10px 24px rgba(255, 95, 83, 0.08);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.admin-form.period-form .field input:focus,
+.admin-form.period-form .field__select:focus,
+.admin-form.period-form .field select:focus {
+  border-color: rgba(255, 95, 83, 0.7);
+  box-shadow: 0 0 0 4px rgba(255, 95, 83, 0.16);
+}
+
 .admin-form--modal {
   margin-top: 12px;
 }
@@ -1013,6 +1034,20 @@ button {
 .filter-select:focus-within {
   border-color: rgba(255, 61, 48, 0.7);
   box-shadow: 0 0 0 4px rgba(255, 61, 48, 0.12);
+}
+
+.admin-form.period-form .field__select,
+.admin-form.period-form select.field__select {
+  color: #25324a;
+  border-color: rgba(255, 95, 83, 0.4);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 24px rgba(255, 95, 83, 0.08);
+}
+
+.admin-form.period-form .field__select:focus,
+.admin-form.period-form select.field__select:focus {
+  border-color: rgba(255, 95, 83, 0.7);
+  box-shadow: 0 0 0 4px rgba(255, 95, 83, 0.16);
 }
 
 .ghost-button--danger {
@@ -1093,6 +1128,68 @@ button {
 .crm-card {
   display: grid;
   gap: 16px;
+}
+
+.upload-batches {
+  display: grid;
+  gap: 14px;
+}
+
+.upload-batch {
+  border-radius: 20px;
+  padding: 16px 18px;
+  border: 1px solid rgba(31, 36, 48, 0.08);
+  background: rgba(244, 246, 250, 0.82);
+  display: grid;
+  gap: 10px;
+}
+
+.upload-batch__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.upload-batch__header h4 {
+  margin: 0;
+  font-size: 1.02rem;
+}
+
+.upload-batch__header p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.upload-batch__meta {
+  margin: 0;
+  color: #3e4a60;
+  font-weight: 600;
+}
+
+.upload-batch__files {
+  display: grid;
+  gap: 10px;
+}
+
+.upload-batch__file {
+  border: 1px solid rgba(31, 36, 48, 0.07);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.86);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.upload-batch__file strong {
+  display: block;
+}
+
+.upload-batch__file span {
+  color: var(--muted);
 }
 
 .crm-driver {
@@ -1474,6 +1571,12 @@ button {
 
   .chart {
     grid-template-columns: 1fr;
+  }
+
+  .upload-batch__header,
+  .upload-batch__file {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .chart__labels {

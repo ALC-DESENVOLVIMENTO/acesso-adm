@@ -27,6 +27,7 @@ import {
   changeFirstAccessPassword,
   createUser,
   createPaymentPeriod,
+  deletePaymentPeriod,
   deleteUser,
   deleteUpload,
   downloadUpload,
@@ -166,6 +167,7 @@ function App() {
   const [createUserSignal, setCreateUserSignal] = useState(0);
   const [deleteUserTarget, setDeleteUserTarget] = useState<UserSummary | null>(null);
   const [deleteUploadTarget, setDeleteUploadTarget] = useState<UploadRow | null>(null);
+  const [deletePeriodTarget, setDeletePeriodTarget] = useState<PaymentPeriod | null>(null);
 
   const allowedMenu = useMemo(() => {
     if (!currentUser) {
@@ -399,6 +401,7 @@ function App() {
     setUploadHistory(null);
     setDeleteUserTarget(null);
     setDeleteUploadTarget(null);
+    setDeletePeriodTarget(null);
     setActiveView("dashboard");
     setView("login");
     localStorage.removeItem("portal-admin-session");
@@ -523,6 +526,10 @@ function App() {
 
   const requestDeleteUpload = (upload: UploadRow) => {
     setDeleteUploadTarget(upload);
+  };
+
+  const requestDeletePeriod = (period: PaymentPeriod) => {
+    setDeletePeriodTarget(period);
   };
 
   const handleToggleBlock = async (user: UserSummary) => {
@@ -729,6 +736,27 @@ function App() {
       setFlashMessage({
         type: "error",
         text: error instanceof Error ? error.message : "Falha ao remover PDF."
+      });
+    } finally {
+      setLoadingMessage("");
+    }
+  };
+
+  const handleDeletePeriod = async (periodId: string) => {
+    if (!token) {
+      return;
+    }
+
+    setLoadingMessage("Excluindo periodo...");
+
+    try {
+      const response = await deletePaymentPeriod(token, periodId);
+      setFlashMessage({ type: "success", text: response.message });
+      await refreshPortalData();
+    } catch (error) {
+      setFlashMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Falha ao excluir periodo."
       });
     } finally {
       setLoadingMessage("");
@@ -989,6 +1017,7 @@ function App() {
             bases={paymentBases}
             periods={paymentPeriods}
             onCreatePeriod={handleCreatePeriod}
+            onDeletePeriod={requestDeletePeriod}
           />
         ) : null}
         {activeView === "pdfs" ? (
@@ -1100,6 +1129,48 @@ function App() {
                 }}
               >
                 Remover agora
+                <TrashSimple size={18} weight="bold" />
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {deletePeriodTarget ? (
+        <div className="modal-overlay" onClick={() => setDeletePeriodTarget(null)}>
+          <div
+            className="modal-card modal-card--confirm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-period-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-card__header">
+              <div>
+                <p className="eyebrow">Confirmacao</p>
+                <h3 id="delete-period-title">Excluir periodo</h3>
+                <p>
+                  Excluir permanentemente o periodo <strong>{deletePeriodTarget.name}</strong>?
+                </p>
+              </div>
+            </div>
+
+            <div className="confirm-actions">
+              <button className="ghost-button" type="button" onClick={() => setDeletePeriodTarget(null)}>
+                Cancelar
+              </button>
+              <button
+                className="primary-button primary-button--inline"
+                type="button"
+                onClick={async () => {
+                  const target = deletePeriodTarget;
+                  setDeletePeriodTarget(null);
+                  if (target) {
+                    await handleDeletePeriod(target.id);
+                  }
+                }}
+              >
+                Excluir agora
                 <TrashSimple size={18} weight="bold" />
               </button>
             </div>
@@ -1321,7 +1392,8 @@ function PeriodsScreen({
   currentUser,
   bases,
   periods,
-  onCreatePeriod
+  onCreatePeriod,
+  onDeletePeriod
 }: {
   currentUser: SessionUser | null;
   bases: PaymentBase[];
@@ -1332,6 +1404,7 @@ function PeriodsScreen({
     endDate: string;
     paymentType: "semanal" | "quinzenal" | "mensal";
   }) => Promise<boolean> | boolean;
+  onDeletePeriod: (period: PaymentPeriod) => void;
 }) {
   const [formValues, setFormValues] = useState({
     name: "",
@@ -1367,7 +1440,7 @@ function PeriodsScreen({
   if (!currentUser || (currentUser.level !== "N3" && currentUser.level !== "N4")) {
     return (
       <div className="screen">
-        <section className="panel">
+      <section className="panel">
           <h3>Acesso restrito</h3>
           <p>Esta funcionalidade esta liberada apenas para N3 e N4.</p>
         </section>
@@ -1426,7 +1499,7 @@ function PeriodsScreen({
           </div>
         </div>
 
-        <form className="admin-form" onSubmit={handleSubmit}>
+        <form className="admin-form period-form" onSubmit={handleSubmit}>
           <label className="field">
             <span>Descricao do periodo</span>
             <input
@@ -1526,8 +1599,10 @@ function PeriodsScreen({
 
         <div className="period-list">
           {periods.map((period) => {
-            const totalBases = period.bases.length;
-            const completion = totalBases > 0 ? `${period.uploadedTotal}/${totalBases}` : "0/0";
+            const uploadedByBaseEntries = period.bases.map((base) => ({
+              ...base,
+              total: period.uploadedByBase[base.id] || 0
+            }));
             return (
               <article className="period-card" key={period.id}>
                 <div>
@@ -1543,19 +1618,27 @@ function PeriodsScreen({
                   <span className={`status-pill ${period.status === "disponivel" ? "status-pill--active" : ""}`}>
                     {formatStatusLabel(period.status)}
                   </span>
-                  <strong>{completion}</strong>
-                  <small>PDFs por base</small>
+                  <strong>{period.uploadedTotal}</strong>
+                  <small>PDFs anexados</small>
                 </div>
 
                 <div className="module-chips">
-                  {period.bases.map((base) => (
+                  {uploadedByBaseEntries.map((base) => (
                     <span className="mini-chip" key={`${period.id}-${base.id}`}>
-                      {base.name}
+                      {base.name} ({base.total} PDF{base.total === 1 ? "" : "s"})
                     </span>
                   ))}
                 </div>
 
                 <div className="period-card__actions">
+                  <button
+                    className="ghost-button ghost-button--small ghost-button--danger"
+                    type="button"
+                    onClick={() => onDeletePeriod(period)}
+                  >
+                    Excluir
+                    <TrashSimple size={16} />
+                  </button>
                   <button className="ghost-button ghost-button--small" type="button" disabled>
                     Aprovar periodo
                   </button>
@@ -1599,6 +1682,7 @@ function PdfsScreen({
   const [statusFilter, setStatusFilter] = useState("todos");
   const [selectedPeriodId, setSelectedPeriodId] = useState("");
   const [selectedBaseId, setSelectedBaseId] = useState("");
+  const [expandedBatchKey, setExpandedBatchKey] = useState("");
 
   const selectedPeriod = periods.find((period) => period.id === selectedPeriodId) || null;
   const allowedBases = selectedPeriod
@@ -1613,7 +1697,7 @@ function PdfsScreen({
     }
   }, [allowedBases, selectedBaseId, selectedPeriod]);
 
-  const filteredUploads = useMemo(() => {
+  const visibleUploads = useMemo(() => {
     return uploads.filter((row) => {
       const matchesSearch =
         row.fileName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1623,6 +1707,50 @@ function PdfsScreen({
       return matchesSearch && matchesStatus;
     });
   }, [searchTerm, statusFilter, uploads]);
+
+  const uploadBatches = useMemo(() => {
+    const grouped = new Map<
+      string,
+      {
+        key: string;
+        ownerName: string;
+        periodName: string;
+        baseName: string;
+        lastSentAt: string;
+        uploads: UploadRow[];
+      }
+    >();
+
+    visibleUploads
+      .slice()
+      .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())
+      .forEach((row) => {
+        const key = `${row.periodId || "sem-periodo"}|${row.baseId || "sem-base"}|${row.owner}|${row.sentAt}`;
+        const existing = grouped.get(key);
+
+        if (existing) {
+          existing.uploads.push(row);
+          if (new Date(row.sentAt).getTime() > new Date(existing.lastSentAt).getTime()) {
+            existing.lastSentAt = row.sentAt;
+          }
+
+          return;
+        }
+
+        grouped.set(key, {
+          key,
+          periodName: row.periodName || "Periodo nao definido",
+          baseName: row.baseName || "Base nao definida",
+          ownerName: row.owner,
+          lastSentAt: row.sentAt,
+          uploads: [row]
+        });
+      });
+
+    return Array.from(grouped.values()).sort(
+      (batchA, batchB) => new Date(batchB.lastSentAt).getTime() - new Date(batchA.lastSentAt).getTime()
+    );
+  }, [visibleUploads]);
 
   return (
     <div className="screen">
@@ -1741,84 +1869,103 @@ function PdfsScreen({
         ) : null}
       </section>
 
-      <section className="panel">
-        <div className="panel__header">
-          <div>
-            <h3>Fila de documentos</h3>
-            <p>{filteredUploads.length} documento(s) visivel(is) na fila operacional</p>
-          </div>
+        <section className="panel">
+          <div className="panel__header">
+            <div>
+              <h3>Fila de documentos</h3>
+              <p>
+                {uploadBatches.length} lote(s) visivel(is) na fila operacional e {visibleUploads.length} documento(s) anexado(s)
+              </p>
+            </div>
           <div className="quick-meta">
             <span className="quick-meta__chip">Pendente</span>
             <span className="quick-meta__chip">Processado</span>
           </div>
         </div>
 
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Arquivo</th>
-                <th>Status</th>
-                <th>Data de envio</th>
-                <th>Responsavel</th>
-                <th>Acoes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUploads.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.fileName}</td>
-                  <td>
-                    <span className="status-pill">{row.status}</span>
-                  </td>
-                  <td>{new Date(row.sentAt).toLocaleString("pt-BR")}</td>
-                  <td>{row.owner}</td>
-                  <td>
-                    <div className="table-actions">
-                      <button
-                        className="ghost-button ghost-button--small"
-                        type="button"
-                        onClick={() => void onDownloadUpload(row)}
-                      >
-                        Baixar
-                      </button>
-                      <button
-                        className="ghost-button ghost-button--small"
-                        type="button"
-                        onClick={() => void onOpenUploadHistory(row.id)}
-                      >
-                        Historico
-                      </button>
-                      <label className="ghost-button ghost-button--small file-picker file-picker--ghost">
-                        Substituir
-                        <input
-                          type="file"
-                          accept="application/pdf"
-                          onChange={(event) => {
-                            const file = event.target.files?.[0];
-                            if (file) {
-                              void onReplaceUpload(row.id, file);
-                            }
-                            event.currentTarget.value = "";
-                          }}
-                        />
-                      </label>
-                      <button
-                        className="ghost-button ghost-button--small ghost-button--danger"
-                        type="button"
-                        onClick={() => onDeleteUpload(row)}
-                      >
-                        <TrashSimple size={16} />
-                        Remover
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+          <div className="upload-batches">
+            {uploadBatches.map((batch) => (
+              <article className="upload-batch" key={batch.key}>
+                <div className="upload-batch__header">
+                  <div>
+                    <h4>Lote {batch.baseName}</h4>
+                    <p>
+                      {batch.ownerName} · {batch.periodName} ·{" "}
+                      {new Date(batch.lastSentAt).toLocaleString("pt-BR")}
+                    </p>
+                  </div>
+                  <button
+                    className="ghost-button ghost-button--small"
+                    type="button"
+                    onClick={() =>
+                      setExpandedBatchKey((current) => (current === batch.key ? "" : batch.key))
+                    }
+                  >
+                    {expandedBatchKey === batch.key ? "Ocultar PDFs" : `Abrir lote (${batch.uploads.length})`}
+                  </button>
+                </div>
+
+                <p className="upload-batch__meta">Total: {batch.uploads.length} PDF(s)</p>
+
+                {expandedBatchKey === batch.key ? (
+                  <div className="upload-batch__files">
+                    {batch.uploads.map((row) => (
+                      <div className="upload-batch__file" key={row.id}>
+                        <div>
+                          <strong>{row.fileName}</strong>
+                          <span>
+                            {row.status} Â· {new Date(row.sentAt).toLocaleString("pt-BR")}
+                          </span>
+                        </div>
+
+                        <div className="table-actions">
+                          <button
+                            className="ghost-button ghost-button--small"
+                            type="button"
+                            onClick={() => void onDownloadUpload(row)}
+                          >
+                            Baixar
+                          </button>
+                          <button
+                            className="ghost-button ghost-button--small"
+                            type="button"
+                            onClick={() => void onOpenUploadHistory(row.id)}
+                          >
+                            Historico
+                          </button>
+                          <label className="ghost-button ghost-button--small file-picker file-picker--ghost">
+                            Substituir
+                            <input
+                              type="file"
+                              accept="application/pdf"
+                              onChange={(event) => {
+                                const file = event.target.files?.[0];
+                                if (file) {
+                                  void onReplaceUpload(row.id, file);
+                                }
+                                event.currentTarget.value = "";
+                              }}
+                            />
+                          </label>
+                          <button
+                            className="ghost-button ghost-button--small ghost-button--danger"
+                            type="button"
+                            onClick={() => onDeleteUpload(row)}
+                          >
+                            <TrashSimple size={16} />
+                            Remover
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </article>
+            ))}
+
+            {uploadBatches.length === 0 ? <div className="crm-empty">Nenhum PDF na fila operacional para os filtros atuais.</div> : null}
+          </div>
+        </section>
 
       {uploadHistory ? (
         <section className="panel">
