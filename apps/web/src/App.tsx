@@ -17,13 +17,22 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   changeFirstAccessPassword,
+  createUser,
+  downloadUpload,
   fetchDashboardSummary,
   fetchUploads,
   fetchUsers,
   loginRequest,
+  logoutRequest,
+  replaceUpload,
+  resetUserPassword,
+  updateUser,
+  updateUserStatus,
+  uploadPdfs,
   type DashboardSummary,
   type LoginResponse,
   type UploadRow,
+  type UserPayload,
   type UserSummary
 } from "./lib/api";
 
@@ -39,6 +48,10 @@ type Activity = {
 };
 
 type SessionUser = LoginResponse["user"];
+type FlashMessage = {
+  type: "success" | "error";
+  text: string;
+};
 
 const menuItems = [
   { key: "dashboard", label: "Dashboard", icon: HouseLine },
@@ -95,6 +108,7 @@ function App() {
   const [loginError, setLoginError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [loadingMessage, setLoadingMessage] = useState("");
+  const [flashMessage, setFlashMessage] = useState<FlashMessage | null>(null);
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary>(initialSummary);
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [uploads, setUploads] = useState<UploadRow[]>([]);
@@ -155,6 +169,7 @@ function App() {
         setDashboardSummary(summary);
         setUploads(uploadsData);
         setUsers(usersData);
+        setFlashMessage(null);
       } catch (error) {
         if (cancelled) {
           return;
@@ -264,6 +279,10 @@ function App() {
   };
 
   const handleLogout = () => {
+    if (token) {
+      void logoutRequest(token).catch(() => undefined);
+    }
+
     setCurrentUser(null);
     setToken("");
     setUsers([]);
@@ -275,6 +294,190 @@ function App() {
     setActiveView("dashboard");
     setView("login");
     localStorage.removeItem("portal-admin-session");
+  };
+
+  const refreshPortalData = async () => {
+    if (!token || !currentUser) {
+      return;
+    }
+
+    const [summary, uploadsData, usersData] = await Promise.all([
+      fetchDashboardSummary(token),
+      fetchUploads(token),
+      currentUser.modules.includes("users") ? fetchUsers(token) : Promise.resolve([])
+    ]);
+
+    setDashboardSummary(summary);
+    setUploads(uploadsData);
+    setUsers(usersData);
+  };
+
+  const handleCreateUser = async (payload: UserPayload) => {
+    if (!token) {
+      return;
+    }
+
+    setLoadingMessage("Criando usuario...");
+
+    try {
+      const response = await createUser(token, payload);
+      setFlashMessage({ type: "success", text: response.message });
+      await refreshPortalData();
+    } catch (error) {
+      setFlashMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Falha ao criar usuario."
+      });
+    } finally {
+      setLoadingMessage("");
+    }
+  };
+
+  const handleUpdateUser = async (userId: string, payload: UserPayload) => {
+    if (!token) {
+      return;
+    }
+
+    setLoadingMessage("Atualizando usuario...");
+
+    try {
+      const response = await updateUser(token, userId, payload);
+      setFlashMessage({ type: "success", text: response.message });
+      await refreshPortalData();
+    } catch (error) {
+      setFlashMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Falha ao atualizar usuario."
+      });
+    } finally {
+      setLoadingMessage("");
+    }
+  };
+
+  const handleToggleBlock = async (user: UserSummary) => {
+    if (!token) {
+      return;
+    }
+
+    setLoadingMessage("Atualizando bloqueio...");
+
+    try {
+      const response = await updateUserStatus(token, user.id, {
+        blocked: !user.blocked
+      });
+      setFlashMessage({ type: "success", text: response.message });
+      await refreshPortalData();
+    } catch (error) {
+      setFlashMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Falha ao alterar bloqueio."
+      });
+    } finally {
+      setLoadingMessage("");
+    }
+  };
+
+  const handleToggleActive = async (user: UserSummary) => {
+    if (!token) {
+      return;
+    }
+
+    setLoadingMessage("Atualizando status...");
+
+    try {
+      const response = await updateUserStatus(token, user.id, {
+        active: !user.active
+      });
+      setFlashMessage({ type: "success", text: response.message });
+      await refreshPortalData();
+    } catch (error) {
+      setFlashMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Falha ao atualizar status."
+      });
+    } finally {
+      setLoadingMessage("");
+    }
+  };
+
+  const handleResetPassword = async (userId: string) => {
+    if (!token) {
+      return;
+    }
+
+    setLoadingMessage("Redefinindo senha...");
+
+    try {
+      const response = await resetUserPassword(token, userId);
+      setFlashMessage({ type: "success", text: response.message });
+      await refreshPortalData();
+    } catch (error) {
+      setFlashMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Falha ao redefinir senha."
+      });
+    } finally {
+      setLoadingMessage("");
+    }
+  };
+
+  const handleUploadFiles = async (files: File[]) => {
+    if (!token || files.length === 0) {
+      return;
+    }
+
+    setLoadingMessage("Enviando PDFs...");
+
+    try {
+      const response = await uploadPdfs(token, files);
+      setFlashMessage({ type: "success", text: response.message });
+      await refreshPortalData();
+      setActiveView("pdfs");
+      setView("pdfs");
+    } catch (error) {
+      setFlashMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Falha ao enviar PDFs."
+      });
+    } finally {
+      setLoadingMessage("");
+    }
+  };
+
+  const handleReplaceUpload = async (uploadId: string, file: File) => {
+    if (!token) {
+      return;
+    }
+
+    setLoadingMessage("Substituindo PDF...");
+
+    try {
+      const response = await replaceUpload(token, uploadId, file);
+      setFlashMessage({ type: "success", text: response.message });
+      await refreshPortalData();
+    } catch (error) {
+      setFlashMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Falha ao substituir PDF."
+      });
+    } finally {
+      setLoadingMessage("");
+    }
+  };
+
+  const handleDownloadUpload = async (uploadRow: UploadRow) => {
+    if (!token) {
+      return;
+    }
+
+    try {
+      await downloadUpload(token, uploadRow.id, uploadRow.fileName);
+    } catch (error) {
+      setFlashMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Falha ao baixar arquivo."
+      });
+    }
   };
 
   if (view === "login") {
@@ -463,11 +666,35 @@ function App() {
           </div>
         ) : null}
 
+        {flashMessage ? (
+          <div className="panel">
+            <p className={flashMessage.type === "success" ? "success-note" : "form-error"}>
+              {flashMessage.text}
+            </p>
+          </div>
+        ) : null}
+
         {activeView === "dashboard" ? (
           <DashboardScreen currentUser={currentUser} summary={dashboardSummary} />
         ) : null}
-        {activeView === "pdfs" ? <PdfsScreen uploads={uploads} /> : null}
-        {activeView === "users" ? <UsersScreen users={users} /> : null}
+        {activeView === "pdfs" ? (
+          <PdfsScreen
+            uploads={uploads}
+            onDownloadUpload={handleDownloadUpload}
+            onReplaceUpload={handleReplaceUpload}
+            onUploadFiles={handleUploadFiles}
+          />
+        ) : null}
+        {activeView === "users" ? (
+          <UsersScreen
+            users={users}
+            onCreateUser={handleCreateUser}
+            onResetPassword={handleResetPassword}
+            onToggleActive={handleToggleActive}
+            onToggleBlock={handleToggleBlock}
+            onUpdateUser={handleUpdateUser}
+          />
+        ) : null}
       </section>
     </main>
   );
@@ -672,7 +899,17 @@ function DashboardScreen({
   );
 }
 
-function PdfsScreen({ uploads }: { uploads: UploadRow[] }) {
+function PdfsScreen({
+  uploads,
+  onUploadFiles,
+  onReplaceUpload,
+  onDownloadUpload
+}: {
+  uploads: UploadRow[];
+  onUploadFiles: (files: File[]) => Promise<void> | void;
+  onReplaceUpload: (uploadId: string, file: File) => Promise<void> | void;
+  onDownloadUpload: (upload: UploadRow) => Promise<void> | void;
+}) {
   return (
     <div className="screen">
       <section className="screen__intro">
@@ -681,10 +918,20 @@ function PdfsScreen({ uploads }: { uploads: UploadRow[] }) {
           <h1>Envio de PDFs</h1>
           <p>Upload multiplo, acompanhamento de status e substituicao de arquivos versionados.</p>
         </div>
-        <button className="primary-button primary-button--inline" type="button">
+        <label className="primary-button primary-button--inline file-picker">
           Novo upload
           <FileArrowUp size={18} weight="bold" />
-        </button>
+          <input
+            type="file"
+            accept="application/pdf"
+            multiple
+            onChange={(event) => {
+              const files = Array.from(event.target.files || []);
+              void onUploadFiles(files);
+              event.currentTarget.value = "";
+            }}
+          />
+        </label>
       </section>
 
       <section className="panel">
@@ -721,12 +968,27 @@ function PdfsScreen({ uploads }: { uploads: UploadRow[] }) {
                   <td>{row.owner}</td>
                   <td>
                     <div className="table-actions">
-                      <button className="ghost-button ghost-button--small" type="button">
-                        Visualizar
+                      <button
+                        className="ghost-button ghost-button--small"
+                        type="button"
+                        onClick={() => void onDownloadUpload(row)}
+                      >
+                        Baixar
                       </button>
-                      <button className="ghost-button ghost-button--small" type="button">
+                      <label className="ghost-button ghost-button--small file-picker file-picker--ghost">
                         Substituir
-                      </button>
+                        <input
+                          type="file"
+                          accept="application/pdf"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (file) {
+                              void onReplaceUpload(row.id, file);
+                            }
+                            event.currentTarget.value = "";
+                          }}
+                        />
+                      </label>
                     </div>
                   </td>
                 </tr>
@@ -739,7 +1001,55 @@ function PdfsScreen({ uploads }: { uploads: UploadRow[] }) {
   );
 }
 
-function UsersScreen({ users }: { users: UserSummary[] }) {
+function UsersScreen({
+  users,
+  onCreateUser,
+  onUpdateUser,
+  onToggleBlock,
+  onToggleActive,
+  onResetPassword
+}: {
+  users: UserSummary[];
+  onCreateUser: (payload: UserPayload) => Promise<void> | void;
+  onUpdateUser: (userId: string, payload: UserPayload) => Promise<void> | void;
+  onToggleBlock: (user: UserSummary) => Promise<void> | void;
+  onToggleActive: (user: UserSummary) => Promise<void> | void;
+  onResetPassword: (userId: string) => Promise<void> | void;
+}) {
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [formValues, setFormValues] = useState({
+    name: "",
+    email: "",
+    level: "N1" as UserPayload["level"]
+  });
+  const [selectedModules, setSelectedModules] = useState<string[]>(["dashboard", "pdfs"]);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const payload: UserPayload = {
+      name: String(formData.get("name") || "").trim(),
+      email: String(formData.get("email") || "").trim().toLowerCase(),
+      level: String(formData.get("level") || "N1") as UserPayload["level"],
+      modules: selectedModules
+    };
+
+    if (editingUserId) {
+      await onUpdateUser(editingUserId, payload);
+    } else {
+      await onCreateUser(payload);
+    }
+
+    event.currentTarget.reset();
+    setEditingUserId(null);
+    setFormValues({
+      name: "",
+      email: "",
+      level: "N1"
+    });
+    setSelectedModules(["dashboard", "pdfs"]);
+  };
+
   return (
     <div className="screen">
       <section className="screen__intro">
@@ -749,7 +1059,7 @@ function UsersScreen({ users }: { users: UserSummary[] }) {
           <p>Gestao de niveis, status, modulos liberados e historico operacional.</p>
         </div>
         <button className="primary-button primary-button--inline" type="button">
-          Novo usuario
+          CRUD Administrativo
           <UserCirclePlus size={18} weight="bold" />
         </button>
       </section>
@@ -790,6 +1100,112 @@ function UsersScreen({ users }: { users: UserSummary[] }) {
       <section className="panel">
         <div className="panel__header">
           <div>
+            <h3>{editingUserId ? "Editar usuario" : "Novo usuario"}</h3>
+            <p>Cadastro com senha temporaria 0000 e controle de modulos por usuario</p>
+          </div>
+        </div>
+
+        <form className="admin-form" onSubmit={handleSubmit}>
+          <label className="field">
+            <span>Nome</span>
+            <input
+              name="name"
+              placeholder="Nome completo"
+              required
+              value={formValues.name}
+              onChange={(event) =>
+                setFormValues((current) => ({
+                  ...current,
+                  name: event.target.value
+                }))
+              }
+            />
+          </label>
+          <label className="field">
+            <span>E-mail</span>
+            <input
+              name="email"
+              type="email"
+              placeholder="email@empresa.com"
+              required
+              value={formValues.email}
+              onChange={(event) =>
+                setFormValues((current) => ({
+                  ...current,
+                  email: event.target.value
+                }))
+              }
+            />
+          </label>
+          <label className="field">
+            <span>Nivel</span>
+            <select
+              name="level"
+              className="field__select"
+              value={formValues.level}
+              onChange={(event) =>
+                setFormValues((current) => ({
+                  ...current,
+                  level: event.target.value as UserPayload["level"]
+                }))
+              }
+            >
+              <option value="N1">N1</option>
+              <option value="N2">N2</option>
+              <option value="N3">N3</option>
+              <option value="N4">N4</option>
+            </select>
+          </label>
+          <div className="field">
+            <span>Modulos</span>
+            <div className="checkbox-grid">
+              {["dashboard", "pdfs", "users", "financeiro"].map((moduleCode) => (
+                <label className="checkbox-chip" key={moduleCode}>
+                  <input
+                    type="checkbox"
+                    checked={selectedModules.includes(moduleCode)}
+                    onChange={(event) => {
+                      setSelectedModules((current) =>
+                        event.target.checked
+                          ? Array.from(new Set([...current, moduleCode]))
+                          : current.filter((item) => item !== moduleCode)
+                      );
+                    }}
+                  />
+                  <span>{moduleCode}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="admin-form__actions">
+            <button className="primary-button primary-button--inline" type="submit">
+              {editingUserId ? "Salvar alteracoes" : "Criar usuario"}
+              <ArrowRight size={18} weight="bold" />
+            </button>
+            {editingUserId ? (
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={() => {
+                  setEditingUserId(null);
+                  setFormValues({
+                    name: "",
+                    email: "",
+                    level: "N1"
+                  });
+                  setSelectedModules(["dashboard", "pdfs"]);
+                }}
+              >
+                Cancelar edicao
+              </button>
+            ) : null}
+          </div>
+        </form>
+      </section>
+
+      <section className="panel">
+        <div className="panel__header">
+          <div>
             <h3>Usuarios cadastrados</h3>
             <p>Base de perfis administrativos e operacionais</p>
           </div>
@@ -804,6 +1220,7 @@ function UsersScreen({ users }: { users: UserSummary[] }) {
                 <th>Nivel</th>
                 <th>Status</th>
                 <th>Modulos</th>
+                <th>Acoes</th>
               </tr>
             </thead>
             <tbody>
@@ -813,9 +1230,51 @@ function UsersScreen({ users }: { users: UserSummary[] }) {
                   <td>{user.email}</td>
                   <td>{user.level}</td>
                   <td>
-                    <span className="status-pill">{user.blocked ? "Bloqueado" : "Ativo"}</span>
+                    <span className="status-pill">
+                      {user.active ? (user.blocked ? "Bloqueado" : "Ativo") : "Inativo"}
+                    </span>
                   </td>
                   <td>{user.modules.join(", ")}</td>
+                  <td>
+                    <div className="table-actions">
+                      <button
+                        className="ghost-button ghost-button--small"
+                        type="button"
+                        onClick={() => {
+                          setEditingUserId(user.id);
+                          setFormValues({
+                            name: user.name,
+                            email: user.email,
+                            level: user.level
+                          });
+                          setSelectedModules(user.modules);
+                        }}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        className="ghost-button ghost-button--small"
+                        type="button"
+                        onClick={() => void onToggleBlock(user)}
+                      >
+                        {user.blocked ? "Desbloquear" : "Bloquear"}
+                      </button>
+                      <button
+                        className="ghost-button ghost-button--small"
+                        type="button"
+                        onClick={() => void onToggleActive(user)}
+                      >
+                        {user.active ? "Desativar" : "Ativar"}
+                      </button>
+                      <button
+                        className="ghost-button ghost-button--small"
+                        type="button"
+                        onClick={() => void onResetPassword(user.id)}
+                      >
+                        Resetar senha
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

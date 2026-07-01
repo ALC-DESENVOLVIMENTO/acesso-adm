@@ -1,6 +1,6 @@
 import cors from "cors";
 import express from "express";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import authRoutes from "./modules/auth/auth.routes.js";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes.js";
@@ -17,6 +17,10 @@ export function createApp() {
     })
   );
   app.use(express.json());
+
+  const storagePath = path.resolve(process.cwd(), "storage");
+  mkdirSync(path.join(storagePath, "uploads"), { recursive: true });
+  app.use("/storage", express.static(storagePath));
 
   app.get("/api/health", (_req, res) => {
     res.json({
@@ -47,4 +51,3 @@ export function createApp() {
 
   return app;
 }
-

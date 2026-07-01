@@ -42,7 +42,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -344,6 +345,12 @@ button {
 .loading-note {
   margin: 0;
   color: #4b5870;
+  font-size: 0.95rem;
+}
+
+.success-note {
+  margin: 0;
+  color: #207752;
   font-size: 0.95rem;
 }
 
@@ -694,6 +701,63 @@ button {
 .table-actions {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
+}
+
+.file-picker {
+  position: relative;
+  overflow: hidden;
+}
+
+.file-picker input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.file-picker--ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-form__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.field__select {
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid rgba(31, 36, 48, 0.12);
+  background: #ffffff;
+  padding: 16px 18px;
+  outline: none;
+}
+
+.checkbox-grid {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.checkbox-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 999px;
+  background: rgba(244, 246, 250, 0.95);
+  color: #404b5f;
 }
 
 @media (max-width: 1180px) {
@@ -724,7 +788,8 @@ button {
   .stats-grid,
   .stats-grid--three,
   .dashboard-grid,
-  .quick-actions {
+  .quick-actions,
+  .admin-form {
     grid-template-columns: 1fr;
   }
 }

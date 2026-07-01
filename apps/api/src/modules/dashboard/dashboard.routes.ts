@@ -1,7 +1,10 @@
 import { Router } from "express";
+import { requireAuth, requireModuleAccess } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
 
 const router = Router();
+
+router.use(requireAuth, requireModuleAccess("dashboard"));
 
 router.get("/summary", (_req, res) => {
   void (async () => {

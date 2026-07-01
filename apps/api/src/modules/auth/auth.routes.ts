@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
 import { comparePassword, generateSessionToken, hashPassword } from "../../lib/auth.js";
+import { getUserAccessInclude, resolveEffectiveModules } from "../../lib/access.js";
+import { requireAuth } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
 
 const router = Router();
@@ -26,9 +28,7 @@ router.post("/login", (req, res) => {
       where: {
         email: parsed.data.email.toLowerCase()
       },
-      include: {
-        nivel: true
-      }
+      include: getUserAccessInclude()
     });
 
     if (!account || account.bloqueado || !account.ativo) {
@@ -74,45 +74,7 @@ router.post("/login", (req, res) => {
       return;
     }
 
-    const levelPermissions = await prisma.permissaoPorNivel.findMany({
-      where: {
-        nivelId: account.nivelId
-      },
-      include: {
-        permissao: {
-          include: {
-            modulo: true
-          }
-        }
-      }
-    });
-
-    const userOverrides = await prisma.permissaoPorUsuario.findMany({
-      where: {
-        usuarioId: account.id
-      },
-      include: {
-        permissao: {
-          include: {
-            modulo: true
-          }
-        }
-      }
-    });
-
-    const modules = new Set(levelPermissions.map((item) => item.permissao.modulo.codigo));
-
-    for (const override of userOverrides) {
-      const moduleCode = override.permissao.modulo.codigo;
-
-      if (override.tipo === "grant") {
-        modules.add(moduleCode);
-      }
-
-      if (override.tipo === "deny") {
-        modules.delete(moduleCode);
-      }
-    }
+    const modules = resolveEffectiveModules(account);
 
     const { token, tokenHash } = generateSessionToken();
     await prisma.sessao.create({
@@ -155,7 +117,7 @@ router.post("/login", (req, res) => {
         active: account.ativo,
         blocked: account.bloqueado,
         firstAccess: account.primeiroAcesso,
-        modules: Array.from(modules)
+        modules
       }
     });
   })().catch((error) => {
@@ -233,6 +195,47 @@ router.post("/first-access/change-password", (req, res) => {
   })().catch((error) => {
     res.status(500).json({
       message: "Falha ao alterar senha.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
+
+router.post("/logout", requireAuth, (req, res) => {
+  void (async () => {
+    if (!req.auth) {
+      res.status(401).json({
+        message: "Sessao invalida."
+      });
+      return;
+    }
+
+    await prisma.sessao.updateMany({
+      where: {
+        usuarioId: req.auth.userId,
+        revogadaEm: null
+      },
+      data: {
+        revogadaEm: new Date()
+      }
+    });
+
+    await prisma.logAuditoria.create({
+      data: {
+        usuarioId: req.auth.userId,
+        acao: "logout",
+        entidade: "usuarios",
+        entidadeId: req.auth.userId,
+        ipOrigem: req.ip,
+        userAgent: req.get("user-agent") || null
+      }
+    });
+
+    res.json({
+      message: "Sessao encerrada com sucesso."
+    });
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao encerrar sessao.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });

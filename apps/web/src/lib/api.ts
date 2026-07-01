@@ -49,6 +49,13 @@ export type UserSummary = {
 
 type JsonBody = Record<string, unknown>;
 
+export type UserPayload = {
+  name: string;
+  email: string;
+  level: "N1" | "N2" | "N3" | "N4";
+  modules: string[];
+};
+
 async function request<T>(path: string, options?: RequestInit & { body?: JsonBody }) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
@@ -57,6 +64,21 @@ async function request<T>(path: string, options?: RequestInit & { body?: JsonBod
       ...(options?.headers || {})
     },
     body: options?.body ? JSON.stringify(options.body) : undefined
+  });
+
+  const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+
+  if (!response.ok) {
+    throw new Error(payload?.message || "Falha na comunicacao com a API.");
+  }
+
+  return payload as T;
+}
+
+async function requestFormData<T>(path: string, options: RequestInit & { body: FormData }) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    body: options.body
   });
 
   const payload = (await response.json().catch(() => null)) as { message?: string } | null;
@@ -110,3 +132,100 @@ export function fetchUsers(token: string) {
   });
 }
 
+export function createUser(token: string, body: UserPayload) {
+  return request<{ message: string }>("/users", {
+    method: "POST",
+    body,
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function updateUser(token: string, userId: string, body: UserPayload) {
+  return request<{ message: string }>(`/users/${userId}`, {
+    method: "PATCH",
+    body,
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function updateUserStatus(
+  token: string,
+  userId: string,
+  body: { active?: boolean; blocked?: boolean }
+) {
+  return request<{ message: string }>(`/users/${userId}/status`, {
+    method: "PATCH",
+    body,
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function resetUserPassword(token: string, userId: string) {
+  return request<{ message: string }>(`/users/${userId}/reset-password`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function uploadPdfs(token: string, files: File[]) {
+  const formData = new FormData();
+  files.forEach((file) => formData.append("files", file));
+
+  return requestFormData<{ message: string }>("/uploads", {
+    method: "POST",
+    body: formData,
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function replaceUpload(token: string, uploadId: string, file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return requestFormData<{ message: string }>(`/uploads/${uploadId}/replace`, {
+    method: "POST",
+    body: formData,
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export async function downloadUpload(token: string, uploadId: string, fileName: string) {
+  const response = await fetch(`${API_BASE_URL}/uploads/${uploadId}/download`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error("Falha ao baixar arquivo.");
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+export function logoutRequest(token: string) {
+  return request<{ message: string }>("/auth/logout", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
