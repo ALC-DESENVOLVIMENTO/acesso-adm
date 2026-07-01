@@ -235,6 +235,94 @@ router.patch("/:id/status", (req, res) => {
   });
 });
 
+router.delete("/:id", (req, res) => {
+  void (async () => {
+    if (!req.auth) {
+      res.status(401).json({
+        message: "Sessao invalida."
+      });
+      return;
+    }
+
+    const user = await prisma.usuario.findUnique({
+      where: {
+        id: req.params.id
+      }
+    });
+
+    if (!user) {
+      res.status(404).json({
+        message: "Usuario nao encontrado."
+      });
+      return;
+    }
+
+    if (req.auth.userId === user.id) {
+      res.status(400).json({
+        message: "Nao e permitido excluir o proprio usuario."
+      });
+      return;
+    }
+
+    await prisma.$transaction([
+      prisma.permissaoPorUsuario.deleteMany({
+        where: {
+          OR: [{ usuarioId: user.id }, { concedidoPor: user.id }]
+        }
+      }),
+      prisma.sessao.deleteMany({
+        where: {
+          usuarioId: user.id
+        }
+      }),
+      prisma.uploadPdf.deleteMany({
+        where: {
+          usuarioId: user.id
+        }
+      }),
+      prisma.chamado.deleteMany({
+        where: {
+          OR: [{ solicitanteId: user.id }, { responsavelId: user.id }]
+        }
+      }),
+      prisma.logAuditoria.deleteMany({
+        where: {
+          usuarioId: user.id
+        }
+      }),
+      prisma.usuario.delete({
+        where: {
+          id: user.id
+        }
+      }),
+      prisma.logAuditoria.create({
+        data: {
+          usuarioId: req.auth.userId,
+          acao: "excluir_usuario",
+          entidade: "usuarios",
+          entidadeId: user.id,
+          ipOrigem: req.ip,
+          userAgent: req.get("user-agent") || null,
+          detalhes: {
+            email: user.email,
+            nome: user.nome,
+            nivelId: user.nivelId
+          }
+        }
+      })
+    ]);
+
+    res.json({
+      message: "Usuario excluido permanentemente."
+    });
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao excluir usuario.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
+
 router.post("/:id/reset-password", (req, res) => {
   void (async () => {
     if (!req.auth) {

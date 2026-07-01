@@ -217,6 +217,15 @@ export function updateUserStatus(
   });
 }
 
+export function deleteUser(token: string, userId: string) {
+  return request<{ message: string }>(`/users/${userId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
 export function resetUserPassword(token: string, userId: string) {
   return request<{ message: string }>(`/users/${userId}/reset-password`, {
     method: "POST",

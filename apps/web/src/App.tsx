@@ -25,6 +25,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   changeFirstAccessPassword,
   createUser,
+  deleteUser,
   deleteUpload,
   downloadUpload,
   fetchDashboardSummary,
@@ -337,7 +338,7 @@ function App() {
 
   const handleCreateUser = async (payload: UserPayload) => {
     if (!token) {
-      return;
+      return false;
     }
 
     setLoadingMessage("Criando usuario...");
@@ -346,11 +347,13 @@ function App() {
       const response = await createUser(token, payload);
       setFlashMessage({ type: "success", text: response.message });
       await refreshPortalData();
+      return true;
     } catch (error) {
       setFlashMessage({
         type: "error",
         text: error instanceof Error ? error.message : "Falha ao criar usuario."
       });
+      return false;
     } finally {
       setLoadingMessage("");
     }
@@ -358,7 +361,7 @@ function App() {
 
   const handleUpdateUser = async (userId: string, payload: UserPayload) => {
     if (!token) {
-      return;
+      return false;
     }
 
     setLoadingMessage("Atualizando usuario...");
@@ -367,11 +370,36 @@ function App() {
       const response = await updateUser(token, userId, payload);
       setFlashMessage({ type: "success", text: response.message });
       await refreshPortalData();
+      return true;
     } catch (error) {
       setFlashMessage({
         type: "error",
         text: error instanceof Error ? error.message : "Falha ao atualizar usuario."
       });
+      return false;
+    } finally {
+      setLoadingMessage("");
+    }
+  };
+
+  const handleDeleteUser = async (user: UserSummary) => {
+    if (!token) {
+      return false;
+    }
+
+    setLoadingMessage("Excluindo usuario...");
+
+    try {
+      const response = await deleteUser(token, user.id);
+      setFlashMessage({ type: "success", text: response.message });
+      await refreshPortalData();
+      return true;
+    } catch (error) {
+      setFlashMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Falha ao excluir usuario."
+      });
+      return false;
     } finally {
       setLoadingMessage("");
     }
@@ -846,6 +874,7 @@ function App() {
           <UsersScreen
             users={users}
             onCreateUser={handleCreateUser}
+            onDeleteUser={handleDeleteUser}
             onResetPassword={handleResetPassword}
             onToggleActive={handleToggleActive}
             onToggleBlock={handleToggleBlock}
@@ -1273,18 +1302,21 @@ function PdfsScreen({
 function UsersScreen({
   users,
   onCreateUser,
+  onDeleteUser,
   onUpdateUser,
   onToggleBlock,
   onToggleActive,
   onResetPassword
 }: {
   users: UserSummary[];
-  onCreateUser: (payload: UserPayload) => Promise<void> | void;
-  onUpdateUser: (userId: string, payload: UserPayload) => Promise<void> | void;
+  onCreateUser: (payload: UserPayload) => Promise<boolean> | boolean;
+  onDeleteUser: (user: UserSummary) => Promise<boolean> | boolean;
+  onUpdateUser: (userId: string, payload: UserPayload) => Promise<boolean> | boolean;
   onToggleBlock: (user: UserSummary) => Promise<void> | void;
   onToggleActive: (user: UserSummary) => Promise<void> | void;
   onResetPassword: (userId: string) => Promise<void> | void;
 }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [levelFilter, setLevelFilter] = useState("todos");
@@ -1295,6 +1327,37 @@ function UsersScreen({
     level: "N1" as UserPayload["level"]
   });
   const [selectedModules, setSelectedModules] = useState<string[]>(["dashboard", "pdfs"]);
+
+  const resetForm = () => {
+    setEditingUserId(null);
+    setFormValues({
+      name: "",
+      email: "",
+      level: "N1"
+    });
+    setSelectedModules(["dashboard", "pdfs"]);
+  };
+
+  const openCreateModal = () => {
+    resetForm();
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (user: UserSummary) => {
+    setEditingUserId(user.id);
+    setFormValues({
+      name: user.name,
+      email: user.email,
+      level: user.level
+    });
+    setSelectedModules(user.modules);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    resetForm();
+  };
 
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
@@ -1320,20 +1383,16 @@ function UsersScreen({
       modules: selectedModules
     };
 
+    let success = false;
     if (editingUserId) {
-      await onUpdateUser(editingUserId, payload);
+      success = await onUpdateUser(editingUserId, payload);
     } else {
-      await onCreateUser(payload);
+      success = await onCreateUser(payload);
     }
 
-    event.currentTarget.reset();
-    setEditingUserId(null);
-    setFormValues({
-      name: "",
-      email: "",
-      level: "N1"
-    });
-    setSelectedModules(["dashboard", "pdfs"]);
+    if (success) {
+      closeModal();
+    }
   };
 
   return (
@@ -1344,8 +1403,8 @@ function UsersScreen({
           <h1>Cadastro de Usuarios</h1>
           <p>Gestao de niveis, status, modulos liberados e historico operacional.</p>
         </div>
-        <button className="primary-button primary-button--inline" type="button">
-          CRUD Administrativo
+        <button className="primary-button primary-button--inline" type="button" onClick={openCreateModal}>
+          Novo usuario
           <UserCirclePlus size={18} weight="bold" />
         </button>
       </section>
@@ -1427,117 +1486,6 @@ function UsersScreen({
       <section className="panel">
         <div className="panel__header">
           <div>
-            <h3>{editingUserId ? "Editar usuario" : "Novo usuario"}</h3>
-            <p>Cadastro com senha temporaria 0000 e controle de modulos por usuario</p>
-          </div>
-        </div>
-
-        <form className="admin-form" onSubmit={handleSubmit}>
-          <label className="field">
-            <span>Nome</span>
-            <input
-              name="name"
-              placeholder="Nome completo"
-              required
-              value={formValues.name}
-              onChange={(event) =>
-                setFormValues((current) => ({
-                  ...current,
-                  name: event.target.value
-                }))
-              }
-            />
-          </label>
-
-          <label className="field">
-            <span>E-mail</span>
-            <input
-              name="email"
-              type="email"
-              placeholder="email@empresa.com"
-              required
-              value={formValues.email}
-              onChange={(event) =>
-                setFormValues((current) => ({
-                  ...current,
-                  email: event.target.value
-                }))
-              }
-            />
-          </label>
-
-          <label className="field">
-            <span>Nivel</span>
-            <select
-              name="level"
-              className="field__select"
-              value={formValues.level}
-              onChange={(event) =>
-                setFormValues((current) => ({
-                  ...current,
-                  level: event.target.value as UserPayload["level"]
-                }))
-              }
-            >
-              <option value="N1">N1</option>
-              <option value="N2">N2</option>
-              <option value="N3">N3</option>
-              <option value="N4">N4</option>
-            </select>
-          </label>
-
-          <div className="field">
-            <span>Modulos</span>
-            <div className="checkbox-grid">
-              {["dashboard", "pdfs", "users", "financeiro"].map((moduleCode) => (
-                <label className="checkbox-chip" key={moduleCode}>
-                  <input
-                    type="checkbox"
-                    checked={selectedModules.includes(moduleCode)}
-                    onChange={(event) => {
-                      setSelectedModules((current) =>
-                        event.target.checked
-                          ? Array.from(new Set([...current, moduleCode]))
-                          : current.filter((item) => item !== moduleCode)
-                      );
-                    }}
-                  />
-                  <span>{moduleCode}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="admin-form__actions">
-            <button className="primary-button primary-button--inline" type="submit">
-              {editingUserId ? "Salvar alteracoes" : "Criar usuario"}
-              <ArrowRight size={18} weight="bold" />
-            </button>
-
-            {editingUserId ? (
-              <button
-                className="ghost-button"
-                type="button"
-                onClick={() => {
-                  setEditingUserId(null);
-                  setFormValues({
-                    name: "",
-                    email: "",
-                    level: "N1"
-                  });
-                  setSelectedModules(["dashboard", "pdfs"]);
-                }}
-              >
-                Cancelar edicao
-              </button>
-            ) : null}
-          </div>
-        </form>
-      </section>
-
-      <section className="panel">
-        <div className="panel__header">
-          <div>
             <h3>Usuarios cadastrados</h3>
             <p>{filteredUsers.length} usuario(s) retornado(s) pelos filtros atuais</p>
           </div>
@@ -1563,8 +1511,8 @@ function UsersScreen({
                   <td>{user.email}</td>
                   <td>{user.level}</td>
                   <td>
-                    <span className="status-pill">
-                      {user.active ? (user.blocked ? "Bloqueado" : "Ativo") : "Inativo"}
+                    <span className={`status-pill ${user.active && !user.blocked ? "status-pill--active" : ""}`}>
+                      {user.active ? (user.blocked ? "Bloqueado" : "Ativo") : "Desativado"}
                     </span>
                   </td>
                   <td>{user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString("pt-BR") : "Sem acesso"}</td>
@@ -1582,15 +1530,7 @@ function UsersScreen({
                       <button
                         className="ghost-button ghost-button--small"
                         type="button"
-                        onClick={() => {
-                          setEditingUserId(user.id);
-                          setFormValues({
-                            name: user.name,
-                            email: user.email,
-                            level: user.level
-                          });
-                          setSelectedModules(user.modules);
-                        }}
+                        onClick={() => openEditModal(user)}
                       >
                         <PencilSimple size={16} />
                         Editar
@@ -1603,11 +1543,16 @@ function UsersScreen({
                         {user.blocked ? "Desbloquear" : "Bloquear"}
                       </button>
                       <button
-                        className="ghost-button ghost-button--small"
+                        className="ghost-button ghost-button--small ghost-button--danger"
                         type="button"
-                        onClick={() => void onToggleActive(user)}
+                        onClick={() => {
+                          if (window.confirm(`Excluir permanentemente o usuario ${user.name}?`)) {
+                            void onDeleteUser(user);
+                          }
+                        }}
                       >
-                        {user.active ? "Desativar" : "Ativar"}
+                        <TrashSimple size={16} />
+                        Excluir
                       </button>
                       <button
                         className="ghost-button ghost-button--small"
@@ -1624,6 +1569,117 @@ function UsersScreen({
           </table>
         </div>
       </section>
+
+      {isModalOpen ? (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div
+            className="modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="user-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-card__header">
+              <div>
+                <p className="eyebrow">Administracao</p>
+                <h3 id="user-modal-title">{editingUserId ? "Editar usuario" : "Novo usuario"}</h3>
+                <p>Cadastro com senha temporaria 0000 e controle de modulos por usuario</p>
+              </div>
+              <button className="ghost-button ghost-button--small" type="button" onClick={closeModal}>
+                Fechar
+              </button>
+            </div>
+
+            <form className="admin-form admin-form--modal" onSubmit={handleSubmit}>
+              <label className="field">
+                <span>Nome</span>
+                <input
+                  name="name"
+                  placeholder="Nome completo"
+                  required
+                  value={formValues.name}
+                  onChange={(event) =>
+                    setFormValues((current) => ({
+                      ...current,
+                      name: event.target.value
+                    }))
+                  }
+                />
+              </label>
+
+              <label className="field">
+                <span>E-mail</span>
+                <input
+                  name="email"
+                  type="email"
+                  placeholder="email@empresa.com"
+                  required
+                  value={formValues.email}
+                  onChange={(event) =>
+                    setFormValues((current) => ({
+                      ...current,
+                      email: event.target.value
+                    }))
+                  }
+                />
+              </label>
+
+              <label className="field">
+                <span>Nivel</span>
+                <select
+                  name="level"
+                  className="field__select"
+                  value={formValues.level}
+                  onChange={(event) =>
+                    setFormValues((current) => ({
+                      ...current,
+                      level: event.target.value as UserPayload["level"]
+                    }))
+                  }
+                >
+                  <option value="N1">N1</option>
+                  <option value="N2">N2</option>
+                  <option value="N3">N3</option>
+                  <option value="N4">N4</option>
+                </select>
+              </label>
+
+              <div className="field">
+                <span>Modulos</span>
+                <div className="checkbox-grid">
+                  {["dashboard", "pdfs", "users", "financeiro"].map((moduleCode) => (
+                    <label className="checkbox-chip" key={moduleCode}>
+                      <input
+                        type="checkbox"
+                        checked={selectedModules.includes(moduleCode)}
+                        onChange={(event) => {
+                          setSelectedModules((current) =>
+                            event.target.checked
+                              ? Array.from(new Set([...current, moduleCode]))
+                              : current.filter((item) => item !== moduleCode)
+                          );
+                        }}
+                      />
+                      <span>{moduleCode}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="admin-form__actions">
+                <button className="primary-button primary-button--inline" type="submit">
+                  {editingUserId ? "Salvar alteracoes" : "Criar usuario"}
+                  <ArrowRight size={18} weight="bold" />
+                </button>
+
+                <button className="ghost-button" type="button" onClick={closeModal}>
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

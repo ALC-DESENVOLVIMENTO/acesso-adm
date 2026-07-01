@@ -507,13 +507,15 @@ button {
 }
 
 .sidebar__brand {
-  padding: 8px 6px 28px;
+  justify-items: center;
+  padding: 8px 12px 28px;
   display: grid;
   gap: 10px;
+  overflow: hidden;
 }
 
 .sidebar__logo {
-  width: 86px;
+  width: 72px;
   height: auto;
   object-fit: contain;
 }
@@ -648,6 +650,11 @@ button {
   color: #c94c41;
   font-size: 0.92rem;
   font-weight: 600;
+}
+
+.status-pill--active {
+  background: rgba(49, 179, 104, 0.14);
+  color: #1f8b55;
 }
 
 .stats-grid {
@@ -915,6 +922,10 @@ button {
   gap: 16px;
 }
 
+.admin-form--modal {
+  margin-top: 12px;
+}
+
 .admin-form__actions {
   grid-column: 1 / -1;
   display: flex;
@@ -936,6 +947,42 @@ button {
 .filter-select:focus-within {
   border-color: rgba(255, 61, 48, 0.7);
   box-shadow: 0 0 0 4px rgba(255, 61, 48, 0.12);
+}
+
+.ghost-button--danger {
+  color: #c94c41;
+}
+
+.ghost-button--danger:hover {
+  background: rgba(255, 95, 83, 0.12);
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(20, 25, 36, 0.42);
+  backdrop-filter: blur(8px);
+}
+
+.modal-card {
+  width: min(920px, 100%);
+  max-height: min(90vh, 900px);
+  overflow: auto;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 30px 80px rgba(18, 23, 38, 0.22);
+  padding: 28px;
+}
+
+.modal-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
 }
 
 .checkbox-grid {
