@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { ensureDriverRegistryColumns } from "./lib/driver-registry-schema.js";
 import { resolveDatabaseUrlWithSchema } from "./lib/database-url.js";
 
 function runCommand(command: string, args: string[], cwd: string) {
@@ -42,6 +43,7 @@ async function main() {
   const apiRoot = path.resolve(path.dirname(currentFile), "..");
 
   await runCommand("npx", ["prisma", "db", "push"], apiRoot);
+  await ensureDriverRegistryColumns();
   await runCommand("npm", ["run", "db:seed"], apiRoot);
 }
 

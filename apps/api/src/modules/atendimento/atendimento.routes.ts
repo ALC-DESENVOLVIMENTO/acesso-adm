@@ -48,6 +48,42 @@ const DRIVER_REGISTRY_CPF_CANDIDATES = [
   "cpf_numero",
   "cpf_cnpj"
 ];
+const DRIVER_REGISTRY_BASE_CANDIDATES = ["base", "unidade", "filial", "base_operacional"];
+const DRIVER_REGISTRY_SEXO_CANDIDATES = ["sexo", "gender"];
+const DRIVER_REGISTRY_PLATE_CANDIDATES = ["placa", "plate", "veiculo_placa", "vehicle_plate"];
+const DRIVER_REGISTRY_FAVORED_NAME_CANDIDATES = [
+  "nome_favorecido",
+  "favorecido_nome",
+  "favorecido",
+  "beneficiario",
+  "beneficiary_name"
+];
+const DRIVER_REGISTRY_FAVORED_CPF_CANDIDATES = [
+  "cpf_favorecido",
+  "cpf_do_favorecido",
+  "favorecido_cpf",
+  "beneficiary_cpf"
+];
+const DRIVER_REGISTRY_FAVORED_CNPJ_CANDIDATES = [
+  "cnpj",
+  "cnpj_favorecido",
+  "cnpj_do_favorecido",
+  "favorecido_cnpj",
+  "beneficiary_cnpj"
+];
+const DRIVER_REGISTRY_FAVORED_EMAIL_CANDIDATES = [
+  "email_favorecido",
+  "e_mail_favorecido",
+  "favorecido_email",
+  "beneficiary_email"
+];
+const DRIVER_REGISTRY_FAVORED_PHONE_CANDIDATES = [
+  "telefone_favorecido",
+  "telefone_do_favorecido",
+  "favorecido_telefone",
+  "beneficiary_phone"
+];
+const DRIVER_REGISTRY_VALIDITY_CANDIDATES = ["validade_gr", "validade", "gr_validade", "gr_expiracao"];
 
 type DriverRegistryMetadata = {
   schema: string;
@@ -138,6 +174,21 @@ function getDateValue(row: DriverRegistryRawRow, candidates: string[]) {
 
   if (Number.isFinite(parsed.getTime())) {
     return parsed.toISOString();
+  }
+
+  return null;
+}
+
+function getDateOnlyValue(row: DriverRegistryRawRow, candidates: string[]) {
+  const value = getRecordValue(row, candidates);
+
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isFinite(parsed.getTime())) {
+    return parsed.toISOString().slice(0, 10);
   }
 
   return null;
@@ -305,13 +356,23 @@ async function fetchDriverRegistryById(id: string) {
 function driverRegistryAsAtendimentoPayload(row: DriverRegistryRawRow) {
   const metadata = {
     id: getRecordValue(row, ["id", "uuid", "codigo", "driver_id", "identificador"]),
+    base: getRecordValue(row, DRIVER_REGISTRY_BASE_CANDIDATES),
     name: getRecordValue(row, ["display_name", "normalized_name", "nome", "name", "full_name", "nome_completo", "driver_name", "razao_social"]),
     cpf: getRecordValue(row, [...DRIVER_REGISTRY_CPF_CANDIDATES, "documento", "document_number", "documento_numero"]),
     rg: getRecordValue(row, ["rg", "registro_geral", "rg_numero"]),
+    sexo: getRecordValue(row, DRIVER_REGISTRY_SEXO_CANDIDATES),
+    placa: getRecordValue(row, DRIVER_REGISTRY_PLATE_CANDIDATES),
     city: getRecordValue(row, ["cidade", "municipio", "city"]),
     state: getRecordValue(row, ["estado", "uf", "state"]),
     company: getRecordValue(row, ["empresa_vinculada", "empresa", "company", "company_name"]),
-    observacoes: getRecordValue(row, ["observacoes_gerais", "observacao_geral", "observacoes", "observacao"])
+    observacoes: getRecordValue(row, ["observacoes_gerais", "observacao_geral", "observacoes", "observacao"]),
+    favorecidoNome: getRecordValue(row, DRIVER_REGISTRY_FAVORED_NAME_CANDIDATES),
+    favorecidoCpf: getRecordValue(row, DRIVER_REGISTRY_FAVORED_CPF_CANDIDATES),
+    favorecidoCpfDigits: digitsOnly(getRecordValue(row, DRIVER_REGISTRY_FAVORED_CPF_CANDIDATES) || ""),
+    favorecidoCnpj: getRecordValue(row, DRIVER_REGISTRY_FAVORED_CNPJ_CANDIDATES),
+    favorecidoEmail: getRecordValue(row, DRIVER_REGISTRY_FAVORED_EMAIL_CANDIDATES),
+    favorecidoTelefone: getRecordValue(row, DRIVER_REGISTRY_FAVORED_PHONE_CANDIDATES),
+    validadeGr: getDateOnlyValue(row, DRIVER_REGISTRY_VALIDITY_CANDIDATES)
   };
 
   const rawStatus = getRecordValue(row, ["status", "status_cadastro", "statusCadastro", "situacao", "ativo", "active"]);
@@ -322,6 +383,9 @@ function driverRegistryAsAtendimentoPayload(row: DriverRegistryRawRow) {
     cpf: metadata.cpf || "",
     cpfFormatado: formatCpf(metadata.cpf),
     rg: metadata.rg,
+    base: metadata.base,
+    sexo: metadata.sexo,
+    placa: metadata.placa,
     telefone: getRecordValue(row, ["telefone", "telefone_contato", "fone", "phone"]),
     whatsapp: getRecordValue(row, ["whatsapp", "wpp", "telefone_whatsapp"]),
     email: getRecordValue(row, ["email", "e_mail"]),
@@ -332,7 +396,14 @@ function driverRegistryAsAtendimentoPayload(row: DriverRegistryRawRow) {
     statusCadastro: normalizeDriverStatus((rawStatus as string | boolean | null) ?? null),
     empresaVinculada: metadata.company,
     observacoesGerais: metadata.observacoes,
-    dataNascimento: getDateValue(row, ["data_nascimento", "dt_nascimento", "nascimento", "birth_date"])
+    dataNascimento: getDateValue(row, ["data_nascimento", "dt_nascimento", "nascimento", "birth_date"]),
+    favorecidoNome: metadata.favorecidoNome,
+    favorecidoCpf: metadata.favorecidoCpf,
+    favorecidoCpfDigits: metadata.favorecidoCpfDigits,
+    favorecidoCnpj: metadata.favorecidoCnpj,
+    favorecidoEmail: metadata.favorecidoEmail,
+    favorecidoTelefone: metadata.favorecidoTelefone,
+    validadeGr: metadata.validadeGr
   };
 }
 
