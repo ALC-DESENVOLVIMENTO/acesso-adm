@@ -99,6 +99,7 @@ export type AtendimentoMotoristaSearch = {
   name: string;
   cpf: string;
   status: "ativo" | "inativo" | "bloqueado";
+  base: string | null;
   city: string | null;
   state: string | null;
   company: string | null;
@@ -149,6 +150,10 @@ export type AtendimentoDetail = {
     dataCriacao: string;
     ultimaAtualizacao: string;
     empresaVinculada: string | null;
+    base: string | null;
+    nomeFavorecido: string | null;
+    cpfFavorecido: string | null;
+    cnpjFavorecido: string | null;
     observacoesGerais: string | null;
     classificacoes: AtendimentoClassificacao[];
   };

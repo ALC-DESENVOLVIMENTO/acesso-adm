@@ -2856,7 +2856,7 @@ function AtendimentoScreen({
                   <strong>{result.name}</strong>
                   <span>{result.cpf}</span>
                   <small>
-                    {result.city || "Sem cidade"} · {result.status}
+                    {result.base || "Sem base"} · {result.status}
                   </small>
                 </button>
               ))
@@ -2893,7 +2893,7 @@ function AtendimentoScreen({
                     <p>{detail.motorista.cpf}</p>
                   </div>
                   <div className="crm-driver__meta">
-                    <span>{detail.motorista.cidade || "Cidade nao informada"}</span>
+                    <span>{detail.motorista.base || "Base nao informada"}</span>
                     <span>{detail.motorista.estado || "--"}</span>
                     <span>{detail.motorista.empresaVinculada || "Sem empresa vinculada"}</span>
                   </div>
@@ -2907,7 +2907,9 @@ function AtendimentoScreen({
                   <div><strong>WhatsApp</strong><span>{detail.motorista.whatsapp || "Nao informado"}</span></div>
                   <div><strong>E-mail</strong><span>{detail.motorista.email || "Nao informado"}</span></div>
                   <div><strong>Endereco</strong><span>{detail.motorista.endereco || "Nao informado"}</span></div>
-                  <div><strong>Cidade / UF</strong><span>{detail.motorista.cidade || "Nao informado"} {detail.motorista.estado ? `· ${detail.motorista.estado}` : ""}</span></div>
+                  <div><strong>Base</strong><span>{detail.motorista.base || "Nao informado"}</span></div>
+                  <div><strong>Favorecido</strong><span>{detail.motorista.nomeFavorecido || "Nao informado"}</span></div>
+                  <div><strong>CPF/CNPJ Favorecido</strong><span>{detail.motorista.cpfFavorecido || detail.motorista.cnpjFavorecido || "Nao informado"}</span></div>
                   <div><strong>CEP</strong><span>{detail.motorista.cep || "Nao informado"}</span></div>
                   <div><strong>Criado em</strong><span>{new Date(detail.motorista.dataCriacao).toLocaleString("pt-BR")}</span></div>
                   <div><strong>Atualizado em</strong><span>{new Date(detail.motorista.ultimaAtualizacao).toLocaleString("pt-BR")}</span></div>

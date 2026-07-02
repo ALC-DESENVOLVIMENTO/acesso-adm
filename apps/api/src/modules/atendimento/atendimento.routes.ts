@@ -353,6 +353,33 @@ async function fetchDriverRegistryById(id: string) {
   return rows[0] || null;
 }
 
+async function fetchDriverRegistryByCpfDigits(cpfDigits: string) {
+  const normalizedCpf = digitsOnly(cpfDigits);
+  if (!normalizedCpf) {
+    return null;
+  }
+
+  const metadata = await getDriverRegistryMetadata();
+  if (!metadata) {
+    return null;
+  }
+
+  const cpfColumn = getColumn(metadata, ["cpf_digits", "cpf", "document_number", "documento", "documento_numero"]);
+  if (!cpfColumn) {
+    return null;
+  }
+
+  const tableRef = `${quoteDriverRegistryIdentifier(metadata.schema)}.${quoteDriverRegistryIdentifier(
+    DRIVER_REGISTRY_TABLE
+  )}`;
+  const sql = `SELECT * FROM ${tableRef} WHERE ${quoteDriverRegistryIdentifier(cpfColumn)} = $1 OR regexp_replace(COALESCE(${quoteDriverRegistryIdentifier(
+    getColumn(metadata, ["cpf"]) || cpfColumn
+  )}, ''), '\\D', '', 'g') = $1 LIMIT 1`;
+  const rows = await prisma.$queryRawUnsafe<DriverRegistryRawRow[]>(sql, normalizedCpf);
+
+  return rows[0] || null;
+}
+
 function driverRegistryAsAtendimentoPayload(row: DriverRegistryRawRow) {
   const metadata = {
     id: getRecordValue(row, ["id", "uuid", "codigo", "driver_id", "identificador"]),
@@ -415,6 +442,7 @@ function mapDriverRegistryForSearch(row: DriverRegistryRawRow, localDriver?: { i
     name: mapped.nome,
     cpf: mapped.cpfFormatado || mapped.cpf || "",
     status: localDriver?.statusCadastro || mapped.statusCadastro,
+    base: mapped.base,
     city: mapped.cidade,
     state: mapped.estado,
     company: mapped.empresaVinculada,
@@ -777,6 +805,9 @@ async function loadMotoristaDetail(motoristaId: string) {
     return null;
   }
 
+  const registryRow = await fetchDriverRegistryByCpfDigits(motorista.cpf);
+  const registryData = registryRow ? driverRegistryAsAtendimentoPayload(registryRow) : null;
+
   return {
     motorista: {
       id: motorista.id,
@@ -795,6 +826,10 @@ async function loadMotoristaDetail(motoristaId: string) {
       dataCriacao: motorista.criadoEm,
       ultimaAtualizacao: motorista.atualizadoEm,
       empresaVinculada: motorista.empresaVinculada,
+      base: registryData?.base || null,
+      nomeFavorecido: registryData?.favorecidoNome || null,
+      cpfFavorecido: registryData?.favorecidoCpf || null,
+      cnpjFavorecido: registryData?.favorecidoCnpj || null,
       observacoesGerais: motorista.observacoesGerais,
       classificacoes: motorista.classificacoes.map((item) => ({
         id: item.classificacao.id,
@@ -1095,6 +1130,7 @@ router.get("/motoristas/search", (_req, res) => {
         name: motorista.nome,
         cpf: motorista.cpf,
         status: motorista.statusCadastro,
+        base: null,
         city: motorista.cidade,
         state: motorista.estado,
         company: motorista.empresaVinculada,
