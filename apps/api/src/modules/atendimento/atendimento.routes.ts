@@ -1,29 +1,13 @@
 import { Router } from "express";
 import multer from "multer";
-import path from "node:path";
-import { mkdirSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { requireAdmin, requireAuth, requireModuleAccess } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
+import { buildStorageObjectUrl, createStorageKey, uploadObject } from "../../lib/storage.js";
 
 const router = Router();
-const currentFile = fileURLToPath(import.meta.url);
-const storageRoot = path.resolve(path.dirname(currentFile), "../../../storage/atendimento");
-
-mkdirSync(storageRoot, { recursive: true });
-
-const attachmentStorage = multer.diskStorage({
-  destination: (_req, _file, callback) => {
-    callback(null, storageRoot);
-  },
-  filename: (_req, file, callback) => {
-    const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_");
-    callback(null, `${Date.now()}-${safeName}`);
-  }
-});
 
 const upload = multer({
-  storage: attachmentStorage
+  storage: multer.memoryStorage()
 });
 
 const DRIVER_REGISTRY_TABLE = "driver_registry_entities";
@@ -567,7 +551,7 @@ function toAttachmentPayload(attachment: {
     id: attachment.id,
     fileName: attachment.nomeOriginal,
     storageFileName: attachment.caminhoArquivo.split("/").pop() || attachment.nomeOriginal,
-    downloadUrl: `/storage/${attachment.caminhoArquivo.replace(/^storage\//, "")}`,
+    downloadUrl: buildStorageObjectUrl(attachment.caminhoArquivo),
     createdAt: attachment.criadoEm
   };
 }
@@ -848,7 +832,7 @@ async function loadMotoristaDetail(motoristaId: string) {
       usuarioResponsavel: upload.usuario.nome,
       periodName: upload.periodoPagamento?.nome || null,
       baseName: upload.basePagamento?.nome || null,
-      downloadUrl: `/storage/${upload.caminhoArquivo.replace(/^storage\//, "")}`
+      downloadUrl: buildStorageObjectUrl(upload.caminhoArquivo),
     })),
     atendimentos: motorista.atendimentos.map((item) => ({
       id: item.id,
@@ -1488,12 +1472,23 @@ router.post("/motoristas/:id/chamados", upload.array("attachments", 10), (req, r
 
     if (files.length > 0) {
       await prisma.anexoChamado.createMany({
-        data: files.map((file) => ({
-          chamadoId: chamado.id,
-          nomeArquivo: file.filename,
-          nomeOriginal: file.originalname,
-          caminhoArquivo: path.relative(process.cwd(), file.path).replace(/\\/g, "/")
-        }))
+        data: await Promise.all(
+          files.map(async (file) => {
+            const key = createStorageKey("atendimento", file.originalname);
+            await uploadObject({
+              key,
+              body: file.buffer,
+              contentType: file.mimetype
+            });
+
+            return {
+              chamadoId: chamado.id,
+              nomeArquivo: key.split("/").pop() || file.originalname,
+              nomeOriginal: file.originalname,
+              caminhoArquivo: key
+            };
+          })
+        )
       });
     }
 
@@ -1579,13 +1574,24 @@ router.post("/chamados/:id/movimentos", upload.array("attachments", 10), (req, r
 
     if (files.length > 0) {
       await prisma.anexoChamado.createMany({
-        data: files.map((file) => ({
-          chamadoId: chamado.id,
-          historicoChamadoId: history.id,
-          nomeArquivo: file.filename,
-          nomeOriginal: file.originalname,
-          caminhoArquivo: path.relative(process.cwd(), file.path).replace(/\\/g, "/")
-        }))
+        data: await Promise.all(
+          files.map(async (file) => {
+            const key = createStorageKey("atendimento", file.originalname);
+            await uploadObject({
+              key,
+              body: file.buffer,
+              contentType: file.mimetype
+            });
+
+            return {
+              chamadoId: chamado.id,
+              historicoChamadoId: history.id,
+              nomeArquivo: key.split("/").pop() || file.originalname,
+              nomeOriginal: file.originalname,
+              caminhoArquivo: key
+            };
+          })
+        )
       });
     }
 

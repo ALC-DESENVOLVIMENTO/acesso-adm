@@ -1,6 +1,3 @@
-import { existsSync, mkdirSync, unlinkSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
 import { Router } from "express";
 import multer from "multer";
 import { z } from "zod";
@@ -8,23 +5,17 @@ import { comparePassword, generateSessionToken, hashPassword } from "../../lib/a
 import { getUserAccessInclude, resolveEffectiveModules } from "../../lib/access.js";
 import { requireAuth } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
+import {
+  buildStorageObjectUrl,
+  createStorageKey,
+  deleteObject,
+  uploadObject
+} from "../../lib/storage.js";
 
 const router = Router();
-const currentFile = fileURLToPath(import.meta.url);
-const profilePhotoRoot = path.resolve(path.dirname(currentFile), "../../../storage/profile-photos");
-
-mkdirSync(profilePhotoRoot, { recursive: true });
 
 const profilePhotoUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, callback) => {
-      callback(null, profilePhotoRoot);
-    },
-    filename: (_req, file, callback) => {
-      const safeBaseName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_");
-      callback(null, `${Date.now()}-${safeBaseName}`);
-    }
-  }),
+  storage: multer.memoryStorage(),
   fileFilter: (_req, file, callback) => {
     const isImage =
       file.mimetype.startsWith("image/") ||
@@ -34,7 +25,7 @@ const profilePhotoUpload = multer({
 });
 
 function resolvePhotoUrl(photoPath: string | null) {
-  return photoPath ? `/${photoPath.replace(/\\/g, "/")}` : null;
+  return buildStorageObjectUrl(photoPath);
 }
 
 function serializeSessionUser(
@@ -383,9 +374,12 @@ router.patch("/me/profile", requireAuth, profilePhotoUpload.single("photo"), (re
     }
 
     if (uploadedFile) {
-      const nextPhotoPath = path
-        .relative(process.cwd(), uploadedFile.path)
-        .replace(/\\/g, "/");
+      const nextPhotoPath = createStorageKey("profile-photos", uploadedFile.originalname);
+      await uploadObject({
+        key: nextPhotoPath,
+        body: uploadedFile.buffer,
+        contentType: uploadedFile.mimetype
+      });
       updates.fotoPerfil = nextPhotoPath;
     }
 
@@ -425,10 +419,7 @@ router.patch("/me/profile", requireAuth, profilePhotoUpload.single("photo"), (re
     });
 
     if (account.fotoPerfil && account.fotoPerfil !== updatedAccount.fotoPerfil) {
-      const oldPhotoPath = path.resolve(process.cwd(), account.fotoPerfil);
-      if (existsSync(oldPhotoPath)) {
-        unlinkSync(oldPhotoPath);
-      }
+      void deleteObject(account.fotoPerfil);
     }
 
     const refreshedAccount = await prisma.usuario.findUniqueOrThrow({

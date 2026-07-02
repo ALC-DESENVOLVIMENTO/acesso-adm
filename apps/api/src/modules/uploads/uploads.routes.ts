@@ -1,30 +1,18 @@
 import { UploadStatus } from "@prisma/client";
 import { Router } from "express";
 import multer from "multer";
-import path from "node:path";
-import { mkdirSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { requireAuth, requireModuleAccess } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
+import {
+  buildStorageObjectUrl,
+  createStorageKey,
+  deleteObject,
+  uploadObject
+} from "../../lib/storage.js";
 
 const router = Router();
-const currentFile = fileURLToPath(import.meta.url);
-const uploadRoot = path.resolve(path.dirname(currentFile), "../../../storage/uploads");
-
-mkdirSync(uploadRoot, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, callback) => {
-    callback(null, uploadRoot);
-  },
-  filename: (_req, file, callback) => {
-    const safeBaseName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_");
-    callback(null, `${Date.now()}-${safeBaseName}`);
-  }
-});
-
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   fileFilter: (_req, file, callback) => {
     const isPdf =
       file.mimetype === "application/pdf" || file.originalname.toLowerCase().endsWith(".pdf");
@@ -47,6 +35,8 @@ type UploadHistoryItem = Awaited<ReturnType<typeof prisma.uploadPdf.findMany>>[n
 };
 
 function serializeUpload(upload: UploadHistoryItem) {
+  const storageUrl = buildStorageObjectUrl(upload.caminhoArquivo) || null;
+
   return {
     id: upload.id,
     fileName: upload.nomeOriginal,
@@ -59,7 +49,8 @@ function serializeUpload(upload: UploadHistoryItem) {
     periodName: upload.periodoPagamento?.nome || null,
     baseId: upload.basePagamentoId,
     baseName: upload.basePagamento?.nome || null,
-    replacedUploadId: upload.substituiUploadId
+    replacedUploadId: upload.substituiUploadId,
+    downloadUrl: storageUrl
   };
 }
 
@@ -242,16 +233,27 @@ router.post("/", upload.array("files", 20), (req, res) => {
     }
 
     await prisma.uploadPdf.createMany({
-      data: files.map((file) => ({
-        nomeArquivo: file.filename,
-        nomeOriginal: file.originalname,
-        caminhoArquivo: path.relative(process.cwd(), file.path).replace(/\\/g, "/"),
-        versao: 1,
-        status: UploadStatus.pendente,
-        usuarioId: req.auth!.userId,
-        periodoPagamentoId: periodId,
-        basePagamentoId: basePaymentId
-      }))
+      data: await Promise.all(
+        files.map(async (file) => {
+          const key = createStorageKey("uploads", file.originalname);
+          await uploadObject({
+            key,
+            body: file.buffer,
+            contentType: file.mimetype
+          });
+
+          return {
+            nomeArquivo: key.split("/").pop() || file.originalname,
+            nomeOriginal: file.originalname,
+            caminhoArquivo: key,
+            versao: 1,
+            status: UploadStatus.pendente,
+            usuarioId: req.auth!.userId,
+            periodoPagamentoId: periodId,
+            basePagamentoId: basePaymentId
+          };
+        })
+      )
     });
 
     await prisma.logAuditoria.create({
@@ -341,6 +343,8 @@ router.delete("/:id", (req, res) => {
     res.json({
       message: "PDF removido logicamente com sucesso."
     });
+
+    void deleteObject(upload.caminhoArquivo);
   })().catch((error) => {
     res.status(500).json({
       message: "Falha ao remover PDF.",
@@ -392,6 +396,13 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
       return;
     }
 
+    const key = createStorageKey("uploads", file.originalname);
+    await uploadObject({
+      key,
+      body: file.buffer,
+      contentType: file.mimetype
+    });
+
     await prisma.$transaction([
       prisma.uploadPdf.update({
         where: {
@@ -403,9 +414,9 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
       }),
       prisma.uploadPdf.create({
         data: {
-          nomeArquivo: file.filename,
+          nomeArquivo: key.split("/").pop() || file.originalname,
           nomeOriginal: file.originalname,
-          caminhoArquivo: path.relative(process.cwd(), file.path).replace(/\\/g, "/"),
+          caminhoArquivo: key,
           versao: currentUpload.versao + 1,
           status: UploadStatus.pendente,
           usuarioId: req.auth.userId,
@@ -415,6 +426,8 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
         }
       })
     ]);
+
+    void deleteObject(currentUpload.caminhoArquivo);
 
     await prisma.logAuditoria.create({
       data: {
@@ -457,9 +470,16 @@ router.get("/:id/download", (req, res) => {
       return;
     }
 
-    const filePath = String(upload.caminhoArquivo);
-    const downloadName = String(upload.nomeOriginal);
-    res.download(path.resolve(process.cwd(), filePath), downloadName);
+    const downloadUrl = buildStorageObjectUrl(upload.caminhoArquivo);
+
+    if (!downloadUrl) {
+      res.status(404).json({
+        message: "Arquivo nao encontrado."
+      });
+      return;
+    }
+
+    res.redirect(downloadUrl);
   })().catch((error) => {
     res.status(500).json({
       message: "Falha ao baixar arquivo.",

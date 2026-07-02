@@ -1,15 +1,6 @@
-import { readFile, access } from "node:fs/promises";
-import path from "node:path";
+import { access, readFile } from "node:fs/promises";
 import { prisma } from "./prisma.js";
-
-function resolveStoredFilePath(rawPath: string | null) {
-  if (!rawPath) {
-    return null;
-  }
-
-  const normalized = rawPath.replace(/^\/+/, "").replace(/^storage\//, "storage/");
-  return path.resolve(process.cwd(), normalized);
-}
+import { fetchObjectBuffer, normalizeStorageKey, resolveLocalStoragePath } from "./storage.js";
 
 async function fileExists(filePath: string) {
   try {
@@ -57,14 +48,23 @@ export async function ensureDriverPdfReceivedContent() {
   const uploadPathById = new Map(uploads.map((item) => [item.id, item.caminhoArquivo]));
 
   for (const row of pendingRows) {
-    const sourcePath = row.caminhoArquivo || (row.uploadPdfId ? uploadPathById.get(row.uploadPdfId) || null : null);
-    const resolvedPath = resolveStoredFilePath(sourcePath);
+    const sourceKey = normalizeStorageKey(
+      row.caminhoArquivo || (row.uploadPdfId ? uploadPathById.get(row.uploadPdfId) || null : null)
+    );
 
-    if (!resolvedPath || !(await fileExists(resolvedPath))) {
+    if (!sourceKey) {
       continue;
     }
 
-    const content = await readFile(resolvedPath);
+    const remoteObject = await fetchObjectBuffer(sourceKey).catch(() => null);
+    const localPath = resolveLocalStoragePath(sourceKey);
+    const content =
+      remoteObject?.body ||
+      (localPath && (await fileExists(localPath)) ? await readFile(localPath) : null);
+
+    if (!content) {
+      continue;
+    }
 
     await prisma.driverPdfReceived.update({
       where: {

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireAuth, requireModuleAccess } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
+import { buildStorageObjectUrl } from "../../lib/storage.js";
 
 const router = Router();
 
@@ -380,7 +381,7 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
                 : row.status === "nota_fiscal_recebida"
                   ? "Recebida"
                   : "Pendente",
-        caminhoArquivo: row.caminhoArquivo ? `/storage/${row.caminhoArquivo.replace(/^storage\//, "")}` : null
+        caminhoArquivo: buildStorageObjectUrl(row.caminhoArquivo)
       };
     });
 
