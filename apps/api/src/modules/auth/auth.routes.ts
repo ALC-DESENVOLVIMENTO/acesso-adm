@@ -1,4 +1,8 @@
+import { existsSync, mkdirSync, unlinkSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 import { Router } from "express";
+import multer from "multer";
 import { z } from "zod";
 import { comparePassword, generateSessionToken, hashPassword } from "../../lib/auth.js";
 import { getUserAccessInclude, resolveEffectiveModules } from "../../lib/access.js";
@@ -6,6 +10,60 @@ import { requireAuth } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
 
 const router = Router();
+const currentFile = fileURLToPath(import.meta.url);
+const profilePhotoRoot = path.resolve(path.dirname(currentFile), "../../../storage/profile-photos");
+
+mkdirSync(profilePhotoRoot, { recursive: true });
+
+const profilePhotoUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, callback) => {
+      callback(null, profilePhotoRoot);
+    },
+    filename: (_req, file, callback) => {
+      const safeBaseName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_");
+      callback(null, `${Date.now()}-${safeBaseName}`);
+    }
+  }),
+  fileFilter: (_req, file, callback) => {
+    const isImage =
+      file.mimetype.startsWith("image/") ||
+      /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(file.originalname);
+    callback(null, isImage);
+  }
+});
+
+function resolvePhotoUrl(photoPath: string | null) {
+  return photoPath ? `/${photoPath.replace(/\\/g, "/")}` : null;
+}
+
+function serializeSessionUser(
+  account: {
+    id: string;
+    nome: string;
+    email: string;
+    fotoPerfil: string | null;
+    nivel: {
+      codigo: "N1" | "N2" | "N3" | "N4";
+    };
+    ativo: boolean;
+    bloqueado: boolean;
+    primeiroAcesso: boolean;
+  },
+  modules: string[]
+) {
+  return {
+    id: account.id,
+    name: account.nome,
+    email: account.email,
+    photoUrl: resolvePhotoUrl(account.fotoPerfil),
+    level: account.nivel.codigo,
+    active: account.ativo,
+    blocked: account.bloqueado,
+    firstAccess: account.primeiroAcesso,
+    modules
+  };
+}
 
 router.post("/login", (req, res) => {
   void (async () => {
@@ -109,16 +167,7 @@ router.post("/login", (req, res) => {
     res.json({
       token,
       firstAccess: account.primeiroAcesso,
-      user: {
-        id: account.id,
-        name: account.nome,
-        email: account.email,
-        level: account.nivel.codigo,
-        active: account.ativo,
-        blocked: account.bloqueado,
-        firstAccess: account.primeiroAcesso,
-        modules
-      }
+      user: serializeSessionUser(account, modules)
     });
   })().catch((error) => {
     res.status(500).json({
@@ -229,16 +278,7 @@ router.get("/me", requireAuth, (req, res) => {
     res.json({
       token: req.auth.token,
       firstAccess: account.primeiroAcesso,
-      user: {
-        id: account.id,
-        name: account.nome,
-        email: account.email,
-        level: account.nivel.codigo,
-        active: account.ativo,
-        blocked: account.bloqueado,
-        firstAccess: account.primeiroAcesso,
-        modules
-      }
+      user: serializeSessionUser(account, modules)
     });
   })().catch((error) => {
     res.status(500).json({
@@ -284,6 +324,142 @@ router.post("/logout", requireAuth, (req, res) => {
   })().catch((error) => {
     res.status(500).json({
       message: "Falha ao encerrar sessao.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
+
+router.patch("/me/profile", requireAuth, profilePhotoUpload.single("photo"), (req, res) => {
+  void (async () => {
+    if (!req.auth) {
+      res.status(401).json({
+        message: "Sessao invalida."
+      });
+      return;
+    }
+
+    const schema = z.object({
+      name: z.string().trim().min(3).optional(),
+      currentPassword: z.string().min(1).optional(),
+      newPassword: z.string().min(6).optional()
+    });
+
+    const parsed = schema.safeParse(req.body);
+
+    if (!parsed.success) {
+      res.status(400).json({
+        message: "Dados invalidos para atualizacao do perfil.",
+        issues: parsed.error.flatten()
+      });
+      return;
+    }
+
+    const account = await prisma.usuario.findUnique({
+      where: {
+        id: req.auth.userId
+      }
+    });
+
+    if (!account) {
+      res.status(404).json({
+        message: "Usuario nao encontrado."
+      });
+      return;
+    }
+
+    const nextName = parsed.data.name?.trim();
+    const nextPassword = parsed.data.newPassword?.trim();
+    const currentPassword = parsed.data.currentPassword?.trim();
+    const uploadedFile = req.file;
+    const updates: {
+      nome?: string;
+      senhaHash?: string;
+      fotoPerfil?: string | null;
+      primeiroAcesso?: boolean;
+    } = {};
+
+    if (nextName) {
+      updates.nome = nextName;
+    }
+
+    if (uploadedFile) {
+      const nextPhotoPath = path
+        .relative(process.cwd(), uploadedFile.path)
+        .replace(/\\/g, "/");
+      updates.fotoPerfil = nextPhotoPath;
+    }
+
+    if (nextPassword) {
+      if (!currentPassword) {
+        res.status(400).json({
+          message: "Informe a senha atual para alterar a senha."
+        });
+        return;
+      }
+
+      const passwordMatches = await comparePassword(currentPassword, account.senhaHash);
+
+      if (!passwordMatches) {
+        res.status(401).json({
+          message: "Senha atual invalida."
+        });
+        return;
+      }
+
+      updates.senhaHash = await hashPassword(nextPassword);
+      updates.primeiroAcesso = false;
+    }
+
+    if (!updates.nome && !updates.senhaHash && updates.fotoPerfil === undefined) {
+      res.status(400).json({
+        message: "Nenhuma alteracao foi enviada."
+      });
+      return;
+    }
+
+    const updatedAccount = await prisma.usuario.update({
+      where: {
+        id: account.id
+      },
+      data: updates
+    });
+
+    if (account.fotoPerfil && account.fotoPerfil !== updatedAccount.fotoPerfil) {
+      const oldPhotoPath = path.resolve(process.cwd(), account.fotoPerfil);
+      if (existsSync(oldPhotoPath)) {
+        unlinkSync(oldPhotoPath);
+      }
+    }
+
+    const refreshedAccount = await prisma.usuario.findUniqueOrThrow({
+      where: { id: updatedAccount.id },
+      include: getUserAccessInclude()
+    });
+    const modules = resolveEffectiveModules(refreshedAccount);
+
+    await prisma.logAuditoria.create({
+      data: {
+        usuarioId: account.id,
+        acao: "atualizar_perfil",
+        entidade: "usuarios",
+        entidadeId: account.id,
+        ipOrigem: req.ip,
+        userAgent: req.get("user-agent") || null,
+        detalhes: {
+          nomeAlterado: Boolean(updates.nome),
+          fotoAlterada: Boolean(updates.fotoPerfil),
+          senhaAlterada: Boolean(updates.senhaHash)
+        }
+      }
+    });
+
+    res.json({
+      message: "Perfil atualizado com sucesso.",
+      user: serializeSessionUser(refreshedAccount, modules)
+    });
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao atualizar perfil.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });

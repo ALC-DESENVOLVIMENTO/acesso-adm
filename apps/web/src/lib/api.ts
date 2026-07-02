@@ -7,6 +7,7 @@ export type LoginResponse = {
     id: string;
     name: string;
     email: string;
+    photoUrl?: string | null;
     level: "N1" | "N2" | "N3" | "N4";
     active: boolean;
     blocked: boolean;
@@ -46,6 +47,7 @@ export type UserSummary = {
   id: string;
   name: string;
   email: string;
+  photoUrl?: string | null;
   level: "N1" | "N2" | "N3" | "N4";
   active: boolean;
   blocked: boolean;
@@ -61,6 +63,11 @@ export type UserPayload = {
   email: string;
   level: "N1" | "N2" | "N3" | "N4";
   modules: string[];
+};
+
+export type ProfileUpdateResponse = {
+  message: string;
+  user: LoginResponse["user"];
 };
 
 export type PaymentFrequency = "semanal" | "quinzenal" | "mensal";
@@ -391,6 +398,19 @@ export function changeFirstAccessPassword(body: {
 }) {
   return request<{ message: string }>("/auth/first-access/change-password", {
     method: "POST",
+    body
+  });
+}
+
+export function updateCurrentUserProfile(
+  token: string,
+  body: FormData
+) {
+  return requestFormData<ProfileUpdateResponse>("/auth/me/profile", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`
+    },
     body
   });
 }

@@ -105,6 +105,7 @@ model Usuario {
   id                           String                  @id @default(uuid()) @db.Uuid
   nome                         String                  @db.VarChar(150)
   email                        String                  @unique @db.VarChar(150)
+  fotoPerfil                   String?                 @map("foto_perfil") @db.VarChar(255)
   senhaHash                    String                  @map("senha_hash")
   nivelId                      String                  @map("nivel_id") @db.Uuid
   ativo                        Boolean                 @default(true)

@@ -1,5 +1,7 @@
 import {
   ArrowRight,
+  Camera,
+  CaretDown,
   Bell,
   CalendarBlank,
   ChatCenteredDots,
@@ -12,7 +14,6 @@ import {
   FunnelSimple,
   GearSix,
   HouseLine,
-  List,
   LockKey,
   LockSimple,
   MagnifyingGlass,
@@ -43,6 +44,7 @@ import {
   fetchUsers,
   loginRequest,
   logoutRequest,
+  updateCurrentUserProfile,
   updateMotoristaClassificacoes,
   createAtendimentoNota,
   updateAtendimentoNota,
@@ -86,6 +88,8 @@ type FlashMessage = {
   type: "success" | "error";
   text: string;
 };
+
+type ProfileModalMode = "name" | "photo" | "password" | null;
 
 type UploadHistoryState = {
   uploadId: string;
@@ -166,6 +170,10 @@ function App() {
   const [passwordError, setPasswordError] = useState("");
   const [loadingMessage, setLoadingMessage] = useState("");
   const [flashMessage, setFlashMessage] = useState<FlashMessage | null>(null);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [profileModalMode, setProfileModalMode] = useState<ProfileModalMode>(null);
+  const [profileActionError, setProfileActionError] = useState("");
+  const [profileActionLoading, setProfileActionLoading] = useState(false);
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary>(initialSummary);
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [uploads, setUploads] = useState<UploadRow[]>([]);
@@ -182,6 +190,7 @@ function App() {
   const [usersLoaded, setUsersLoaded] = useState(false);
   const [uploadsLoaded, setUploadsLoaded] = useState(false);
   const [periodDataLoaded, setPeriodDataLoaded] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
   const allowedMenu = useMemo(() => {
     if (!currentUser) {
@@ -269,6 +278,26 @@ function App() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!profileMenuOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+
+      if (target && profileMenuRef.current && !profileMenuRef.current.contains(target)) {
+        setProfileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [profileMenuOpen]);
 
   useEffect(() => {
     if (!token || !currentUser || view === "login" || view === "first-access") {
@@ -374,6 +403,9 @@ function App() {
       setPaymentPeriods([]);
       setPaymentBases([]);
       setFinanceMotoristaTarget(null);
+      setProfileMenuOpen(false);
+      setProfileModalMode(null);
+      setProfileActionError("");
       localStorage.setItem(
         "portal-admin-session",
         JSON.stringify({
@@ -463,10 +495,17 @@ function App() {
     setDashboardSummary(initialSummary);
     setLoginError("");
     setPasswordError("");
+    setProfileActionError("");
+    setProfileActionLoading(false);
+    setProfileMenuOpen(false);
+    setProfileModalMode(null);
     setLoadingMessage("");
     setFlashMessage(null);
     setUploadProgress(null);
     setUploadHistory(null);
+    setProfileMenuOpen(false);
+    setProfileModalMode(null);
+    setProfileActionError("");
     setDeleteUserTarget(null);
     setDeleteUploadTarget(null);
     setDeletePeriodTarget(null);
@@ -475,6 +514,85 @@ function App() {
     setView("login");
     clearLoadedState();
     localStorage.removeItem("portal-admin-session");
+  };
+
+  const closeProfileModal = () => {
+    setProfileModalMode(null);
+    setProfileActionError("");
+  };
+
+  const handleProfileSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!token || !currentUser || !profileModalMode) {
+      return;
+    }
+
+    const data = new FormData(event.currentTarget);
+    const profilePayload = new FormData();
+
+    if (profileModalMode === "name") {
+      const nextName = String(data.get("name") || "").trim();
+
+      if (!nextName) {
+        setProfileActionError("Informe um nome valido.");
+        return;
+      }
+
+      profilePayload.append("name", nextName);
+    }
+
+    if (profileModalMode === "photo") {
+      const photoFile = data.get("photo");
+
+      if (!(photoFile instanceof File) || photoFile.size === 0) {
+        setProfileActionError("Selecione uma foto para atualizar.");
+        return;
+      }
+
+      profilePayload.append("photo", photoFile);
+    }
+
+    if (profileModalMode === "password") {
+      const currentPassword = String(data.get("currentPassword") || "").trim();
+      const newPassword = String(data.get("newPassword") || "").trim();
+      const confirmPassword = String(data.get("confirmPassword") || "").trim();
+
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        setProfileActionError("Preencha a senha atual e a nova senha.");
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        setProfileActionError("A confirmacao da senha precisa ser igual a nova senha.");
+        return;
+      }
+
+      profilePayload.append("currentPassword", currentPassword);
+      profilePayload.append("newPassword", newPassword);
+    }
+
+    setProfileActionLoading(true);
+    setProfileActionError("");
+
+    try {
+      const response = await updateCurrentUserProfile(token, profilePayload);
+      setCurrentUser(response.user);
+      localStorage.setItem(
+        "portal-admin-session",
+        JSON.stringify({
+          token,
+          user: response.user
+        })
+      );
+      setFlashMessage({ type: "success", text: response.message });
+      closeProfileModal();
+      setProfileMenuOpen(false);
+    } catch (error) {
+      setProfileActionError(error instanceof Error ? error.message : "Falha ao atualizar o perfil.");
+    } finally {
+      setProfileActionLoading(false);
+    }
   };
 
   const handleCreateUser = async (payload: UserPayload) => {
@@ -1040,9 +1158,6 @@ function App() {
 
       <section className="shell-content">
         <header className="topbar">
-          <button className="icon-button" type="button" aria-label="Abrir menu">
-            <List size={24} />
-          </button>
           <div className="topbar__brand" aria-label="ALC Pereira Filho Transportes">
             <img src={logoSrc} alt="ALC Pereira Filho Transportes" />
           </div>
@@ -1050,13 +1165,72 @@ function App() {
             <button className="icon-button" type="button" aria-label="Notificacoes">
               <Bell size={22} />
             </button>
-            <button className="profile-chip" type="button">
-              <span className="profile-chip__avatar">{currentUser?.name.slice(0, 2).toUpperCase()}</span>
-              <span>
-                <strong>{currentUser?.name}</strong>
-                <small>{currentUser?.email}</small>
-              </span>
-            </button>
+            <div className="topbar__profile" ref={profileMenuRef}>
+              <button
+                className="profile-chip"
+                type="button"
+                aria-expanded={profileMenuOpen}
+                aria-haspopup="menu"
+                onClick={() => setProfileMenuOpen((current) => !current)}
+              >
+                {currentUser?.photoUrl ? (
+                  <img className="profile-chip__avatar profile-chip__avatar--image" src={currentUser.photoUrl} alt="" />
+                ) : (
+                  <span className="profile-chip__avatar">
+                    {currentUser?.name.slice(0, 2).toUpperCase()}
+                  </span>
+                )}
+                <span>
+                  <strong>{currentUser?.name}</strong>
+                  <small>{currentUser?.email}</small>
+                </span>
+                <CaretDown size={18} className="profile-chip__chevron" />
+              </button>
+
+              {profileMenuOpen ? (
+                <div className="profile-menu" role="menu" aria-label="Acoes do perfil">
+                  <button
+                    className="profile-menu__item"
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setProfileMenuOpen(false);
+                      setProfileModalMode("photo");
+                      setProfileActionError("");
+                    }}
+                  >
+                    <Camera size={18} />
+                    <span>Alterar foto</span>
+                  </button>
+                  <button
+                    className="profile-menu__item"
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setProfileMenuOpen(false);
+                      setProfileModalMode("name");
+                      setProfileActionError("");
+                    }}
+                  >
+                    <PencilSimple size={18} />
+                    <span>Alterar nome</span>
+                  </button>
+                  <button
+                    className="profile-menu__item"
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setProfileMenuOpen(false);
+                      setProfileModalMode("password");
+                      setProfileActionError("");
+                    }}
+                  >
+                    <LockKey size={18} />
+                    <span>Alterar senha</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
         </header>
 
@@ -1143,6 +1317,101 @@ function App() {
           />
         ) : null}
       </section>
+
+      {profileModalMode ? (
+        <div className="modal-overlay" onClick={closeProfileModal}>
+          <div
+            className="modal-card modal-card--profile"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="profile-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-card__header">
+              <div>
+                <p className="eyebrow">Meu perfil</p>
+                <h3 id="profile-modal-title">
+                  {profileModalMode === "name"
+                    ? "Alterar nome"
+                    : profileModalMode === "photo"
+                      ? "Alterar foto"
+                      : "Alterar senha"}
+                </h3>
+                <p>As alteracoes sao gravadas diretamente no cadastro do usuario.</p>
+              </div>
+            </div>
+
+            <form className="form-stack" onSubmit={handleProfileSubmit}>
+              {profileModalMode === "name" ? (
+                <label className="field">
+                  <span>Nome</span>
+                  <span className="field__control">
+                    <PencilSimple size={18} />
+                    <input name="name" type="text" defaultValue={currentUser?.name || ""} required />
+                  </span>
+                </label>
+              ) : null}
+
+              {profileModalMode === "photo" ? (
+                <>
+                  <div className="profile-photo-preview">
+                    {currentUser?.photoUrl ? (
+                      <img src={currentUser.photoUrl} alt="Foto atual do usuario" />
+                    ) : (
+                      <span>{currentUser?.name.slice(0, 2).toUpperCase()}</span>
+                    )}
+                  </div>
+                  <label className="field">
+                    <span>Foto</span>
+                    <span className="field__control">
+                      <Camera size={18} />
+                      <input name="photo" type="file" accept="image/*" required />
+                    </span>
+                  </label>
+                </>
+              ) : null}
+
+              {profileModalMode === "password" ? (
+                <>
+                  <label className="field">
+                    <span>Senha atual</span>
+                    <span className="field__control">
+                      <LockSimple size={18} />
+                      <input name="currentPassword" type="password" required />
+                    </span>
+                  </label>
+                  <label className="field">
+                    <span>Nova senha</span>
+                    <span className="field__control">
+                      <LockSimple size={18} />
+                      <input name="newPassword" type="password" minLength={6} required />
+                    </span>
+                  </label>
+                  <label className="field">
+                    <span>Confirmar nova senha</span>
+                    <span className="field__control">
+                      <LockSimple size={18} />
+                      <input name="confirmPassword" type="password" minLength={6} required />
+                    </span>
+                  </label>
+                </>
+              ) : null}
+
+              {profileActionError ? <p className="form-error">{profileActionError}</p> : null}
+              {profileActionLoading ? <p className="loading-note">Salvando alteracoes...</p> : null}
+
+              <div className="confirm-actions">
+                <button className="ghost-button" type="button" onClick={closeProfileModal}>
+                  Cancelar
+                </button>
+                <button className="primary-button primary-button--inline" type="submit" disabled={profileActionLoading}>
+                  Salvar alteracoes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
 
       {deleteUserTarget ? (
         <div className="modal-overlay" onClick={() => setDeleteUserTarget(null)}>
