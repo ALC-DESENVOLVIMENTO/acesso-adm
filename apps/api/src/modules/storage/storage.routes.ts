@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { fetchObjectStream, hasObjectStorage, normalizeStorageKey } from "../../lib/storage.js";
+import { fetchObjectStream, getStorageDiagnostics, hasObjectStorage, normalizeStorageKey } from "../../lib/storage.js";
 
 const router = Router();
 
@@ -15,7 +15,16 @@ router.get("/*", async (req, res) => {
     }
 
     if (!hasObjectStorage()) {
-      res.status(503).json({ message: "Servico de armazenamento nao configurado." });
+      const diagnostics = getStorageDiagnostics();
+      res.status(503).json({
+        message: "Servico de armazenamento nao configurado.",
+        detail: {
+          missing: diagnostics.missing,
+          bucket: diagnostics.bucket ? "definido" : "nao definido",
+          region: diagnostics.region,
+          endpoint: diagnostics.endpoint
+        }
+      });
       return;
     }
 

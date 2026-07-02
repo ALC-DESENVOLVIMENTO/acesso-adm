@@ -6,6 +6,7 @@ import { prisma } from "../../lib/prisma.js";
 import {
   buildStorageObjectUrl,
   createStorageKey,
+  getStorageDiagnostics,
   deleteObject,
   uploadObject
 } from "../../lib/storage.js";
@@ -187,7 +188,7 @@ router.post("/", upload.array("files", 20), (req, res) => {
       return;
     }
 
-    const files = (req.files as Express.Multer.File[]) || [];
+  const files = (req.files as Express.Multer.File[]) || [];
     const periodId = String(req.body?.periodId || "").trim();
     const basePaymentId = String(req.body?.basePaymentId || "").trim();
 
@@ -201,6 +202,21 @@ router.post("/", upload.array("files", 20), (req, res) => {
     if (!periodId || !basePaymentId) {
       res.status(400).json({
         message: "Selecione um periodo e uma base antes de enviar PDFs."
+      });
+      return;
+    }
+
+    const storageDiagnostics = getStorageDiagnostics();
+
+    if (!storageDiagnostics.configured) {
+      res.status(503).json({
+        message: "Servico de armazenamento nao configurado.",
+        detail: {
+          missing: storageDiagnostics.missing,
+          bucket: storageDiagnostics.bucket ? "definido" : "nao definido",
+          region: storageDiagnostics.region,
+          endpoint: storageDiagnostics.endpoint
+        }
       });
       return;
     }

@@ -7,15 +7,48 @@ import {
 } from "@aws-sdk/client-s3";
 import { Readable } from "node:stream";
 
-const endpoint =
-  process.env.STORAGE_ENDPOINT_URL ||
-  process.env.STORAGE_ENDPOINT ||
-  process.env.STORAGE_URL ||
-  process.env.S3_ENDPOINT_URL ||
-  process.env.S3_ENDPOINT ||
-  process.env.AWS_ENDPOINT_URL ||
-  process.env.AWS_ENDPOINT ||
-  "";
+function readStorageEnv(...names: string[]) {
+  for (const name of names) {
+    const value = process.env[name]?.trim();
+
+    if (!value) {
+      continue;
+    }
+
+    const lowered = value.toLowerCase();
+
+    if (lowered === "undefined" || lowered === "null" || lowered === "") {
+      continue;
+    }
+
+    return value;
+  }
+
+  return "";
+}
+
+function hasValidEndpoint(candidate: string) {
+  if (!candidate) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(candidate);
+    return Boolean(parsed.protocol && parsed.host);
+  } catch {
+    return false;
+  }
+}
+
+const endpoint = readStorageEnv(
+  "STORAGE_ENDPOINT_URL",
+  "STORAGE_ENDPOINT",
+  "STORAGE_URL",
+  "S3_ENDPOINT_URL",
+  "S3_ENDPOINT",
+  "AWS_ENDPOINT_URL",
+  "AWS_ENDPOINT"
+) || "";
 const region =
   process.env.STORAGE_REGION ||
   process.env.S3_REGION ||
@@ -23,32 +56,64 @@ const region =
   process.env.AWS_DEFAULT_REGION ||
   "auto";
 const bucket =
-  process.env.STORAGE_BUCKET_NAME ||
-  process.env.STORAGE_BUCKET ||
-  process.env.STORAGE_BUCKET_ID ||
-  process.env.S3_BUCKET_NAME ||
-  process.env.S3_BUCKET ||
-  process.env.AWS_BUCKET ||
+  readStorageEnv(
+    "STORAGE_BUCKET_NAME",
+    "STORAGE_BUCKET",
+    "STORAGE_BUCKET_ID",
+    "S3_BUCKET_NAME",
+    "S3_BUCKET",
+    "AWS_BUCKET"
+  ) ||
   "";
 const accessKeyId =
-  process.env.STORAGE_ACCESS_KEY_ID ||
-  process.env.STORAGE_ACCESS_KEY ||
-  process.env.S3_ACCESS_KEY_ID ||
-  process.env.AWS_ACCESS_KEY_ID ||
-  process.env.AWS_ACCESS_KEY ||
+  readStorageEnv(
+    "STORAGE_ACCESS_KEY_ID",
+    "STORAGE_ACCESS_KEY",
+    "S3_ACCESS_KEY_ID",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_ACCESS_KEY"
+  ) ||
   "";
 const secretAccessKey =
-  process.env.STORAGE_SECRET_ACCESS_KEY ||
-  process.env.STORAGE_SECRET_KEY ||
-  process.env.STORAGE_SECRET ||
-  process.env.S3_SECRET_ACCESS_KEY ||
-  process.env.AWS_SECRET_ACCESS_KEY ||
-  process.env.AWS_SECRET ||
-  process.env.SECRET_ACCESS_KEY ||
+  readStorageEnv(
+    "STORAGE_SECRET_ACCESS_KEY",
+    "STORAGE_SECRET_KEY",
+    "STORAGE_SECRET",
+    "S3_SECRET_ACCESS_KEY",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_SECRET",
+    "SECRET_ACCESS_KEY"
+  ) ||
   "";
 const forcePathStyle = String(process.env.STORAGE_FORCE_PATH_STYLE || "true").toLowerCase() !== "false";
 
-const hasStorageConfig = Boolean(endpoint && bucket && accessKeyId && secretAccessKey);
+const hasStorageConfig = Boolean(hasValidEndpoint(endpoint) && bucket && accessKeyId && secretAccessKey);
+const missingStorageConfig: string[] = [];
+if (!bucket) {
+  missingStorageConfig.push("bucket");
+}
+if (!accessKeyId) {
+  missingStorageConfig.push("access key");
+}
+if (!secretAccessKey) {
+  missingStorageConfig.push("secret key");
+}
+if (!hasValidEndpoint(endpoint)) {
+  missingStorageConfig.push("endpoint");
+}
+const storageConfigSource = hasStorageConfig ? "configured" : "missing variables";
+const endpointPreview = endpoint ? endpoint.replace(/\/\/.*@/, "//***@") : null;
+
+export function getStorageDiagnostics() {
+  return {
+    configured: hasStorageConfig,
+    endpoint: endpointPreview,
+    bucket,
+    region,
+    forcePathStyle,
+    missing: missingStorageConfig
+  };
+}
 
 const client = hasStorageConfig
   ? new S3Client({
