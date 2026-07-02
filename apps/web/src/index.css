@@ -1491,6 +1491,207 @@ button {
   font-weight: 600;
 }
 
+.modal-card--finance {
+  width: min(980px, 100%);
+}
+
+.modal-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.finance-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.98fr) minmax(0, 1.02fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.finance-stack {
+  display: grid;
+  gap: 18px;
+}
+
+.finance-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.finance-period-list {
+  display: grid;
+  gap: 14px;
+}
+
+.finance-period-card {
+  display: grid;
+  gap: 14px;
+  border-radius: 24px;
+  padding: 20px;
+  border: 1px solid rgba(31, 36, 48, 0.07);
+  background: rgba(244, 246, 250, 0.78);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  cursor: pointer;
+}
+
+.finance-period-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 34px rgba(31, 36, 48, 0.08);
+}
+
+.finance-period-card--active {
+  border-color: rgba(42, 99, 255, 0.24);
+  box-shadow: 0 22px 54px rgba(42, 99, 255, 0.1);
+}
+
+.finance-period-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.finance-period-card h4 {
+  margin: 4px 0;
+  font-size: 1.28rem;
+}
+
+.finance-period-card__meta {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.finance-period-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(42, 99, 255, 0.08), rgba(255, 95, 83, 0.04));
+}
+
+.finance-period-hero h4 {
+  margin: 4px 0 6px;
+  font-size: 1.5rem;
+}
+
+.finance-period-hero__meta {
+  text-align: right;
+  color: var(--muted);
+  display: grid;
+  gap: 6px;
+}
+
+.finance-base-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.finance-base-card {
+  display: grid;
+  gap: 14px;
+  border-radius: 22px;
+  padding: 18px;
+  border: 1px solid rgba(31, 36, 48, 0.07);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.finance-base-card__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.finance-base-card__top span,
+.finance-base-card__metrics span,
+.table-cell-subtle {
+  color: var(--muted);
+}
+
+.finance-base-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  font-size: 0.92rem;
+}
+
+.finance-filters {
+  margin-bottom: 16px;
+}
+
+.finance-table .data-table {
+  min-width: 1100px;
+}
+
+.finance-table .data-table td {
+  vertical-align: top;
+}
+
+.finance-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(244, 246, 250, 0.92);
+  border: 1px solid rgba(31, 36, 48, 0.08);
+  color: #2a3446;
+  font-weight: 600;
+}
+
+.finance-status-pill--success {
+  background: rgba(49, 179, 104, 0.14);
+  color: #1f8b55;
+  border-color: rgba(49, 179, 104, 0.18);
+}
+
+.finance-status-pill--danger {
+  background: rgba(255, 95, 83, 0.14);
+  color: #c94c41;
+  border-color: rgba(255, 95, 83, 0.18);
+}
+
+.finance-status-pill--warning {
+  background: rgba(255, 181, 71, 0.18);
+  color: #ad6c05;
+  border-color: rgba(255, 181, 71, 0.22);
+}
+
+.finance-status-pill--info {
+  background: rgba(42, 99, 255, 0.12);
+  color: #2a63ff;
+  border-color: rgba(42, 99, 255, 0.18);
+}
+
+.finance-status-pill--neutral {
+  background: rgba(31, 36, 48, 0.06);
+  color: #405067;
+  border-color: rgba(31, 36, 48, 0.08);
+}
+
+.finance-attendance-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(42, 99, 255, 0.08);
+  color: #2a63ff;
+  font-weight: 600;
+}
+
+.finance-alert--error {
+  background: rgba(255, 95, 83, 0.08);
+  border: 1px solid rgba(255, 95, 83, 0.14);
+  color: #c94c41;
+}
+
 @media (max-width: 1180px) {
   .auth-page {
     grid-template-columns: 1fr;
@@ -1524,6 +1725,9 @@ button {
   .admin-form,
   .filters-row,
   .filters-row--crm,
+  .finance-layout,
+  .finance-base-grid,
+  .finance-filters,
   .crm-inline-form,
   .crm-driver__grid {
     grid-template-columns: 1fr;
@@ -1566,6 +1770,16 @@ button {
 
   .crm-driver__meta,
   .timeline-item__meta {
+    text-align: left;
+  }
+
+  .finance-period-card__top,
+  .finance-period-hero,
+  .finance-base-card__top {
+    flex-direction: column;
+  }
+
+  .finance-period-hero__meta {
     text-align: left;
   }
 

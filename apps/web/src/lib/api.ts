@@ -85,6 +85,53 @@ export type PaymentPeriod = {
   bases: PeriodBase[];
   uploadedTotal: number;
   uploadedByBase: Record<string, number>;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: string;
+};
+
+export type FinanceiroSummary = {
+  activePeriods: number;
+  bases: number;
+  motoristas: number;
+  pdfsSent: number;
+  notesReceived: number;
+  notesPending: number;
+  inAnalysis: number;
+  rejected: number;
+  inAttendance: number;
+  concluded: number;
+};
+
+export type FinanceiroBaseCard = {
+  id: string;
+  name: string;
+  paymentType: PaymentFrequency;
+  motoristas: number;
+  pdfsSent: number;
+  pdfsPending: number;
+  notesReceived: number;
+  notesPending: number;
+};
+
+export type FinanceiroMotoristaRow = {
+  id: string;
+  motoristaId: string;
+  nome: string;
+  cpf: string;
+  base: string;
+  periodoPagamento: string;
+  pdfEnviadoEm: string | null;
+  pdfVisualizadoEm: string | null;
+  notaFiscalEnviadaEm: string | null;
+  notaFiscalRecebidaEm: string | null;
+  status: string;
+  statusLabel: string;
+  situacaoAtendimento: string;
+  ultimaAtualizacao: string | null;
+  atendimentoStatus: string;
+  statusNotaFiscal: string;
+  caminhoArquivo: string | null;
 };
 
 export type AtendimentoClassificacao = {
@@ -380,9 +427,82 @@ export function fetchPaymentBases(token: string) {
   });
 }
 
+export function fetchFinanceiroSummary(token: string) {
+  return request<FinanceiroSummary>("/financeiro/summary", {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function fetchFinanceiroBases(token: string, periodId: string) {
+  return request<FinanceiroBaseCard[]>(`/financeiro/periods/${periodId}/bases`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function fetchFinanceiroMotoristas(
+  token: string,
+  periodId: string,
+  baseId: string,
+  filters?: {
+    search?: string;
+    cpf?: string;
+    status?: string;
+  }
+) {
+  const params = new URLSearchParams();
+
+  if (filters?.search) {
+    params.set("search", filters.search);
+  }
+
+  if (filters?.cpf) {
+    params.set("cpf", filters.cpf);
+  }
+
+  if (filters?.status) {
+    params.set("status", filters.status);
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+
+  return request<FinanceiroMotoristaRow[]>(`/financeiro/periods/${periodId}/bases/${baseId}/motoristas${suffix}`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
 export function createPaymentPeriod(token: string, body: CreatePaymentPeriodPayload) {
   return request<{ message: string }>("/periods", {
     method: "POST",
+    body,
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function updatePaymentPeriod(token: string, periodId: string, body: CreatePaymentPeriodPayload) {
+  return request<{ message: string }>(`/periods/${periodId}`, {
+    method: "PATCH",
+    body,
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function updatePaymentPeriodStatus(
+  token: string,
+  periodId: string,
+  body: { status: "disponivel" | "aguardando_aprovacao" | "aprovado" }
+) {
+  return request<{ message: string }>(`/periods/${periodId}/status`, {
+    method: "PATCH",
     body,
     headers: {
       Authorization: `Bearer ${token}`

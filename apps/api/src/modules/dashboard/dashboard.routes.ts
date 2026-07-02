@@ -13,7 +13,18 @@ router.get("/summary", (_req, res) => {
         prisma.uploadPdf.count(),
         prisma.uploadPdf.count({ where: { status: "processado" } }),
         prisma.uploadPdf.count({ where: { status: "pendente" } }),
-        prisma.notaFiscal.count({ where: { status: "pendente" } }),
+        prisma.driverPdfReceived.count({
+          where: {
+            status: {
+              in: [
+                "pdf_aguardando_envio",
+                "pdf_enviado_ao_motorista",
+                "motorista_visualizou",
+                "aguardando_envio_nota_fiscal"
+              ]
+            }
+          }
+        }),
         prisma.chamado.count({ where: { status: "aguardando" } }),
         prisma.chamado.count({ where: { status: "concluido" } }),
         prisma.usuario.count()

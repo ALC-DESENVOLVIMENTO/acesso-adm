@@ -67,9 +67,10 @@ import {
   type UserPayload,
   type UserSummary
 } from "./lib/api";
+import { FinanceiroScreen } from "./FinanceiroScreen";
 
 type AccessLevel = "N1" | "N2" | "N3" | "N4";
-type View = "login" | "first-access" | "dashboard" | "pdfs" | "users" | "periods" | "atendimento";
+type View = "login" | "first-access" | "dashboard" | "pdfs" | "users" | "periods" | "financeiro" | "atendimento";
 
 type Activity = {
   icon: "pdf" | "user" | "view";
@@ -96,6 +97,7 @@ const menuItems = [
   { key: "pdfs", label: "Envio de PDFs", icon: FileArrowUp },
   { key: "users", label: "Cadastro de Usuarios", icon: UserCirclePlus },
   { key: "periods", label: "Criação de Periodo", icon: CalendarBlank },
+  { key: "financeiro", label: "Notas Fiscais", icon: FilePdf },
   { key: "atendimento", label: "Atendimento", icon: ChatCenteredDots }
 ] as const;
 
@@ -175,6 +177,7 @@ function App() {
   const [deleteUserTarget, setDeleteUserTarget] = useState<UserSummary | null>(null);
   const [deleteUploadTarget, setDeleteUploadTarget] = useState<UploadRow | null>(null);
   const [deletePeriodTarget, setDeletePeriodTarget] = useState<PaymentPeriod | null>(null);
+  const [financeMotoristaTarget, setFinanceMotoristaTarget] = useState<string | null>(null);
   const [dashboardLoaded, setDashboardLoaded] = useState(false);
   const [usersLoaded, setUsersLoaded] = useState(false);
   const [uploadsLoaded, setUploadsLoaded] = useState(false);
@@ -197,7 +200,7 @@ function App() {
   const canSeePdfData = useMemo(() => currentUser?.modules.includes("pdfs") ?? false, [currentUser]);
   const canSeeUsersData = useMemo(() => currentUser?.modules.includes("users") ?? false, [currentUser]);
   const canSeePeriodData = useMemo(
-    () => canSeePdfData || currentUser?.level === "N3" || currentUser?.level === "N4",
+    () => canSeePdfData || currentUser?.modules.includes("financeiro") || currentUser?.level === "N3" || currentUser?.level === "N4",
     [canSeePdfData, currentUser]
   );
 
@@ -303,7 +306,7 @@ function App() {
           }
         }
 
-        if (activeView === "periods" && canSeePeriodData && !periodDataLoaded) {
+        if ((activeView === "periods" || activeView === "financeiro") && canSeePeriodData && !periodDataLoaded) {
           tasks.push(loadPeriodData());
         }
 
@@ -370,6 +373,7 @@ function App() {
       setUsers([]);
       setPaymentPeriods([]);
       setPaymentBases([]);
+      setFinanceMotoristaTarget(null);
       localStorage.setItem(
         "portal-admin-session",
         JSON.stringify({
@@ -466,6 +470,7 @@ function App() {
     setDeleteUserTarget(null);
     setDeleteUploadTarget(null);
     setDeletePeriodTarget(null);
+    setFinanceMotoristaTarget(null);
     setActiveView("dashboard");
     setView("login");
     clearLoadedState();
@@ -582,6 +587,13 @@ function App() {
       type: "success",
       text: "A tela de envio de PDFs foi aberta."
     });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const openMotoristaInAtendimento = (motoristaId: string) => {
+    setFinanceMotoristaTarget(motoristaId);
+    setActiveView("atendimento");
+    setView("atendimento");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -1085,6 +1097,16 @@ function App() {
             onDeletePeriod={requestDeletePeriod}
           />
         ) : null}
+        {activeView === "financeiro" ? (
+          <FinanceiroScreen
+            token={token}
+            currentUser={currentUser}
+            periods={paymentPeriods}
+            bases={paymentBases}
+            onRefreshPeriods={loadPeriodData}
+            onOpenMotorista={openMotoristaInAtendimento}
+          />
+        ) : null}
         {activeView === "pdfs" ? (
           <PdfsScreen
             uploads={uploads}
@@ -1113,7 +1135,12 @@ function App() {
           />
         ) : null}
         {activeView === "atendimento" ? (
-          <AtendimentoScreen token={token} currentUser={currentUser} />
+          <AtendimentoScreen
+            token={token}
+            currentUser={currentUser}
+            focusMotoristaId={financeMotoristaTarget}
+            onConsumeFocusMotorista={() => setFinanceMotoristaTarget(null)}
+          />
         ) : null}
       </section>
 
@@ -2460,10 +2487,14 @@ function UsersScreen({
 
 function AtendimentoScreen({
   token,
-  currentUser
+  currentUser,
+  focusMotoristaId,
+  onConsumeFocusMotorista
 }: {
   token: string;
   currentUser: SessionUser | null;
+  focusMotoristaId?: string | null;
+  onConsumeFocusMotorista?: () => void;
 }) {
   const isAdmin = currentUser?.level === "N3" || currentUser?.level === "N4";
   const [searchTerm, setSearchTerm] = useState("");
@@ -2494,6 +2525,14 @@ function AtendimentoScreen({
 
     return detail.chamados.filter((ticket) => statusFilter === "todos" || ticket.status === statusFilter);
   }, [detail, statusFilter]);
+
+  useEffect(() => {
+    if (focusMotoristaId) {
+      setSearchTerm("");
+      setSelectedMotoristaId(focusMotoristaId);
+      onConsumeFocusMotorista?.();
+    }
+  }, [focusMotoristaId, onConsumeFocusMotorista]);
 
   useEffect(() => {
     if (!token) {

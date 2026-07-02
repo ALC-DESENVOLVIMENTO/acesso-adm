@@ -43,6 +43,20 @@ enum InvoiceStatus {
   rejeitada
 }
 
+enum DriverPdfReceivedStatus {
+  pdf_aguardando_envio
+  pdf_enviado_ao_motorista
+  motorista_visualizou
+  aguardando_envio_nota_fiscal
+  nota_fiscal_recebida
+  nota_fiscal_em_analise
+  nota_fiscal_aprovada
+  nota_fiscal_rejeitada
+  em_atendimento
+  chamado_aberto
+  processo_concluido
+}
+
 enum PaymentFrequencyCode {
   semanal
   quinzenal
@@ -103,6 +117,9 @@ model Usuario {
   permissoesPorUsuario         PermissaoPorUsuario[]   @relation("PermissaoDestinoUsuario")
   permissoesConcedidas         PermissaoPorUsuario[]   @relation("PermissaoConcedidaPor")
   uploads                      UploadPdf[]
+  driverPdfsRecebidosCriados   DriverPdfReceived[]     @relation("DriverPdfReceivedCriadoPor")
+  driverPdfsRecebidosAprovados DriverPdfReceived[]     @relation("DriverPdfReceivedAprovadoPor")
+  driverPdfsRecebidosRejeitados DriverPdfReceived[]    @relation("DriverPdfReceivedRejeitadoPor")
   chamadosSolicitados          Chamado[]               @relation("ChamadoSolicitante")
   chamadosResponsaveis         Chamado[]               @relation("ChamadoResponsavel")
   atendimentosRealizados       Atendimento[]
@@ -124,6 +141,7 @@ model BasePagamento {
   ativo          Boolean                   @default(true)
   uploads        UploadPdf[]
   periodosBases  PeriodoPagamentoBase[]
+  pdfsRecebidos  DriverPdfReceived[]
 
   @@map("bases_pagamento")
 }
@@ -141,6 +159,7 @@ model PeriodoPagamento {
   criadoPor      Usuario                   @relation(fields: [criadoPorId], references: [id])
   bases          PeriodoPagamentoBase[]
   uploads        UploadPdf[]
+  pdfsRecebidos  DriverPdfReceived[]
 
   @@index([criadoPorId])
   @@map("periodos_pagamento")
@@ -258,6 +277,7 @@ model Motorista {
   criadoEm            DateTime                  @default(now()) @map("criado_em")
   atualizadoEm        DateTime                  @updatedAt @map("atualizado_em")
   uploads             UploadPdf[]
+  pdfsRecebidos       DriverPdfReceived[]
   atendimentos        Atendimento[]
   chamados            Chamado[]
   notas               NotaAtendimento[]
@@ -416,6 +436,43 @@ model NotaFiscal {
   criadoEm   DateTime       @default(now()) @map("criado_em")
 
   @@map("notas_fiscais")
+}
+
+model DriverPdfReceived {
+  id                   String                  @id @default(uuid()) @db.Uuid
+  motoristaId          String                  @map("motorista_id") @db.Uuid
+  periodoPagamentoId   String                  @map("periodo_pagamento_id") @db.Uuid
+  basePagamentoId      String                  @map("base_pagamento_id") @db.Uuid
+  nomeArquivo          String?                 @map("nome_arquivo") @db.VarChar(255)
+  caminhoArquivo       String?                 @map("caminho_arquivo")
+  tipoArquivo          String?                 @map("tipo_arquivo") @db.VarChar(80)
+  uploadEm             DateTime                @default(now()) @map("upload_em")
+  usuarioId            String?                 @map("usuario_id") @db.Uuid
+  status               DriverPdfReceivedStatus @default(pdf_aguardando_envio)
+  observacoes          String?
+  visualizadoEm        DateTime?               @map("visualizado_em")
+  enviadoAoMotoristaEm DateTime?               @map("enviado_ao_motorista_em")
+  aprovadoEm           DateTime?               @map("aprovado_em")
+  aprovadoPorId        String?                 @map("aprovado_por_id") @db.Uuid
+  rejeitadoEm          DateTime?               @map("rejeitado_em")
+  rejeitadoPorId       String?                 @map("rejeitado_por_id") @db.Uuid
+  motivoRejeicao       String?                 @map("motivo_rejeicao")
+  atualizadoEm         DateTime                @updatedAt @map("atualizado_em")
+  motorista            Motorista               @relation(fields: [motoristaId], references: [id])
+  periodoPagamento     PeriodoPagamento        @relation(fields: [periodoPagamentoId], references: [id])
+  basePagamento        BasePagamento           @relation(fields: [basePagamentoId], references: [id])
+  usuario              Usuario?                @relation("DriverPdfReceivedCriadoPor", fields: [usuarioId], references: [id])
+  aprovador            Usuario?                @relation("DriverPdfReceivedAprovadoPor", fields: [aprovadoPorId], references: [id])
+  rejeitador           Usuario?                @relation("DriverPdfReceivedRejeitadoPor", fields: [rejeitadoPorId], references: [id])
+
+  @@index([motoristaId])
+  @@index([periodoPagamentoId])
+  @@index([basePagamentoId])
+  @@index([usuarioId])
+  @@index([aprovadoPorId])
+  @@index([rejeitadoPorId])
+  @@index([status])
+  @@map("driver_pdf_received")
 }
 
 model LogAuditoria {

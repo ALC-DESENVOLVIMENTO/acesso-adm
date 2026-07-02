@@ -1,17 +1,55 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requireAdmin, requireAuth, requireModuleAccess } from "../../middlewares/auth.middleware.js";
+import { requireAdmin, requireAuth } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
 
 const router = Router();
 
-router.use(requireAuth, requireModuleAccess("pdfs"));
+router.use(requireAuth, (req, res, next) => {
+  if (!req.auth) {
+    res.status(401).json({
+      message: "Sessao nao autenticada."
+    });
+    return;
+  }
+
+  if (req.auth.firstAccess) {
+    res.status(403).json({
+      message: "Altere a senha inicial antes de acessar outros modulos."
+    });
+    return;
+  }
+
+  if (
+    !req.auth.modules.includes("pdfs") &&
+    !req.auth.modules.includes("financeiro") &&
+    !["N3", "N4"].includes(req.auth.level)
+  ) {
+    res.status(403).json({
+      message: "Voce nao possui permissao para acessar este modulo."
+    });
+    return;
+  }
+
+  next();
+});
 
 const periodPayloadSchema = z.object({
   name: z.string().min(3),
   startDate: z.string().min(1),
   endDate: z.string().min(1),
   paymentType: z.enum(["semanal", "quinzenal", "mensal"])
+});
+
+const periodUpdateSchema = z.object({
+  name: z.string().min(3),
+  startDate: z.string().min(1),
+  endDate: z.string().min(1),
+  paymentType: z.enum(["semanal", "quinzenal", "mensal"])
+});
+
+const periodStatusSchema = z.object({
+  status: z.enum(["disponivel", "aguardando_aprovacao", "aprovado"])
 });
 
 function parseDateOnly(input: string) {
@@ -48,6 +86,11 @@ function serializePeriod(period: {
   dataFim: Date;
   tipo: string;
   status: string;
+  criadoEm: Date;
+  atualizadoEm: Date;
+  criadoPor: {
+    nome: string;
+  };
   bases: Array<{
     basePagamento: {
       id: string;
@@ -94,6 +137,9 @@ function serializePeriod(period: {
     endDate: toDateOnlyString(period.dataFim),
     paymentType: period.tipo,
     status: derivedStatus,
+    createdAt: period.criadoEm,
+    updatedAt: period.atualizadoEm,
+    createdBy: period.criadoPor.nome,
     bases: period.bases.map((item) => serializeBase(item.basePagamento)),
     uploadedTotal,
     uploadedByBase
@@ -124,6 +170,11 @@ router.get("/", (_req, res) => {
   void (async () => {
     const periods = await prisma.periodoPagamento.findMany({
       include: {
+        criadoPor: {
+          select: {
+            nome: true
+          }
+        },
         bases: {
           include: {
             basePagamento: true
@@ -232,6 +283,156 @@ router.post("/", requireAdmin, (req, res) => {
   })().catch((error) => {
     res.status(500).json({
       message: "Falha ao criar periodo.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
+
+router.patch("/:id", requireAdmin, (req, res) => {
+  void (async () => {
+    const parsed = periodUpdateSchema.safeParse(req.body);
+    const auth = req.auth;
+
+    if (!parsed.success || !auth) {
+      res.status(400).json({
+        message: "Dados invalidos para edicao do periodo.",
+        issues: parsed.success ? undefined : parsed.error.flatten()
+      });
+      return;
+    }
+
+    const period = await prisma.periodoPagamento.findUnique({
+      where: {
+        id: String(req.params.id)
+      },
+      include: {
+        bases: true
+      }
+    });
+
+    if (!period) {
+      res.status(404).json({
+        message: "Periodo nao encontrado."
+      });
+      return;
+    }
+
+    const baseType = parsed.data.paymentType;
+    const bases = await prisma.basePagamento.findMany({
+      where: {
+        ativo: true,
+        ...(baseType === "mensal" ? {} : { tipoPadrao: baseType })
+      },
+      orderBy: {
+        nome: "asc"
+      }
+    });
+
+    if (bases.length === 0) {
+      res.status(400).json({
+        message: "Nao existem bases cadastradas para o tipo selecionado."
+      });
+      return;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.periodoPagamento.update({
+        where: {
+          id: period.id
+        },
+        data: {
+          nome: parsed.data.name,
+          dataInicio: parseDateOnly(parsed.data.startDate),
+          dataFim: parseDateOnly(parsed.data.endDate),
+          tipo: baseType
+        }
+      });
+
+      await tx.periodoPagamentoBase.deleteMany({
+        where: {
+          periodoId: period.id
+        }
+      });
+
+      if (bases.length > 0) {
+        await tx.periodoPagamentoBase.createMany({
+          data: bases.map((base) => ({
+            periodoId: period.id,
+            basePagamentoId: base.id
+          }))
+        });
+      }
+
+      await tx.logAuditoria.create({
+        data: {
+          usuarioId: auth.userId,
+          acao: "editar_periodo_pagamento",
+          entidade: "periodos_pagamento",
+          entidadeId: period.id,
+          ipOrigem: req.ip,
+          userAgent: req.get("user-agent") || null,
+          detalhes: {
+            nome: parsed.data.name,
+            tipo: baseType,
+            bases: bases.map((base) => base.nome)
+          }
+        }
+      });
+    });
+
+    res.json({
+      message: "Periodo atualizado com sucesso."
+    });
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao atualizar periodo.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
+
+router.patch("/:id/status", requireAdmin, (req, res) => {
+  void (async () => {
+    const parsed = periodStatusSchema.safeParse(req.body);
+    const auth = req.auth;
+
+    if (!parsed.success || !auth) {
+      res.status(400).json({
+        message: "Dados invalidos para status do periodo.",
+        issues: parsed.success ? undefined : parsed.error.flatten()
+      });
+      return;
+    }
+
+    const updated = await prisma.periodoPagamento.update({
+      where: {
+        id: String(req.params.id)
+      },
+      data: {
+        status: parsed.data.status
+      }
+    });
+
+    await prisma.logAuditoria.create({
+      data: {
+        usuarioId: auth.userId,
+        acao: "alterar_status_periodo_pagamento",
+        entidade: "periodos_pagamento",
+        entidadeId: updated.id,
+        ipOrigem: req.ip,
+        userAgent: req.get("user-agent") || null,
+        detalhes: {
+          status: parsed.data.status
+        }
+      }
+    });
+
+    res.json({
+      message: "Status do periodo atualizado com sucesso."
+    });
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao alterar status do periodo.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });
