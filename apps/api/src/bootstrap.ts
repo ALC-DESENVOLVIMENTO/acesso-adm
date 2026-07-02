@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { ensureDriverPdfReceivedContent } from "./lib/driver-pdf-received-content.js";
 import { ensureDriverRegistryColumns } from "./lib/driver-registry-schema.js";
 import { resolveDatabaseUrlWithSchema } from "./lib/database-url.js";
 
@@ -44,6 +45,7 @@ async function main() {
 
   await runCommand("npx", ["prisma", "db", "push"], apiRoot);
   await ensureDriverRegistryColumns();
+  await ensureDriverPdfReceivedContent();
   await runCommand("npm", ["run", "db:seed"], apiRoot);
 }
 
