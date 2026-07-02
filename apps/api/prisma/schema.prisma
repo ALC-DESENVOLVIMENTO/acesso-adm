@@ -236,6 +236,7 @@ model UploadPdf {
   nomeArquivo        String        @map("nome_arquivo") @db.VarChar(255)
   nomeOriginal       String        @map("nome_original") @db.VarChar(255)
   caminhoArquivo     String        @map("caminho_arquivo")
+  content            Bytes?        @map("content")
   versao             Int           @default(1)
   status             UploadStatus
   usuarioId          String        @map("usuario_id") @db.Uuid
