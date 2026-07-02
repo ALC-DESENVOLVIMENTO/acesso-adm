@@ -10,7 +10,8 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "db:import:driver-registry": "tsx scripts/import-driver-registry.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
