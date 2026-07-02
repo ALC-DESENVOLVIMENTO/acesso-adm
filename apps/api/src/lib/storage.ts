@@ -7,26 +7,44 @@ import {
 } from "@aws-sdk/client-s3";
 import { Readable } from "node:stream";
 
-const endpoint = (
+const endpoint =
   process.env.STORAGE_ENDPOINT_URL ||
   process.env.STORAGE_ENDPOINT ||
   process.env.STORAGE_URL ||
-  ""
-);
-const region = process.env.STORAGE_REGION || "auto";
+  process.env.S3_ENDPOINT_URL ||
+  process.env.S3_ENDPOINT ||
+  process.env.AWS_ENDPOINT_URL ||
+  process.env.AWS_ENDPOINT ||
+  "";
+const region =
+  process.env.STORAGE_REGION ||
+  process.env.S3_REGION ||
+  process.env.AWS_REGION ||
+  process.env.AWS_DEFAULT_REGION ||
+  "auto";
 const bucket =
   process.env.STORAGE_BUCKET_NAME ||
   process.env.STORAGE_BUCKET ||
   process.env.STORAGE_BUCKET_ID ||
+  process.env.S3_BUCKET_NAME ||
+  process.env.S3_BUCKET ||
+  process.env.AWS_BUCKET ||
   "";
 const accessKeyId =
   process.env.STORAGE_ACCESS_KEY_ID ||
   process.env.STORAGE_ACCESS_KEY ||
+  process.env.S3_ACCESS_KEY_ID ||
+  process.env.AWS_ACCESS_KEY_ID ||
+  process.env.AWS_ACCESS_KEY ||
   "";
 const secretAccessKey =
   process.env.STORAGE_SECRET_ACCESS_KEY ||
   process.env.STORAGE_SECRET_KEY ||
   process.env.STORAGE_SECRET ||
+  process.env.S3_SECRET_ACCESS_KEY ||
+  process.env.AWS_SECRET_ACCESS_KEY ||
+  process.env.AWS_SECRET ||
+  process.env.SECRET_ACCESS_KEY ||
   "";
 const forcePathStyle = String(process.env.STORAGE_FORCE_PATH_STYLE || "true").toLowerCase() !== "false";
 

@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ensureDriverRegistryColumns } from "./lib/driver-registry-schema.js";
+import { ensureDatabaseCompatibilityColumns } from "./lib/database-compatibility.js";
 import { reconcileStorageReferences } from "./lib/storage-migration.js";
 import { resolveDatabaseUrlWithSchema } from "./lib/database-url.js";
 
@@ -43,6 +44,7 @@ async function main() {
   const currentFile = fileURLToPath(import.meta.url);
   const apiRoot = path.resolve(path.dirname(currentFile), "..");
 
+  await ensureDatabaseCompatibilityColumns();
   await runCommand("npx", ["prisma", "db", "push"], apiRoot);
   await ensureDriverRegistryColumns();
   await reconcileStorageReferences();
