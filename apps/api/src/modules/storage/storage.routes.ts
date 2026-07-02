@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { fetchObjectStream, normalizeStorageKey } from "../../lib/storage.js";
+import { fetchObjectStream, hasObjectStorage, normalizeStorageKey } from "../../lib/storage.js";
 
 const router = Router();
 
@@ -11,6 +11,11 @@ router.get("/*", async (req, res) => {
 
     if (!key) {
       res.status(400).json({ message: "Chave do arquivo invalida." });
+      return;
+    }
+
+    if (!hasObjectStorage()) {
+      res.status(503).json({ message: "Servico de armazenamento nao configurado." });
       return;
     }
 
