@@ -1,11 +1,11 @@
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   PutObjectCommand,
   S3Client
 } from "@aws-sdk/client-s3";
 import { Readable } from "node:stream";
-import path from "node:path";
 
 const endpoint = process.env.STORAGE_ENDPOINT_URL || process.env.STORAGE_ENDPOINT || "";
 const region = process.env.STORAGE_REGION || "auto";
@@ -49,6 +49,10 @@ export function normalizeStorageKey(value: string | null | undefined) {
 
   if (trimmed.startsWith("storage/")) {
     return trimmed.slice("storage/".length);
+  }
+
+  if (trimmed.startsWith("api/storage/")) {
+    return trimmed.slice("api/storage/".length);
   }
 
   return trimmed;
@@ -148,12 +152,22 @@ export async function fetchObjectStream(key: string | null | undefined) {
   return response;
 }
 
-export function resolveLocalStoragePath(key: string | null | undefined) {
+export async function storageObjectExists(key: string | null | undefined) {
   const normalized = normalizeStorageKey(key);
 
-  if (!normalized) {
-    return null;
+  if (!client || !normalized) {
+    return false;
   }
 
-  return path.resolve(process.cwd(), "storage", normalized);
+  try {
+    await client.send(
+      new HeadObjectCommand({
+        Bucket: bucket,
+        Key: normalized
+      })
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }

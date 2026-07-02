@@ -243,7 +243,7 @@ router.post("/", upload.array("files", 20), (req, res) => {
           });
 
           return {
-            nomeArquivo: key.split("/").pop() || file.originalname,
+            nomeArquivo: file.originalname,
             nomeOriginal: file.originalname,
             caminhoArquivo: key,
             versao: 1,
@@ -414,7 +414,7 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
       }),
       prisma.uploadPdf.create({
         data: {
-          nomeArquivo: key.split("/").pop() || file.originalname,
+          nomeArquivo: file.originalname,
           nomeOriginal: file.originalname,
           caminhoArquivo: key,
           versao: currentUpload.versao + 1,

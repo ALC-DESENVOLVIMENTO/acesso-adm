@@ -1,6 +1,5 @@
-import { existsSync } from "node:fs";
 import { Router } from "express";
-import { fetchObjectStream, normalizeStorageKey, resolveLocalStoragePath } from "../../lib/storage.js";
+import { fetchObjectStream, normalizeStorageKey } from "../../lib/storage.js";
 
 const router = Router();
 
@@ -12,12 +11,6 @@ router.get("/*", async (req, res) => {
 
     if (!key) {
       res.status(400).json({ message: "Chave do arquivo invalida." });
-      return;
-    }
-
-    const localPath = resolveLocalStoragePath(key);
-    if (localPath && existsSync(localPath)) {
-      res.sendFile(localPath);
       return;
     }
 

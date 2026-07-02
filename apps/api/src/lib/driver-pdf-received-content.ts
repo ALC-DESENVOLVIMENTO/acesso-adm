@@ -1,15 +1,5 @@
-import { access, readFile } from "node:fs/promises";
 import { prisma } from "./prisma.js";
-import { fetchObjectBuffer, normalizeStorageKey, resolveLocalStoragePath } from "./storage.js";
-
-async function fileExists(filePath: string) {
-  try {
-    await access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { fetchObjectBuffer, normalizeStorageKey } from "./storage.js";
 
 export async function ensureDriverPdfReceivedContent() {
   const pendingRows = await prisma.driverPdfReceived.findMany({
@@ -57,10 +47,7 @@ export async function ensureDriverPdfReceivedContent() {
     }
 
     const remoteObject = await fetchObjectBuffer(sourceKey).catch(() => null);
-    const localPath = resolveLocalStoragePath(sourceKey);
-    const content =
-      remoteObject?.body ||
-      (localPath && (await fileExists(localPath)) ? await readFile(localPath) : null);
+    const content = remoteObject?.body;
 
     if (!content) {
       continue;

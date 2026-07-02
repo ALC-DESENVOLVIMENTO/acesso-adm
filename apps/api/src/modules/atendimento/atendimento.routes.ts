@@ -1483,7 +1483,7 @@ router.post("/motoristas/:id/chamados", upload.array("attachments", 10), (req, r
 
             return {
               chamadoId: chamado.id,
-              nomeArquivo: key.split("/").pop() || file.originalname,
+              nomeArquivo: file.originalname,
               nomeOriginal: file.originalname,
               caminhoArquivo: key
             };
@@ -1586,7 +1586,7 @@ router.post("/chamados/:id/movimentos", upload.array("attachments", 10), (req, r
             return {
               chamadoId: chamado.id,
               historicoChamadoId: history.id,
-              nomeArquivo: key.split("/").pop() || file.originalname,
+              nomeArquivo: file.originalname,
               nomeOriginal: file.originalname,
               caminhoArquivo: key
             };
