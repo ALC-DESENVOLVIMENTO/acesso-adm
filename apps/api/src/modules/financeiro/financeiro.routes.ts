@@ -346,7 +346,11 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
       }
     });
 
-    const mapped = records.map((row) => {
+    const mapped = records.flatMap((row) => {
+      if (!row.motorista || !row.basePagamento || !row.periodoPagamento) {
+        return [];
+      }
+
       const ticketStatuses = row.motorista.chamados.map((item) => item.status);
       const attendanceStatus = computeAttendanceStatus(ticketStatuses, row.motorista.atendimentos.length);
 

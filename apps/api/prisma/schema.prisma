@@ -441,9 +441,9 @@ model NotaFiscal {
 
 model DriverPdfReceived {
   id                   String                  @id @default(uuid()) @db.Uuid
-  motoristaId          String                  @map("motorista_id") @db.Uuid
-  periodoPagamentoId   String                  @map("periodo_pagamento_id") @db.Uuid
-  basePagamentoId      String                  @map("base_pagamento_id") @db.Uuid
+  motoristaId          String?                 @map("motorista_id") @db.Uuid
+  periodoPagamentoId   String?                 @map("periodo_pagamento_id") @db.Uuid
+  basePagamentoId      String?                 @map("base_pagamento_id") @db.Uuid
   nomeArquivo          String?                 @map("nome_arquivo") @db.VarChar(255)
   caminhoArquivo       String?                 @map("caminho_arquivo")
   tipoArquivo          String?                 @map("tipo_arquivo") @db.VarChar(80)
@@ -459,9 +459,9 @@ model DriverPdfReceived {
   rejeitadoPorId       String?                 @map("rejeitado_por_id") @db.Uuid
   motivoRejeicao       String?                 @map("motivo_rejeicao")
   atualizadoEm         DateTime                @updatedAt @map("atualizado_em")
-  motorista            Motorista               @relation(fields: [motoristaId], references: [id])
-  periodoPagamento     PeriodoPagamento        @relation(fields: [periodoPagamentoId], references: [id])
-  basePagamento        BasePagamento           @relation(fields: [basePagamentoId], references: [id])
+  motorista            Motorista?              @relation(fields: [motoristaId], references: [id])
+  periodoPagamento     PeriodoPagamento?       @relation(fields: [periodoPagamentoId], references: [id])
+  basePagamento        BasePagamento?          @relation(fields: [basePagamentoId], references: [id])
   usuario              Usuario?                @relation("DriverPdfReceivedCriadoPor", fields: [usuarioId], references: [id])
   aprovador            Usuario?                @relation("DriverPdfReceivedAprovadoPor", fields: [aprovadoPorId], references: [id])
   rejeitador           Usuario?                @relation("DriverPdfReceivedRejeitadoPor", fields: [rejeitadoPorId], references: [id])
