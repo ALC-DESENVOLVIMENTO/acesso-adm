@@ -103,6 +103,7 @@ function serializePeriod(period: {
       id: string;
       nome: string;
       tipoPadrao: string;
+      ativo: boolean;
     };
   }>;
   uploads: Array<{
