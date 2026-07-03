@@ -5,7 +5,6 @@ import path from "node:path";
 import authRoutes from "./modules/auth/auth.routes.js";
 import atendimentoRoutes from "./modules/atendimento/atendimento.routes.js";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes.js";
-import pdfonlineIntegrationRoutes from "./modules/integrations/pdfonline.routes.js";
 import financeiroRoutes from "./modules/financeiro/financeiro.routes.js";
 import periodsRoutes from "./modules/periods/periods.routes.js";
 import storageRoutes from "./modules/storage/storage.routes.js";
@@ -33,7 +32,6 @@ export function createApp() {
   app.use("/api/auth", authRoutes);
   app.use("/api/atendimento", atendimentoRoutes);
   app.use("/api/dashboard", dashboardRoutes);
-  app.use("/api/integrations/pdfonline", pdfonlineIntegrationRoutes);
   app.use("/api/financeiro", financeiroRoutes);
   app.use("/api/periods", periodsRoutes);
   app.use("/api/storage", storageRoutes);
