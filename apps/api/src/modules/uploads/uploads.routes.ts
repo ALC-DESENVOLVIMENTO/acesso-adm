@@ -23,6 +23,10 @@ const upload = multer({
 
 router.use(requireAuth, requireModuleAccess("pdfs"));
 
+function buildUploadStorageFolder(periodId: string, basePaymentId: string) {
+  return `uploads/periodos/${periodId}/bases/${basePaymentId}`;
+}
+
 type UploadHistoryItem = Awaited<ReturnType<typeof prisma.uploadPdf.findMany>>[number] & {
   usuario: {
     nome: string;
@@ -251,7 +255,7 @@ router.post("/", upload.array("files", 20), (req, res) => {
     await prisma.uploadPdf.createMany({
       data: await Promise.all(
         files.map(async (file) => {
-          const key = createStorageKey("uploads", file.originalname);
+          const key = createStorageKey(buildUploadStorageFolder(periodId, basePaymentId), file.originalname);
           await uploadObject({
             key,
             body: file.buffer,
@@ -262,6 +266,7 @@ router.post("/", upload.array("files", 20), (req, res) => {
             nomeArquivo: file.originalname,
             nomeOriginal: file.originalname,
             caminhoArquivo: key,
+            content: file.buffer,
             versao: 1,
             status: UploadStatus.pendente,
             usuarioId: req.auth!.userId,
@@ -412,7 +417,10 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
       return;
     }
 
-    const key = createStorageKey("uploads", file.originalname);
+    const key = createStorageKey(
+      buildUploadStorageFolder(currentUpload.periodoPagamentoId || "sem-periodo", currentUpload.basePagamentoId || "sem-base"),
+      file.originalname
+    );
     await uploadObject({
       key,
       body: file.buffer,
@@ -433,6 +441,7 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
           nomeArquivo: file.originalname,
           nomeOriginal: file.originalname,
           caminhoArquivo: key,
+          content: file.buffer,
           versao: currentUpload.versao + 1,
           status: UploadStatus.pendente,
           usuarioId: req.auth.userId,
