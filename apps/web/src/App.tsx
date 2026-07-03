@@ -3268,7 +3268,7 @@ function UsersScreen({
       {isModalOpen ? (
         <div className="modal-overlay" onClick={closeModal}>
           <div
-            className="modal-card"
+            className="modal-card modal-card--user"
             role="dialog"
             aria-modal="true"
             aria-labelledby="user-modal-title"

@@ -1353,8 +1353,12 @@ button {
 }
 
 .user-form--modal {
-  grid-template-columns: minmax(240px, 1fr) minmax(240px, 1fr);
+  grid-template-columns: 1fr;
   gap: 18px;
+}
+
+.modal-card--user {
+  width: min(640px, 100%);
 }
 
 .user-form--modal .field {
@@ -1374,6 +1378,19 @@ button {
   font-size: 0.98rem;
   width: 100%;
   box-sizing: border-box;
+  font-size: 0.95rem;
+  line-height: 1.25;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.user-form--modal .field .field__select {
+  appearance: none;
+}
+
+.user-form--modal .field .field__select:focus {
+  border-color: rgba(255, 95, 83, 0.7);
+  box-shadow: 0 0 0 4px rgba(255, 95, 83, 0.16);
 }
 
 .user-form--modal .field--full {
@@ -1381,10 +1398,12 @@ button {
 }
 
 .user-form--modal .user-modules-field .checkbox-grid {
+  display: grid;
   padding: 12px;
-  min-height: 74px;
+  min-height: auto;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 10px;
+  gap: 8px;
+  align-items: stretch;
 }
 
 .user-form--modal .user-modules-field .checkbox-chip {
