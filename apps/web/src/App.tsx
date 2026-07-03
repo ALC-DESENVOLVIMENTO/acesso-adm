@@ -46,6 +46,7 @@ import {
   logoutRequest,
   updateCurrentUserProfile,
   updateMotoristaClassificacoes,
+  updatePaymentPeriodStatus,
   createAtendimentoNota,
   updateAtendimentoNota,
   deleteAtendimentoNota,
@@ -1137,6 +1138,33 @@ function App() {
     }
   };
 
+  const handleUpdatePeriodStatus = async (
+    periodId: string,
+    status: "disponivel" | "aguardando_aprovacao" | "aprovado"
+  ) => {
+    if (!token) {
+      return;
+    }
+
+    const statusLabel =
+      status === "disponivel" ? "Reabrindo periodo..." : status === "aguardando_aprovacao" ? "Finalizando periodo..." : "Aprovando periodo...";
+
+    setLoadingMessage(statusLabel);
+
+    try {
+      const response = await updatePaymentPeriodStatus(token, periodId, { status });
+      setFlashMessage({ type: "success", text: response.message });
+      await Promise.all([loadPeriodData(), loadDashboardSummary(), loadUploadsData()]);
+    } catch (error) {
+      setFlashMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Falha ao atualizar status do periodo."
+      });
+    } finally {
+      setLoadingMessage("");
+    }
+  };
+
   if (view === "login") {
     return (
       <main className="auth-page">
@@ -1458,6 +1486,7 @@ function App() {
             bases={paymentBases}
             periods={paymentPeriods}
             onCreatePeriod={handleCreatePeriod}
+            onUpdatePeriodStatus={handleUpdatePeriodStatus}
             onDeletePeriod={requestDeletePeriod}
           />
         ) : null}
@@ -1948,6 +1977,7 @@ function PeriodsScreen({
   bases,
   periods,
   onCreatePeriod,
+  onUpdatePeriodStatus,
   onDeletePeriod
 }: {
   currentUser: SessionUser | null;
@@ -1959,6 +1989,10 @@ function PeriodsScreen({
     endDate: string;
     paymentType: "semanal" | "quinzenal" | "mensal";
   }) => Promise<boolean> | boolean;
+  onUpdatePeriodStatus: (
+    periodId: string,
+    status: "disponivel" | "aguardando_aprovacao" | "aprovado"
+  ) => Promise<void> | void;
   onDeletePeriod: (period: PaymentPeriod) => void;
 }) {
   const [formValues, setFormValues] = useState({
@@ -1981,12 +2015,12 @@ function PeriodsScreen({
   );
 
   const activePeriods = useMemo(
-    () => periods.filter((period) => period.status !== "aprovado"),
+    () => periods.filter((period) => period.status === "disponivel"),
     [periods]
   );
 
   const finishedPeriods = useMemo(
-    () => periods.filter((period) => period.status === "aprovado"),
+    () => periods.filter((period) => period.status !== "disponivel"),
     [periods]
   );
 
@@ -2074,17 +2108,6 @@ function PeriodsScreen({
             <ArrowRight size={18} weight="bold" />
           </button>
         </div>
-
-        <div className="period-launch-card">
-          <div>
-            <strong>Crie um novo periodo sem sair da tela</strong>
-            <p>O formulario completo abre em um pop-up no mesmo padrao dos demais modais do sistema.</p>
-          </div>
-          <button className="ghost-button" type="button" onClick={() => setIsCreatePeriodModalOpen(true)}>
-            Abrir criacao
-            <ArrowRight size={16} />
-          </button>
-        </div>
       </section>
 
       <section className="panel">
@@ -2156,7 +2179,23 @@ function PeriodsScreen({
                     Excluir
                     <TrashSimple size={16} />
                   </button>
-                  <button className="ghost-button ghost-button--small" type="button" disabled>
+                  <button
+                    className="ghost-button ghost-button--small"
+                    type="button"
+                    onClick={() =>
+                      void onUpdatePeriodStatus(
+                        period.id,
+                        period.status === "disponivel" ? "aguardando_aprovacao" : "disponivel"
+                      )
+                    }
+                  >
+                    {period.status === "disponivel" ? "Finalizar periodo" : "Reabrir periodo"}
+                  </button>
+                  <button
+                    className="ghost-button ghost-button--small"
+                    type="button"
+                    onClick={() => void onUpdatePeriodStatus(period.id, "aprovado")}
+                  >
                     Aprovar periodo
                   </button>
                 </div>
@@ -2319,7 +2358,8 @@ function PdfsScreen({
   const [selectedBaseId, setSelectedBaseId] = useState("");
   const [expandedBatchKey, setExpandedBatchKey] = useState("");
 
-  const selectedPeriod = periods.find((period) => period.id === selectedPeriodId) || null;
+  const availablePeriods = useMemo(() => periods.filter((period) => period.status === "disponivel"), [periods]);
+  const selectedPeriod = availablePeriods.find((period) => period.id === selectedPeriodId) || null;
   const allowedBases = selectedPeriod
     ? selectedPeriod.paymentType === "mensal"
       ? bases
@@ -2410,7 +2450,7 @@ function PdfsScreen({
             <CalendarBlank size={18} />
             <select value={selectedPeriodId} onChange={(event) => setSelectedPeriodId(event.target.value)}>
               <option value="">Selecione um periodo</option>
-              {periods.map((period) => (
+              {availablePeriods.map((period) => (
                 <option key={period.id} value={period.id}>
                   {period.name} - {formatStatusLabel(period.status)}
                 </option>
@@ -2442,7 +2482,7 @@ function PdfsScreen({
         </div>
 
         <div className="period-tiles">
-          {periods.map((period) => (
+          {availablePeriods.map((period) => (
             <article className="period-tile" key={period.id}>
               <strong>{period.name}</strong>
               <span>{period.paymentType.toUpperCase()}</span>
