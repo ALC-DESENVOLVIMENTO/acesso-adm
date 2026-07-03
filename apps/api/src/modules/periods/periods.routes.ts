@@ -157,9 +157,6 @@ function serializePeriod(period: {
 router.get("/bases", (_req, res) => {
   void (async () => {
     const bases = await prisma.basePagamento.findMany({
-      where: {
-        ativo: true
-      },
       orderBy: {
         nome: "asc"
       }
@@ -282,6 +279,67 @@ router.patch("/bases/:id", requireAdmin, (req, res) => {
   })().catch((error) => {
     res.status(500).json({
       message: "Falha ao atualizar base.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
+
+router.delete("/bases/:id", requireAdmin, (req, res) => {
+  void (async () => {
+    const auth = req.auth;
+    const baseId = String(req.params.id);
+
+    if (!auth) {
+      res.status(401).json({
+        message: "Sessao nao autenticada."
+      });
+      return;
+    }
+
+    const existing = await prisma.basePagamento.findUnique({
+      where: {
+        id: baseId
+      }
+    });
+
+    if (!existing) {
+      res.status(404).json({
+        message: "Base nao encontrada."
+      });
+      return;
+    }
+
+    const removed = await prisma.basePagamento.update({
+      where: {
+        id: baseId
+      },
+      data: {
+        ativo: false
+      }
+    });
+
+    await prisma.logAuditoria.create({
+      data: {
+        usuarioId: auth.userId,
+        acao: "excluir_base_pagamento",
+        entidade: "bases_pagamento",
+        entidadeId: removed.id,
+        ipOrigem: req.ip,
+        userAgent: req.get("user-agent") || null,
+        detalhes: {
+          nome: removed.nome,
+          tipoPadrao: removed.tipoPadrao,
+          ativo: removed.ativo
+        }
+      }
+    });
+
+    res.json({
+      message: "Base excluida com sucesso."
+    });
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao excluir base.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });

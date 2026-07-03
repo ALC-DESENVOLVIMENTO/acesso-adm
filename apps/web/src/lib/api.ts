@@ -473,6 +473,15 @@ export function updatePaymentBase(token: string, baseId: string, body: PaymentBa
   });
 }
 
+export function deletePaymentBase(token: string, baseId: string) {
+  return request<{ message: string }>(`/periods/bases/${baseId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
 export function fetchFinanceiroSummary(token: string) {
   return request<FinanceiroSummary>("/financeiro/summary", {
     headers: {

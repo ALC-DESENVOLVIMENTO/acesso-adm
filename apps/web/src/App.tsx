@@ -1241,6 +1241,34 @@ function App() {
     }
   };
 
+  const handleToggleBaseActive = async (base: PaymentBase) => {
+    if (!token) {
+      return false;
+    }
+
+    setLoadingMessage(base.active ? "Excluindo base..." : "Reativando base...");
+
+    try {
+      const response = await updatePaymentBase(token, base.id, {
+        name: base.name,
+        paymentType: base.paymentType,
+        active: !base.active
+      });
+
+      setFlashMessage({ type: "success", text: response.message });
+      await loadPeriodData();
+      return true;
+    } catch (error) {
+      setFlashMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Falha ao atualizar base."
+      });
+      return false;
+    } finally {
+      setLoadingMessage("");
+    }
+  };
+
   if (view === "login") {
     return (
       <main className="auth-page">
@@ -1562,6 +1590,7 @@ function App() {
             onCreatePeriod={handleCreatePeriod}
             onSaveBase={handleSaveBase}
             onOpenBaseEditor={openBaseEditor}
+            onToggleBaseActive={handleToggleBaseActive}
             onUpdatePeriodStatus={handleUpdatePeriodStatus}
             onDeletePeriod={requestDeletePeriod}
           />
@@ -2144,6 +2173,7 @@ function PeriodsScreen({
   onCreatePeriod,
   onSaveBase,
   onOpenBaseEditor,
+  onToggleBaseActive,
   onUpdatePeriodStatus,
   onDeletePeriod
 }: {
@@ -2158,6 +2188,7 @@ function PeriodsScreen({
   }) => Promise<boolean> | boolean;
   onSaveBase: () => Promise<boolean> | boolean;
   onOpenBaseEditor: (base: PaymentBase | null) => void;
+  onToggleBaseActive: (base: PaymentBase) => Promise<boolean> | boolean;
   onUpdatePeriodStatus: (
     periodId: string,
     status: "disponivel" | "aguardando_aprovacao" | "aprovado"
@@ -2174,14 +2205,16 @@ function PeriodsScreen({
   const [isBasePanelOpen, setIsBasePanelOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"active" | "finished">("active");
 
+  const activeBases = useMemo(() => bases.filter((base) => base.active), [bases]);
+
   const baseByType = useMemo(
     () =>
-      bases.reduce<Record<string, PaymentBase[]>>((accumulator, base) => {
+      activeBases.reduce<Record<string, PaymentBase[]>>((accumulator, base) => {
         const key = base.paymentType;
         accumulator[key] = [...(accumulator[key] || []), base];
         return accumulator;
       }, {}),
-    [bases]
+    [activeBases]
   );
 
   const activePeriods = useMemo(
@@ -2246,7 +2279,7 @@ function PeriodsScreen({
             <GearSix size={30} />
           </div>
           <div>
-            <strong>{bases.length}</strong>
+            <strong>{activeBases.length}</strong>
             <span>Bases ativas</span>
             <small>Carregadas do banco de dados</small>
           </div>
@@ -2427,20 +2460,41 @@ function PeriodsScreen({
             </div>
 
             <div className="base-management-list">
+              <div className="base-management-head">
+                <span>Base</span>
+                <span>Tipo</span>
+                <span>Status</span>
+                <span>Acoes</span>
+              </div>
               {bases.map((base) => (
-                <article className="base-management-card" key={base.id}>
-                  <div>
+                <div className="base-management-row" key={base.id}>
+                  <div className="base-management-cell base-management-cell--strong">
                     <strong>{base.name}</strong>
+                    <small>ID: {base.id}</small>
+                  </div>
+                  <div className="base-management-cell">
                     <span>{formatStatusLabel(base.paymentType)}</span>
                   </div>
-                  <span className={`status-pill ${base.active ? "status-pill--active" : ""}`}>
-                    {base.active ? "Ativa" : "Inativa"}
-                  </span>
-                  <button className="ghost-button ghost-button--small" type="button" onClick={() => onOpenBaseEditor(base)}>
-                    Editar
-                    <PencilSimple size={16} />
-                  </button>
-                </article>
+                  <div className="base-management-cell">
+                    <span className={`status-pill ${base.active ? "status-pill--active" : ""}`}>
+                      {base.active ? "Ativa" : "Inativa"}
+                    </span>
+                  </div>
+                  <div className="base-management-cell base-management-cell--actions">
+                    <button className="ghost-button ghost-button--small" type="button" onClick={() => onOpenBaseEditor(base)}>
+                      Editar
+                      <PencilSimple size={16} />
+                    </button>
+                    <button
+                      className={`ghost-button ghost-button--small ${base.active ? "ghost-button--danger" : ""}`}
+                      type="button"
+                      onClick={() => void onToggleBaseActive(base)}
+                    >
+                      {base.active ? "Excluir" : "Reativar"}
+                      <TrashSimple size={16} />
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
 
