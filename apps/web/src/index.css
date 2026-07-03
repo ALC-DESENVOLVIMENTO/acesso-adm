@@ -1057,6 +1057,12 @@ button {
   padding-right: 8px;
 }
 
+.base-management-list--hidden {
+  max-height: none;
+  overflow: visible;
+  padding-top: 10px;
+}
+
 .base-management-head,
 .base-management-row {
   display: grid;
@@ -1107,6 +1113,25 @@ button {
 .base-management-cell--actions {
   justify-content: flex-end;
   flex-wrap: wrap;
+}
+
+.base-management-hidden {
+  margin-top: 16px;
+  padding: 14px 16px 8px;
+  border-radius: 18px;
+  background: rgba(244, 246, 250, 0.72);
+  border: 1px dashed rgba(255, 95, 83, 0.18);
+}
+
+.base-management-hidden summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #25324a;
+  list-style: none;
+}
+
+.base-management-hidden summary::-webkit-details-marker {
+  display: none;
 }
 
 .base-management-list::-webkit-scrollbar {

@@ -1246,7 +1246,7 @@ function App() {
       return false;
     }
 
-    setLoadingMessage(base.active ? "Excluindo base..." : "Reativando base...");
+    setLoadingMessage(base.active ? "Ocultando base..." : "Reativando base...");
 
     try {
       const response = await updatePaymentBase(token, base.id, {
@@ -2206,6 +2206,7 @@ function PeriodsScreen({
   const [activeTab, setActiveTab] = useState<"active" | "finished">("active");
 
   const activeBases = useMemo(() => bases.filter((base) => base.active), [bases]);
+  const hiddenBases = useMemo(() => bases.filter((base) => !base.active), [bases]);
 
   const baseByType = useMemo(
     () =>
@@ -2466,7 +2467,7 @@ function PeriodsScreen({
                 <span>Status</span>
                 <span>Acoes</span>
               </div>
-              {bases.map((base) => (
+              {activeBases.map((base) => (
                 <div className="base-management-row" key={base.id}>
                   <div className="base-management-cell base-management-cell--strong">
                     <strong>{base.name}</strong>
@@ -2484,18 +2485,45 @@ function PeriodsScreen({
                       Editar
                       <PencilSimple size={16} />
                     </button>
-                    <button
-                      className={`ghost-button ghost-button--small ${base.active ? "ghost-button--danger" : ""}`}
-                      type="button"
-                      onClick={() => void onToggleBaseActive(base)}
-                    >
-                      {base.active ? "Excluir" : "Reativar"}
+                    <button className="ghost-button ghost-button--small ghost-button--danger" type="button" onClick={() => void onToggleBaseActive(base)}>
+                      Ocultar
                       <TrashSimple size={16} />
                     </button>
                   </div>
                 </div>
               ))}
             </div>
+
+            {hiddenBases.length > 0 ? (
+              <details className="base-management-hidden">
+                <summary>Bases ocultas ({hiddenBases.length})</summary>
+                <div className="base-management-list base-management-list--hidden">
+                  {hiddenBases.map((base) => (
+                    <div className="base-management-row" key={base.id}>
+                      <div className="base-management-cell base-management-cell--strong">
+                        <strong>{base.name}</strong>
+                      </div>
+                      <div className="base-management-cell">
+                        <span>{formatStatusLabel(base.paymentType)}</span>
+                      </div>
+                      <div className="base-management-cell">
+                        <span className="status-pill">Oculta</span>
+                      </div>
+                      <div className="base-management-cell base-management-cell--actions">
+                        <button className="ghost-button ghost-button--small" type="button" onClick={() => onOpenBaseEditor(base)}>
+                          Editar
+                          <PencilSimple size={16} />
+                        </button>
+                        <button className="ghost-button ghost-button--small" type="button" onClick={() => void onToggleBaseActive(base)}>
+                          Reativar
+                          <ArrowRight size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ) : null}
 
             <div className="modal-card__actions">
               <button className="ghost-button" type="button" onClick={() => setIsBasePanelOpen(false)}>
