@@ -123,6 +123,24 @@ const menuItems = [
   { key: "atendimento", label: "Atendimento", icon: ChatCenteredDots }
 ] as const;
 
+const moduleLabels: Record<string, string> = {
+  dashboard: "Dashboard",
+  pdfs: "Envio de PDFs",
+  users: "Cadastro de Usuarios",
+  periods: "Criacao de Periodo",
+  financeiro: "Notas Fiscais",
+  atendimento: "Atendimento"
+};
+
+const userModuleOptions = [
+  { code: "dashboard", label: "Dashboard" },
+  { code: "pdfs", label: "Envio de PDFs" },
+  { code: "users", label: "Cadastro de Usuarios" },
+  { code: "periods", label: "Criacao de Periodo" },
+  { code: "financeiro", label: "Notas Fiscais" },
+  { code: "atendimento", label: "Atendimento" }
+] as const;
+
 const activities: Activity[] = [
   {
     icon: "pdf",
@@ -3201,7 +3219,7 @@ function UsersScreen({
                     <div className="module-chips">
                       {user.modules.map((moduleCode) => (
                         <span className="mini-chip" key={`${user.id}-${moduleCode}`}>
-                          {moduleCode}
+                          {moduleLabels[moduleCode] || moduleCode}
                         </span>
                       ))}
                     </div>
@@ -3324,20 +3342,20 @@ function UsersScreen({
               <div className="field">
                 <span>Modulos</span>
                 <div className="checkbox-grid">
-                  {["dashboard", "pdfs", "users", "financeiro"].map((moduleCode) => (
-                    <label className="checkbox-chip" key={moduleCode}>
+                  {userModuleOptions.map((module) => (
+                    <label className="checkbox-chip" key={module.code}>
                       <input
                         type="checkbox"
-                        checked={selectedModules.includes(moduleCode)}
+                        checked={selectedModules.includes(module.code)}
                         onChange={(event) => {
                           setSelectedModules((current) =>
                             event.target.checked
-                              ? Array.from(new Set([...current, moduleCode]))
-                              : current.filter((item) => item !== moduleCode)
+                              ? Array.from(new Set([...current, module.code]))
+                              : current.filter((item) => item !== module.code)
                           );
                         }}
                       />
-                      <span>{moduleCode}</span>
+                      <span>{module.label}</span>
                     </label>
                   ))}
                 </div>
