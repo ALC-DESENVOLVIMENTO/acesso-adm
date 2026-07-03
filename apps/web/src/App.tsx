@@ -97,6 +97,10 @@ type UploadHistoryState = {
   entries: UploadRow[];
 } | null;
 
+type AccessDeniedState = {
+  route: RouteView;
+} | null;
+
 const routePaths: Record<RouteView, string> = {
   dashboard: "/dashboard",
   pdfs: "/envio-pdfs",
@@ -205,6 +209,19 @@ function getRoutePath(view: RouteView) {
   return routePaths[view];
 }
 
+function getRouteLabel(view: RouteView) {
+  const labels: Record<RouteView, string> = {
+    dashboard: "Dashboard",
+    pdfs: "Envio de PDFs",
+    users: "Cadastro de Usuarios",
+    periods: "Criacao de Periodo",
+    financeiro: "Notas Fiscais",
+    atendimento: "Atendimento"
+  };
+
+  return labels[view];
+}
+
 function getDefaultRoute(user: SessionUser | null) {
   if (!user) {
     return "dashboard";
@@ -263,6 +280,7 @@ function App() {
   const [deleteUploadTarget, setDeleteUploadTarget] = useState<UploadRow | null>(null);
   const [deletePeriodTarget, setDeletePeriodTarget] = useState<PaymentPeriod | null>(null);
   const [financeMotoristaTarget, setFinanceMotoristaTarget] = useState<string | null>(null);
+  const [accessDenied, setAccessDenied] = useState<AccessDeniedState>(null);
   const [dashboardLoaded, setDashboardLoaded] = useState(false);
   const [usersLoaded, setUsersLoaded] = useState(false);
   const [uploadsLoaded, setUploadsLoaded] = useState(false);
@@ -303,6 +321,7 @@ function App() {
   };
 
   const navigateToRoute = (route: RouteView) => {
+    setAccessDenied(null);
     setActiveView(route);
     window.history.pushState({}, "", getRoutePath(route));
   };
@@ -338,7 +357,10 @@ function App() {
     if (!storedSession) {
       if (window.location.pathname !== "/login" && window.location.pathname !== "/first-access") {
         requestedRouteRef.current = getRouteViewFromPath(window.location.pathname);
+        window.history.replaceState({}, "", "/login");
       }
+      setAccessDenied(null);
+      setView("login");
       return;
     }
 
@@ -363,7 +385,17 @@ function App() {
         }
 
         const requestedRoute = requestedRouteRef.current || getRouteViewFromPath(window.location.pathname);
-        const safeRoute = canAccessRoute(session.user, requestedRoute) ? requestedRoute : getDefaultRoute(session.user);
+        const requestedPath = window.location.pathname;
+        const nextRoute =
+          requestedPath === "/"
+            ? "dashboard"
+            : requestedPath === "/login"
+              ? "dashboard"
+              : canAccessRoute(session.user, requestedRoute)
+                ? requestedRoute
+                : getDefaultRoute(session.user);
+
+        const safeRoute = nextRoute;
         setActiveView(safeRoute);
         window.history.replaceState({}, "", getRoutePath(safeRoute));
         requestedRouteRef.current = null;
@@ -411,14 +443,11 @@ function App() {
     }
 
     if (!canAccessRoute(currentUser, activeView)) {
-      setFlashMessage({ type: "error", text: "Acesso negado." });
-      const fallbackRoute = getDefaultRoute(currentUser);
-      if (fallbackRoute !== activeView) {
-        setActiveView(fallbackRoute);
-        window.history.replaceState({}, "", getRoutePath(fallbackRoute));
-      }
+      setAccessDenied({ route: activeView });
       return;
     }
+
+    setAccessDenied(null);
 
     let cancelled = false;
     const loadData = async () => {
@@ -626,6 +655,7 @@ function App() {
     setDeleteUploadTarget(null);
     setDeletePeriodTarget(null);
     setFinanceMotoristaTarget(null);
+    setAccessDenied(null);
     requestedRouteRef.current = null;
     setView("login");
     window.history.replaceState({}, "", "/login");
@@ -1366,7 +1396,14 @@ function App() {
           </div>
         ) : null}
 
-        {activeView === "dashboard" ? (
+        {accessDenied ? (
+          <AccessDeniedScreen
+            route={accessDenied.route}
+            onGoHome={() => navigateToRoute(currentUser ? getDefaultRoute(currentUser) : "dashboard")}
+          />
+        ) : null}
+
+        {!accessDenied && activeView === "dashboard" ? (
           <DashboardScreen
             currentUser={currentUser}
             summary={dashboardSummary}
@@ -1374,7 +1411,7 @@ function App() {
             onOpenPdfUpload={openPdfUploadShortcut}
           />
         ) : null}
-        {activeView === "periods" ? (
+        {!accessDenied && activeView === "periods" ? (
           <PeriodsScreen
             currentUser={currentUser}
             bases={paymentBases}
@@ -1383,7 +1420,7 @@ function App() {
             onDeletePeriod={requestDeletePeriod}
           />
         ) : null}
-        {activeView === "financeiro" ? (
+        {!accessDenied && activeView === "financeiro" ? (
           <FinanceiroScreen
             token={token}
             currentUser={currentUser}
@@ -1393,7 +1430,7 @@ function App() {
             onOpenMotorista={openMotoristaInAtendimento}
           />
         ) : null}
-        {activeView === "pdfs" ? (
+        {!accessDenied && activeView === "pdfs" ? (
           <PdfsScreen
             uploads={uploads}
             uploadProgress={uploadProgress}
@@ -1408,7 +1445,7 @@ function App() {
             bases={paymentBases}
           />
         ) : null}
-        {activeView === "users" ? (
+        {!accessDenied && activeView === "users" ? (
           <UsersScreen
             users={users}
             onCreateUser={handleCreateUser}
@@ -1420,7 +1457,7 @@ function App() {
             createUserSignal={createUserSignal}
           />
         ) : null}
-        {activeView === "atendimento" ? (
+        {!accessDenied && activeView === "atendimento" ? (
           <AtendimentoScreen
             token={token}
             currentUser={currentUser}
@@ -3791,6 +3828,39 @@ function AtendimentoScreen({
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function AccessDeniedScreen({
+  route,
+  onGoHome
+}: {
+  route: RouteView;
+  onGoHome: () => void;
+}) {
+  return (
+    <div className="screen">
+      <section className="screen__intro">
+        <div>
+          <p className="eyebrow">Acesso restrito</p>
+          <h1>Acesso negado</h1>
+          <p>
+            Voce tentou abrir a tela <strong>{getRouteLabel(route)}</strong>, mas seu perfil nao possui
+            permissao para esse modulo.
+          </p>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="crm-empty-screen">
+          <strong>Voce nao tem permissao para acessar esta pagina.</strong>
+          <p>Use o menu liberado para o seu perfil ou volte para uma tela permitida.</p>
+          <button className="primary-button primary-button--inline" type="button" onClick={onGoHome}>
+            Voltar para a tela inicial
+          </button>
+        </div>
+      </section>
     </div>
   );
 }
