@@ -1,12 +1,4 @@
-import { readFile, access } from "node:fs/promises";
-import { constants } from "node:fs";
-import path from "node:path";
-import {
-  hasObjectStorage,
-  normalizeStorageKey,
-  storageObjectExists,
-  uploadObject
-} from "./storage.js";
+import { hasObjectStorage, normalizeStorageKey } from "./storage.js";
 import { prisma } from "./prisma.js";
 
 type MigrationRecord = {
@@ -33,10 +25,7 @@ type UsuarioRow = {
 type DriverPdfReceivedRow = {
   id: string;
   caminhoArquivo: string | null;
-  uploadPdfId: string | null;
 };
-
-const localStoragePath = path.resolve(process.cwd(), "storage");
 
 function extractStorageKey(rawValue: string | null | undefined) {
   if (!rawValue) {
@@ -83,46 +72,14 @@ function toStoragePath(raw: string | null | undefined) {
   return normalizeStorageKey(extracted);
 }
 
-function resolveLocalPath(normalizedKey: string) {
-  return path.resolve(localStoragePath, normalizedKey);
-}
-
-async function hasLocalFile(normalizedKey: string) {
-  try {
-    await access(resolveLocalPath(normalizedKey), constants.F_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function syncRecord(record: MigrationRecord) {
   const targetPath = toStoragePath(record.path);
-  const sourcePath = normalizeStorageKey(record.path);
 
-  if (!sourcePath || !targetPath) {
+  if (!targetPath) {
     return;
   }
 
-  if (!hasObjectStorage()) {
-    if (sourcePath !== targetPath) {
-      await record.setPath(targetPath);
-    }
-    return;
-  }
-
-  const existsInStorage = await storageObjectExists(targetPath);
-
-  if (!existsInStorage && (await hasLocalFile(targetPath))) {
-    const buffer = await readFile(resolveLocalPath(targetPath));
-    await uploadObject({
-      key: targetPath,
-      body: buffer,
-      contentType: "application/octet-stream"
-    });
-  }
-
-  if (sourcePath !== targetPath) {
+  if (record.path !== targetPath) {
     await record.setPath(targetPath);
   }
 }
@@ -134,6 +91,10 @@ async function runMigration(records: MigrationRecord[]) {
 }
 
 export async function reconcileStorageReferences() {
+  if (!hasObjectStorage()) {
+    return;
+  }
+
   const uploadPdfRows = await prisma.uploadPdf.findMany({
     select: {
       id: true,
@@ -158,8 +119,7 @@ export async function reconcileStorageReferences() {
   const driverRows = await prisma.driverPdfReceived.findMany({
     select: {
       id: true,
-      caminhoArquivo: true,
-      uploadPdfId: true
+      caminhoArquivo: true
     }
   });
 
@@ -197,17 +157,11 @@ export async function reconcileStorageReferences() {
     }
   }));
 
-  const uploadById = new Map(uploadPdfRows.map((row) => [row.id, row.caminhoArquivo]));
-
   const driverRecords = driverRows
     .map((row) => {
-      const fallback =
-        row.caminhoArquivo ||
-        (row.uploadPdfId ? uploadById.get(row.uploadPdfId) || null : null);
-
       return {
         id: row.id,
-        path: fallback,
+        path: row.caminhoArquivo,
         setPath: async (nextPath: string) => {
           await prisma.driverPdfReceived.update({
             where: { id: row.id },

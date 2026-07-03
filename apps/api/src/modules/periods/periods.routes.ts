@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireAdmin, requireAuth } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
+import { notifyPdfOnline } from "../../lib/pdfonline-bridge.js";
 
 const router = Router();
 
@@ -277,6 +278,24 @@ router.post("/", requireAdmin, (req, res) => {
       }
     });
 
+    void notifyPdfOnline(
+      "portal.period.created",
+      {
+        periodId: period.id,
+        name: period.nome,
+        startDate: toDateOnlyString(period.dataInicio),
+        endDate: toDateOnlyString(period.dataFim),
+        paymentType: period.tipo,
+        status: period.status,
+        bases: bases.map((base) => base.nome)
+      },
+      {
+        userId: req.auth.userId
+      }
+    ).catch((error) => {
+      console.warn("PDF Online bridge period-create notify failed:", error instanceof Error ? error.message : error);
+    });
+
     res.status(201).json({
       message: "Periodo criado com sucesso."
     });
@@ -380,6 +399,23 @@ router.patch("/:id", requireAdmin, (req, res) => {
       });
     });
 
+    void notifyPdfOnline(
+      "portal.period.updated",
+      {
+        periodId: period.id,
+        name: parsed.data.name,
+        startDate: parsed.data.startDate,
+        endDate: parsed.data.endDate,
+        paymentType: baseType,
+        bases: bases.map((base) => base.nome)
+      },
+      {
+        userId: auth.userId
+      }
+    ).catch((error) => {
+      console.warn("PDF Online bridge period-update notify failed:", error instanceof Error ? error.message : error);
+    });
+
     res.json({
       message: "Periodo atualizado com sucesso."
     });
@@ -425,6 +461,19 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
           status: parsed.data.status
         }
       }
+    });
+
+    void notifyPdfOnline(
+      "portal.period.status_changed",
+      {
+        periodId: updated.id,
+        status: parsed.data.status
+      },
+      {
+        userId: auth.userId
+      }
+    ).catch((error) => {
+      console.warn("PDF Online bridge period-status notify failed:", error instanceof Error ? error.message : error);
     });
 
     res.json({
@@ -501,6 +550,19 @@ router.delete("/:id", requireAdmin, (req, res) => {
           }
         }
       });
+    });
+
+    void notifyPdfOnline(
+      "portal.period.deleted",
+      {
+        periodId: periodId,
+        name: existing.nome
+      },
+      {
+        userId
+      }
+    ).catch((error) => {
+      console.warn("PDF Online bridge period-delete notify failed:", error instanceof Error ? error.message : error);
     });
 
     res.json({

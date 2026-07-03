@@ -10,6 +10,7 @@ import {
   deleteObject,
   uploadObject
 } from "../../lib/storage.js";
+import { notifyPdfOnline } from "../../lib/pdfonline-bridge.js";
 
 const router = Router();
 const upload = multer({
@@ -188,7 +189,7 @@ router.post("/", upload.array("files", 20), (req, res) => {
       return;
     }
 
-  const files = (req.files as Express.Multer.File[]) || [];
+    const files = (req.files as Express.Multer.File[]) || [];
     const periodId = String(req.body?.periodId || "").trim();
     const basePaymentId = String(req.body?.basePaymentId || "").trim();
 
@@ -248,28 +249,35 @@ router.post("/", upload.array("files", 20), (req, res) => {
       return;
     }
 
-    await prisma.uploadPdf.createMany({
-      data: await Promise.all(
-        files.map(async (file) => {
-          const key = createStorageKey("uploads", file.originalname);
-          await uploadObject({
-            key,
-            body: file.buffer,
-            contentType: file.mimetype
-          });
+    const storageFolder = ["uploads", `periodos/${periodId}`, `bases/${basePaymentId}`].join("/");
+    const preparedFiles = await Promise.all(
+      files.map(async (file) => {
+        const storageKey = createStorageKey(storageFolder, file.originalname);
 
-          return {
-            nomeArquivo: file.originalname,
-            nomeOriginal: file.originalname,
-            caminhoArquivo: key,
-            versao: 1,
-            status: UploadStatus.pendente,
-            usuarioId: req.auth!.userId,
-            periodoPagamentoId: periodId,
-            basePagamentoId: basePaymentId
-          };
-        })
-      )
+        await uploadObject({
+          key: storageKey,
+          body: file.buffer,
+          contentType: file.mimetype
+        });
+
+        return {
+          file,
+          storageKey
+        };
+      })
+    );
+
+    await prisma.uploadPdf.createMany({
+      data: preparedFiles.map(({ file, storageKey }) => ({
+        nomeArquivo: file.originalname,
+        nomeOriginal: file.originalname,
+        caminhoArquivo: storageKey,
+        versao: 1,
+        status: UploadStatus.pendente,
+        usuarioId: req.auth!.userId,
+        periodoPagamentoId: periodId,
+        basePagamentoId: basePaymentId
+      }))
     });
 
     await prisma.logAuditoria.create({
@@ -286,6 +294,25 @@ router.post("/", upload.array("files", 20), (req, res) => {
           basePaymentId
         }
       }
+    });
+
+    void notifyPdfOnline(
+      "portal.upload.created",
+      {
+        periodId,
+        basePaymentId,
+        uploads: preparedFiles.map(({ file, storageKey }) => ({
+          name: file.originalname,
+          storageKey,
+          type: file.mimetype,
+          size: file.size
+        }))
+      },
+      {
+        userId: req.auth.userId
+      }
+    ).catch((error) => {
+      console.warn("PDF Online bridge upload notify failed:", error instanceof Error ? error.message : error);
     });
 
     res.status(201).json({
@@ -356,6 +383,22 @@ router.delete("/:id", (req, res) => {
       }
     });
 
+    void notifyPdfOnline(
+      "portal.upload.removed",
+      {
+        uploadId: upload.id,
+        fileName: upload.nomeOriginal,
+        storageKey: upload.caminhoArquivo,
+        periodId: upload.periodoPagamentoId,
+        basePaymentId: upload.basePagamentoId
+      },
+      {
+        userId: req.auth.userId
+      }
+    ).catch((error) => {
+      console.warn("PDF Online bridge removal notify failed:", error instanceof Error ? error.message : error);
+    });
+
     res.json({
       message: "PDF removido logicamente com sucesso."
     });
@@ -412,7 +455,12 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
       return;
     }
 
-    const key = createStorageKey("uploads", file.originalname);
+    const storageFolder = [
+      "uploads",
+      `periodos/${currentUpload.periodoPagamentoId || "sem-periodo"}`,
+      `bases/${currentUpload.basePagamentoId || "sem-base"}`
+    ].join("/");
+    const key = createStorageKey(storageFolder, file.originalname);
     await uploadObject({
       key,
       body: file.buffer,
@@ -458,6 +506,23 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
           novo: file.originalname
         }
       }
+    });
+
+    void notifyPdfOnline(
+      "portal.upload.replaced",
+      {
+        uploadId: currentUpload.id,
+        previousFileName: currentUpload.nomeOriginal,
+        nextFileName: file.originalname,
+        storageKey: key,
+        periodId: currentUpload.periodoPagamentoId,
+        basePaymentId: currentUpload.basePagamentoId
+      },
+      {
+        userId: req.auth.userId
+      }
+    ).catch((error) => {
+      console.warn("PDF Online bridge replace notify failed:", error instanceof Error ? error.message : error);
     });
 
     res.json({

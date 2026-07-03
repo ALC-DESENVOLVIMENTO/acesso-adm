@@ -1,65 +1,52 @@
 import { prisma } from "./prisma.js";
 import { fetchObjectBuffer, normalizeStorageKey } from "./storage.js";
 
-export async function ensureDriverPdfReceivedContent() {
-  const pendingRows = await prisma.driverPdfReceived.findMany({
+export async function loadDriverPdfReceivedContent(
+  driverPdfReceivedId: string,
+  fallbackUploadId: string | null = null
+) {
+  const received = await prisma.driverPdfReceived.findUnique({
     where: {
-      content: null
+      id: driverPdfReceivedId
     },
     select: {
-      id: true,
       caminhoArquivo: true,
       uploadPdfId: true
     }
   });
 
-  if (pendingRows.length === 0) {
-    return;
+  if (!received) {
+    return null;
   }
 
-  const uploadIds = pendingRows
-    .map((row) => row.uploadPdfId)
-    .filter((value): value is string => Boolean(value));
-
-  const uploads = uploadIds.length
-    ? await prisma.uploadPdf.findMany({
+  const upload = fallbackUploadId
+    ? await prisma.uploadPdf.findUnique({
         where: {
-          id: {
-            in: uploadIds
-          }
+          id: fallbackUploadId
         },
         select: {
-          id: true,
           caminhoArquivo: true
         }
       })
-    : [];
+    : received.uploadPdfId
+      ? await prisma.uploadPdf.findUnique({
+          where: {
+            id: received.uploadPdfId
+          },
+          select: {
+            caminhoArquivo: true
+          }
+        })
+    : null;
 
-  const uploadPathById = new Map(uploads.map((item) => [item.id, item.caminhoArquivo]));
+  const sourceKey = normalizeStorageKey(
+    received.caminhoArquivo || upload?.caminhoArquivo || null
+  );
 
-  for (const row of pendingRows) {
-    const sourceKey = normalizeStorageKey(
-      row.caminhoArquivo || (row.uploadPdfId ? uploadPathById.get(row.uploadPdfId) || null : null)
-    );
-
-    if (!sourceKey) {
-      continue;
-    }
-
-    const remoteObject = await fetchObjectBuffer(sourceKey).catch(() => null);
-    const content = remoteObject?.body;
-
-    if (!content) {
-      continue;
-    }
-
-    await prisma.driverPdfReceived.update({
-      where: {
-        id: row.id
-      },
-      data: {
-        content
-      }
-    });
+  if (!sourceKey) {
+    return null;
   }
+
+  const remoteObject = await fetchObjectBuffer(sourceKey).catch(() => null);
+  return remoteObject?.body || null;
 }
