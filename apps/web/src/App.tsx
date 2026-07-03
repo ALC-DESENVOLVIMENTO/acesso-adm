@@ -282,6 +282,7 @@ function App() {
   const [deletePeriodTarget, setDeletePeriodTarget] = useState<PaymentPeriod | null>(null);
   const [financeMotoristaTarget, setFinanceMotoristaTarget] = useState<string | null>(null);
   const [accessDenied, setAccessDenied] = useState<AccessDeniedState>(null);
+  const [profilePhotoBroken, setProfilePhotoBroken] = useState(false);
   const [dashboardLoaded, setDashboardLoaded] = useState(false);
   const [usersLoaded, setUsersLoaded] = useState(false);
   const [uploadsLoaded, setUploadsLoaded] = useState(false);
@@ -371,6 +372,7 @@ function App() {
         const session = await fetchSession(storedToken);
         setToken(session.token);
         setCurrentUser(session.user);
+        setProfilePhotoBroken(false);
         localStorage.setItem(
           "portal-admin-session",
           JSON.stringify({
@@ -403,6 +405,34 @@ function App() {
         requestedRouteRef.current = null;
       } catch {
         localStorage.removeItem("portal-admin-session");
+        setCurrentUser(null);
+        setToken("");
+        setUsers([]);
+        setUploads([]);
+        setPaymentPeriods([]);
+        setPaymentBases([]);
+        setDashboardSummary(initialSummary);
+        setLoginError("");
+        setPasswordError("");
+        setProfileActionError("");
+        setProfileActionLoading(false);
+        setProfileMenuOpen(false);
+        setProfileModalMode(null);
+        setLoadingMessage("");
+        setFlashMessage(null);
+        setUploadProgress(null);
+        setUploadHistory(null);
+        setCreateUserSignal(0);
+        setDeleteUserTarget(null);
+        setDeleteUploadTarget(null);
+        setDeletePeriodTarget(null);
+        setFinanceMotoristaTarget(null);
+        setAccessDenied(null);
+        setProfilePhotoBroken(false);
+        clearLoadedState();
+        setActiveView("dashboard");
+        setView("login");
+        window.history.replaceState({}, "", "/login");
       }
     })();
   }, []);
@@ -614,6 +644,7 @@ function App() {
       };
 
       setCurrentUser(updatedUser);
+      setProfilePhotoBroken(false);
       localStorage.setItem(
         "portal-admin-session",
         JSON.stringify({
@@ -660,6 +691,7 @@ function App() {
     setDeletePeriodTarget(null);
     setFinanceMotoristaTarget(null);
     setAccessDenied(null);
+    setProfilePhotoBroken(false);
     requestedRouteRef.current = null;
     setView("login");
     window.history.replaceState({}, "", "/login");
@@ -1319,8 +1351,13 @@ function App() {
                 aria-haspopup="menu"
                 onClick={() => setProfileMenuOpen((current) => !current)}
               >
-                {currentUser?.photoUrl ? (
-                  <img className="profile-chip__avatar profile-chip__avatar--image" src={currentUser.photoUrl} alt="" />
+                {currentUser?.photoUrl && !profilePhotoBroken ? (
+                  <img
+                    className="profile-chip__avatar profile-chip__avatar--image"
+                    src={currentUser.photoUrl}
+                    alt=""
+                    onError={() => setProfilePhotoBroken(true)}
+                  />
                 ) : (
                   <span className="profile-chip__avatar">
                     {currentUser?.name.slice(0, 2).toUpperCase()}
@@ -1508,8 +1545,12 @@ function App() {
               {profileModalMode === "photo" ? (
                 <>
                   <div className="profile-photo-preview">
-                    {currentUser?.photoUrl ? (
-                      <img src={currentUser.photoUrl} alt="Foto atual do usuario" />
+                    {currentUser?.photoUrl && !profilePhotoBroken ? (
+                      <img
+                        src={currentUser.photoUrl}
+                        alt="Foto atual do usuario"
+                        onError={() => setProfilePhotoBroken(true)}
+                      />
                     ) : (
                       <span>{currentUser?.name.slice(0, 2).toUpperCase()}</span>
                     )}
