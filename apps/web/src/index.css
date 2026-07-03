@@ -1013,7 +1013,9 @@ button {
 }
 
 .modal-card--bases {
-  width: min(1280px, 98vw);
+  width: min(1500px, 98vw);
+  max-height: calc(100vh - 28px);
+  overflow: hidden;
 }
 
 .base-management-toolbar {
@@ -1026,12 +1028,15 @@ button {
   display: grid;
   gap: 8px;
   padding: 6px 0 2px;
+  max-height: calc(100vh - 300px);
+  overflow: auto;
+  padding-right: 8px;
 }
 
 .base-management-head,
 .base-management-row {
   display: grid;
-  grid-template-columns: minmax(260px, 1.5fr) minmax(170px, 0.8fr) minmax(120px, 0.7fr) minmax(240px, 1fr);
+  grid-template-columns: minmax(320px, 1.6fr) minmax(170px, 0.8fr) minmax(120px, 0.7fr) minmax(260px, 1fr);
   gap: 14px;
   align-items: center;
 }
@@ -1050,6 +1055,7 @@ button {
   border-radius: 18px;
   background: rgba(244, 246, 250, 0.86);
   border: 1px solid rgba(255, 95, 83, 0.08);
+  min-width: 0;
 }
 
 .base-management-cell {
@@ -1077,6 +1083,20 @@ button {
 .base-management-cell--actions {
   justify-content: flex-end;
   flex-wrap: wrap;
+}
+
+.base-management-list::-webkit-scrollbar {
+  width: 10px;
+}
+
+.base-management-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 95, 83, 0.28);
+}
+
+.base-management-list::-webkit-scrollbar-track {
+  background: rgba(231, 235, 243, 0.55);
+  border-radius: 999px;
 }
 
 .base-summary-chip {

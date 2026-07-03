@@ -2470,7 +2470,6 @@ function PeriodsScreen({
                 <div className="base-management-row" key={base.id}>
                   <div className="base-management-cell base-management-cell--strong">
                     <strong>{base.name}</strong>
-                    <small>ID: {base.id}</small>
                   </div>
                   <div className="base-management-cell">
                     <span>{formatStatusLabel(base.paymentType)}</span>
