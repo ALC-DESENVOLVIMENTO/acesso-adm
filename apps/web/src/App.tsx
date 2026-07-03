@@ -73,6 +73,7 @@ import { FinanceiroScreen } from "./FinanceiroScreen";
 
 type AccessLevel = "N1" | "N2" | "N3" | "N4";
 type AuthView = "login" | "first-access";
+type ViewState = AuthView | RouteView;
 type RouteView = "dashboard" | "pdfs" | "users" | "periods" | "financeiro" | "atendimento";
 
 type Activity = {
@@ -256,7 +257,7 @@ function canAccessRoute(user: SessionUser | null, route: RouteView) {
 
 function App() {
   const initialRoute = getRouteViewFromPath(window.location.pathname);
-  const [view, setView] = useState<AuthView>("login");
+  const [view, setView] = useState<ViewState>("login");
   const [activeView, setActiveView] = useState<RouteView>(initialRoute);
   const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
   const [token, setToken] = useState("");
@@ -397,6 +398,7 @@ function App() {
 
         const safeRoute = nextRoute;
         setActiveView(safeRoute);
+        setView(safeRoute);
         window.history.replaceState({}, "", getRoutePath(safeRoute));
         requestedRouteRef.current = null;
       } catch {
@@ -569,6 +571,7 @@ function App() {
       const nextView = canAccessRoute(response.user, requestedRoute) ? requestedRoute : getDefaultRoute(response.user);
 
       setActiveView(nextView);
+      setView(nextView);
       window.history.replaceState({}, "", getRoutePath(nextView));
       requestedRouteRef.current = null;
     } catch (error) {
@@ -619,6 +622,7 @@ function App() {
         })
       );
       navigateToRoute("dashboard");
+      setView("dashboard");
     } catch (error) {
       setPasswordError(error instanceof Error ? error.message : "Falha ao alterar a senha.");
     } finally {
