@@ -1401,23 +1401,28 @@ button {
   display: grid;
   padding: 12px;
   min-height: auto;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 6px;
   align-items: stretch;
 }
 
 .user-form--modal .user-modules-field .checkbox-chip {
   justify-content: flex-start;
-  width: 100%;
-  min-height: 42px;
-  border-radius: 12px;
-  padding: 10px 12px;
+  min-height: 34px;
+  border-radius: 10px;
+  padding: 6px 10px;
   border: 1px solid rgba(255, 95, 83, 0.16);
   background: rgba(255, 255, 255, 0.84);
+  font-size: 0.82rem;
 }
 
 .user-form--modal .user-modules-field .checkbox-chip span {
-  line-height: 1.2;
+  line-height: 1.15;
+}
+
+.user-form--modal .user-modules-field .checkbox-chip input {
+  width: 14px;
+  height: 14px;
 }
 
 .user-form--modal .admin-form__actions {
