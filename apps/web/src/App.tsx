@@ -3285,7 +3285,7 @@ function UsersScreen({
               </button>
             </div>
 
-            <form className="admin-form admin-form--modal" onSubmit={handleSubmit}>
+            <form className="admin-form admin-form--modal user-form--modal" onSubmit={handleSubmit}>
               <label className="field">
                 <span>Nome</span>
                 <input
@@ -3339,7 +3339,7 @@ function UsersScreen({
                 </select>
               </label>
 
-              <div className="field">
+              <div className="field field--full user-modules-field">
                 <span>Modulos</span>
                 <div className="checkbox-grid">
                   {userModuleOptions.map((module) => (

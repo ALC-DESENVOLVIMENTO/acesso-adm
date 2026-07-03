@@ -1352,6 +1352,41 @@ button {
   margin-top: 12px;
 }
 
+.user-form--modal {
+  grid-template-columns: minmax(240px, 1fr) minmax(240px, 1fr);
+  gap: 18px;
+}
+
+.user-form--modal .field {
+  gap: 10px;
+}
+
+.user-form--modal .field input,
+.user-form--modal .field select,
+.user-form--modal .field .field__select {
+  border: 1px solid rgba(255, 95, 83, 0.22);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 13px 16px;
+  min-height: 50px;
+  height: 50px;
+  box-shadow: 0 10px 24px rgba(255, 95, 83, 0.08);
+  font-size: 0.98rem;
+}
+
+.user-form--modal .field--full {
+  grid-column: 1 / -1;
+}
+
+.user-form--modal .user-modules-field .checkbox-grid {
+  padding: 12px;
+  min-height: 74px;
+}
+
+.user-form--modal .admin-form__actions {
+  margin-top: 8px;
+}
+
 .admin-form__actions {
   grid-column: 1 / -1;
   display: flex;
