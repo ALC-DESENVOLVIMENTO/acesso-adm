@@ -1005,17 +1005,41 @@ button {
 }
 
 .modal-card--periods {
-  width: min(1440px, 98vw);
+  width: min(1440px, 98vw) !important;
+  max-width: min(1440px, 98vw) !important;
 }
 
 .modal-card--create {
-  width: min(1260px, 98vw);
+  width: min(1540px, 98vw) !important;
+  max-width: min(1540px, 98vw) !important;
+  max-height: calc(100vh - 24px) !important;
+  overflow: auto !important;
+  padding: 32px !important;
+}
+
+.modal-card--create .admin-form.period-form {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px 16px;
+}
+
+.modal-card--create .field--full,
+.modal-card--create .admin-form__actions {
+  grid-column: 1 / -1;
+}
+
+.modal-card--create .field--bases .checkbox-grid {
+  max-width: none;
+}
+
+.modal-card--create .checkbox-grid {
+  gap: 12px;
 }
 
 .modal-card--bases {
-  width: min(1500px, 98vw);
-  max-height: calc(100vh - 28px);
-  overflow: hidden;
+  width: min(1500px, 98vw) !important;
+  max-width: min(1500px, 98vw) !important;
+  max-height: calc(100vh - 28px) !important;
+  overflow: hidden !important;
 }
 
 .base-management-toolbar {

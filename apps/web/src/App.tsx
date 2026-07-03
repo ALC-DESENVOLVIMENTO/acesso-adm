@@ -2594,7 +2594,7 @@ function PeriodsScreen({
                 />
               </label>
 
-              <div className="field">
+              <div className="field field--full field--bases">
                 <span>Bases vinculadas automaticamente</span>
                 <div className="checkbox-grid">
                   {(formValues.paymentType === "mensal" ? bases : baseByType[formValues.paymentType] || []).map(
