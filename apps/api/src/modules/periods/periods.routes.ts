@@ -53,6 +53,12 @@ const periodStatusSchema = z.object({
   status: z.enum(["disponivel", "aguardando_aprovacao", "aprovado"])
 });
 
+const basePayloadSchema = z.object({
+  name: z.string().min(3),
+  paymentType: z.enum(["semanal", "quinzenal", "mensal"]),
+  active: z.boolean().optional().default(true)
+});
+
 function parseDateOnly(input: string) {
   const [yearText, monthText, dayText] = input.split("-");
 
@@ -71,12 +77,12 @@ function toDateOnlyString(value: Date) {
     .split("T")[0];
 }
 
-function serializeBase(base: { id: string; nome: string; tipoPadrao: string }) {
+function serializeBase(base: { id: string; nome: string; tipoPadrao: string; ativo: boolean }) {
   return {
     id: base.id,
     name: base.nome,
     paymentType: base.tipoPadrao,
-    active: true
+    active: base.ativo
   };
 }
 
@@ -162,6 +168,119 @@ router.get("/bases", (_req, res) => {
   })().catch((error) => {
     res.status(500).json({
       message: "Falha ao listar bases de pagamento.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
+
+router.post("/bases", requireAdmin, (req, res) => {
+  void (async () => {
+    const parsed = basePayloadSchema.safeParse(req.body);
+    const auth = req.auth;
+
+    if (!parsed.success || !auth) {
+      res.status(400).json({
+        message: "Dados invalidos para criacao da base.",
+        issues: parsed.success ? undefined : parsed.error.flatten()
+      });
+      return;
+    }
+
+    const created = await prisma.basePagamento.create({
+      data: {
+        nome: parsed.data.name,
+        tipoPadrao: parsed.data.paymentType,
+        ativo: parsed.data.active
+      }
+    });
+
+    await prisma.logAuditoria.create({
+      data: {
+        usuarioId: auth.userId,
+        acao: "criar_base_pagamento",
+        entidade: "bases_pagamento",
+        entidadeId: created.id,
+        ipOrigem: req.ip,
+        userAgent: req.get("user-agent") || null,
+        detalhes: {
+          nome: created.nome,
+          tipoPadrao: created.tipoPadrao,
+          ativo: created.ativo
+        }
+      }
+    });
+
+    res.status(201).json({
+      message: "Base criada com sucesso."
+    });
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao criar base.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
+
+router.patch("/bases/:id", requireAdmin, (req, res) => {
+  void (async () => {
+    const parsed = basePayloadSchema.safeParse(req.body);
+    const auth = req.auth;
+    const baseId = String(req.params.id);
+
+    if (!parsed.success || !auth) {
+      res.status(400).json({
+        message: "Dados invalidos para edicao da base.",
+        issues: parsed.success ? undefined : parsed.error.flatten()
+      });
+      return;
+    }
+
+    const existing = await prisma.basePagamento.findUnique({
+      where: {
+        id: baseId
+      }
+    });
+
+    if (!existing) {
+      res.status(404).json({
+        message: "Base nao encontrada."
+      });
+      return;
+    }
+
+    const updated = await prisma.basePagamento.update({
+      where: {
+        id: baseId
+      },
+      data: {
+        nome: parsed.data.name,
+        tipoPadrao: parsed.data.paymentType,
+        ativo: parsed.data.active
+      }
+    });
+
+    await prisma.logAuditoria.create({
+      data: {
+        usuarioId: auth.userId,
+        acao: "editar_base_pagamento",
+        entidade: "bases_pagamento",
+        entidadeId: updated.id,
+        ipOrigem: req.ip,
+        userAgent: req.get("user-agent") || null,
+        detalhes: {
+          nome: updated.nome,
+          tipoPadrao: updated.tipoPadrao,
+          ativo: updated.ativo
+        }
+      }
+    });
+
+    res.json({
+      message: "Base atualizada com sucesso."
+    });
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao atualizar base.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });

@@ -28,6 +28,7 @@ import {
   changeFirstAccessPassword,
   createUser,
   createPaymentPeriod,
+  createPaymentBase,
   deletePaymentPeriod,
   deleteUser,
   deleteUpload,
@@ -47,6 +48,7 @@ import {
   updateCurrentUserProfile,
   updateMotoristaClassificacoes,
   updatePaymentPeriodStatus,
+  updatePaymentBase,
   createAtendimentoNota,
   updateAtendimentoNota,
   deleteAtendimentoNota,
@@ -277,6 +279,13 @@ function App() {
   const [paymentBases, setPaymentBases] = useState<PaymentBase[]>([]);
   const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null);
   const [uploadHistory, setUploadHistory] = useState<UploadHistoryState>(null);
+  const [baseEditorOpen, setBaseEditorOpen] = useState(false);
+  const [editingBase, setEditingBase] = useState<PaymentBase | null>(null);
+  const [baseFormValues, setBaseFormValues] = useState({
+    name: "",
+    paymentType: "semanal" as "semanal" | "quinzenal" | "mensal",
+    active: true
+  });
   const [createUserSignal, setCreateUserSignal] = useState(0);
   const [deleteUserTarget, setDeleteUserTarget] = useState<UserSummary | null>(null);
   const [deleteUploadTarget, setDeleteUploadTarget] = useState<UploadRow | null>(null);
@@ -437,6 +446,18 @@ function App() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!flashMessage) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setFlashMessage(null);
+    }, 3800);
+
+    return () => window.clearTimeout(timeout);
+  }, [flashMessage]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -1165,6 +1186,61 @@ function App() {
     }
   };
 
+  const openBaseEditor = (base: PaymentBase | null = null) => {
+    setEditingBase(base);
+    setBaseFormValues(
+      base
+        ? {
+            name: base.name,
+            paymentType: base.paymentType,
+            active: base.active
+          }
+        : {
+            name: "",
+            paymentType: "semanal",
+            active: true
+          }
+    );
+    setBaseEditorOpen(true);
+  };
+
+  const handleSaveBase = async () => {
+    if (!token) {
+      return false;
+    }
+
+    setLoadingMessage(editingBase ? "Atualizando base..." : "Criando base...");
+
+    try {
+      const payload = {
+        name: baseFormValues.name.trim(),
+        paymentType: baseFormValues.paymentType,
+        active: baseFormValues.active
+      };
+
+      if (editingBase) {
+        const response = await updatePaymentBase(token, editingBase.id, payload);
+        setFlashMessage({ type: "success", text: response.message });
+      } else {
+        const response = await createPaymentBase(token, payload);
+        setFlashMessage({ type: "success", text: response.message });
+      }
+
+      await loadPeriodData();
+      setBaseEditorOpen(false);
+      setEditingBase(null);
+      return true;
+    } catch (error) {
+      setFlashMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Falha ao salvar base."
+      });
+      return false;
+    } finally {
+      setLoadingMessage("");
+    }
+  };
+
   if (view === "login") {
     return (
       <main className="auth-page">
@@ -1458,10 +1534,8 @@ function App() {
         ) : null}
 
         {flashMessage ? (
-          <div className="panel">
-            <p className={flashMessage.type === "success" ? "success-note" : "form-error"}>
-              {flashMessage.text}
-            </p>
+          <div className={`toast-message toast-message--${flashMessage.type}`}>
+            <span>{flashMessage.text}</span>
           </div>
         ) : null}
 
@@ -1486,6 +1560,8 @@ function App() {
             bases={paymentBases}
             periods={paymentPeriods}
             onCreatePeriod={handleCreatePeriod}
+            onSaveBase={handleSaveBase}
+            onOpenBaseEditor={openBaseEditor}
             onUpdatePeriodStatus={handleUpdatePeriodStatus}
             onDeletePeriod={requestDeletePeriod}
           />
@@ -1534,6 +1610,95 @@ function App() {
             focusMotoristaId={financeMotoristaTarget}
             onConsumeFocusMotorista={() => setFinanceMotoristaTarget(null)}
           />
+        ) : null}
+
+        {baseEditorOpen ? (
+          <div className="modal-overlay" onClick={() => setBaseEditorOpen(false)}>
+            <div
+              className="modal-card modal-card--confirm modal-card--periods modal-card--create"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="base-editor-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="modal-card__header">
+                <div>
+                  <p className="eyebrow">Bases do sistema</p>
+                  <h3 id="base-editor-title">{editingBase ? "Editar base" : "Nova base"}</h3>
+                  <p>Altere o nome, o tipo de pagamento e a situacao da base.</p>
+                </div>
+                <button className="ghost-button ghost-button--small" type="button" onClick={() => setBaseEditorOpen(false)}>
+                  Fechar
+                </button>
+              </div>
+
+              <form
+                className="admin-form period-form admin-form--modal base-editor-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void handleSaveBase();
+                }}
+              >
+                <label className="field">
+                  <span>Nome da base</span>
+                  <input
+                    name="baseName"
+                    placeholder="Ex.: ARACATUBA"
+                    required
+                    value={baseFormValues.name}
+                    onChange={(event) =>
+                      setBaseFormValues((current) => ({
+                        ...current,
+                        name: event.target.value
+                      }))
+                    }
+                  />
+                </label>
+
+                <label className="field">
+                  <span>Tipo de pagamento</span>
+                  <select
+                    className="field__select"
+                    value={baseFormValues.paymentType}
+                    onChange={(event) =>
+                      setBaseFormValues((current) => ({
+                        ...current,
+                        paymentType: event.target.value as "semanal" | "quinzenal" | "mensal"
+                      }))
+                    }
+                  >
+                    <option value="semanal">SEMANAL</option>
+                    <option value="quinzenal">QUINZENAL</option>
+                    <option value="mensal">MENSAL</option>
+                  </select>
+                </label>
+
+                <label className="field">
+                  <span>Status da base</span>
+                  <select
+                    className="field__select"
+                    value={baseFormValues.active ? "true" : "false"}
+                    onChange={(event) =>
+                      setBaseFormValues((current) => ({
+                        ...current,
+                        active: event.target.value === "true"
+                      }))
+                    }
+                  >
+                    <option value="true">Ativa</option>
+                    <option value="false">Inativa</option>
+                  </select>
+                </label>
+
+                <div className="admin-form__actions">
+                  <button className="primary-button primary-button--inline" type="submit">
+                    {editingBase ? "Salvar base" : "Criar base"}
+                    <ArrowRight size={18} weight="bold" />
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         ) : null}
       </section>
 
@@ -1977,6 +2142,8 @@ function PeriodsScreen({
   bases,
   periods,
   onCreatePeriod,
+  onSaveBase,
+  onOpenBaseEditor,
   onUpdatePeriodStatus,
   onDeletePeriod
 }: {
@@ -1989,6 +2156,8 @@ function PeriodsScreen({
     endDate: string;
     paymentType: "semanal" | "quinzenal" | "mensal";
   }) => Promise<boolean> | boolean;
+  onSaveBase: () => Promise<boolean> | boolean;
+  onOpenBaseEditor: (base: PaymentBase | null) => void;
   onUpdatePeriodStatus: (
     periodId: string,
     status: "disponivel" | "aguardando_aprovacao" | "aprovado"
@@ -2002,6 +2171,7 @@ function PeriodsScreen({
     paymentType: "semanal" as "semanal" | "quinzenal" | "mensal"
   });
   const [isCreatePeriodModalOpen, setIsCreatePeriodModalOpen] = useState(false);
+  const [isBasePanelOpen, setIsBasePanelOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"active" | "finished">("active");
 
   const baseByType = useMemo(
@@ -2108,6 +2278,17 @@ function PeriodsScreen({
             <ArrowRight size={18} weight="bold" />
           </button>
         </div>
+
+        <div className="period-launch-card">
+          <div>
+            <strong>Bases cadastradas</strong>
+            <p>Edite nome, tipo e status das bases sem sair do modulo de periodos.</p>
+          </div>
+          <button className="ghost-button" type="button" onClick={() => setIsBasePanelOpen(true)}>
+            Gerenciar bases
+            <ArrowRight size={16} />
+          </button>
+        </div>
       </section>
 
       <section className="panel">
@@ -2158,15 +2339,20 @@ function PeriodsScreen({
                   <span className={`status-pill ${period.status === "disponivel" ? "status-pill--active" : ""}`}>
                     {formatStatusLabel(period.status)}
                   </span>
-                  <strong>{period.uploadedTotal}</strong>
-                  <small>PDFs anexados</small>
+                  <div className="period-card__totals">
+                    <div className="period-card__metric">
+                      <strong>{period.uploadedTotal}</strong>
+                      <small>PDFs anexados</small>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="module-chips">
                   {uploadedByBaseEntries.map((base) => (
-                    <span className="mini-chip" key={`${period.id}-${base.id}`}>
-                      {base.name} ({base.total} PDF{base.total === 1 ? "" : "s"})
-                    </span>
+                    <div className="base-summary-chip" key={`${period.id}-${base.id}`}>
+                      <span className="base-summary-chip__name">{base.name}</span>
+                      <span className="base-summary-chip__count">{base.total} PDF{base.total === 1 ? "" : "s"}</span>
+                    </div>
                   ))}
                 </div>
 
@@ -2191,13 +2377,15 @@ function PeriodsScreen({
                   >
                     {period.status === "disponivel" ? "Finalizar periodo" : "Reabrir periodo"}
                   </button>
-                  <button
-                    className="ghost-button ghost-button--small"
-                    type="button"
-                    onClick={() => void onUpdatePeriodStatus(period.id, "aprovado")}
-                  >
-                    Aprovar periodo
-                  </button>
+                  {activeTab === "active" ? (
+                    <button
+                      className="ghost-button ghost-button--small"
+                      type="button"
+                      onClick={() => void onUpdatePeriodStatus(period.id, "aprovado")}
+                    >
+                      Aprovar periodo
+                    </button>
+                  ) : null}
                 </div>
               </article>
             );
@@ -2211,10 +2399,64 @@ function PeriodsScreen({
         </div>
       </section>
 
+      {isBasePanelOpen ? (
+        <div className="modal-overlay" onClick={() => setIsBasePanelOpen(false)}>
+          <div
+            className="modal-card modal-card--confirm modal-card--periods modal-card--bases"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bases-panel-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-card__header">
+              <div>
+                <p className="eyebrow">Bases do sistema</p>
+                <h3 id="bases-panel-title">Gerenciar bases</h3>
+                <p>Altere o tipo de pagamento ou adicione uma nova base.</p>
+              </div>
+              <button className="ghost-button ghost-button--small" type="button" onClick={() => setIsBasePanelOpen(false)}>
+                Fechar
+              </button>
+            </div>
+
+            <div className="base-management-toolbar">
+              <button className="primary-button primary-button--inline" type="button" onClick={() => onOpenBaseEditor(null)}>
+                Nova base
+                <ArrowRight size={18} weight="bold" />
+              </button>
+            </div>
+
+            <div className="base-management-list">
+              {bases.map((base) => (
+                <article className="base-management-card" key={base.id}>
+                  <div>
+                    <strong>{base.name}</strong>
+                    <span>{formatStatusLabel(base.paymentType)}</span>
+                  </div>
+                  <span className={`status-pill ${base.active ? "status-pill--active" : ""}`}>
+                    {base.active ? "Ativa" : "Inativa"}
+                  </span>
+                  <button className="ghost-button ghost-button--small" type="button" onClick={() => onOpenBaseEditor(base)}>
+                    Editar
+                    <PencilSimple size={16} />
+                  </button>
+                </article>
+              ))}
+            </div>
+
+            <div className="modal-card__actions">
+              <button className="ghost-button" type="button" onClick={() => setIsBasePanelOpen(false)}>
+                Fechar painel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {isCreatePeriodModalOpen ? (
         <div className="modal-overlay" onClick={() => setIsCreatePeriodModalOpen(false)}>
           <div
-            className="modal-card modal-card--confirm modal-card--periods"
+            className="modal-card modal-card--confirm modal-card--periods modal-card--create"
             role="dialog"
             aria-modal="true"
             aria-labelledby="create-period-title"
@@ -2322,6 +2564,7 @@ function PeriodsScreen({
           </div>
         </div>
       ) : null}
+
     </div>
   );
 }

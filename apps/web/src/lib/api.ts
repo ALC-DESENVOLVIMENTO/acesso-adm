@@ -82,6 +82,12 @@ export type PaymentBase = PeriodBase & {
   active: boolean;
 };
 
+export type PaymentBasePayload = {
+  name: string;
+  paymentType: PaymentFrequency;
+  active: boolean;
+};
+
 export type PaymentPeriod = {
   id: string;
   name: string;
@@ -441,6 +447,26 @@ export function fetchPaymentPeriods(token: string) {
 
 export function fetchPaymentBases(token: string) {
   return request<PaymentBase[]>("/periods/bases", {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function createPaymentBase(token: string, body: PaymentBasePayload) {
+  return request<{ message: string }>("/periods/bases", {
+    method: "POST",
+    body,
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function updatePaymentBase(token: string, baseId: string, body: PaymentBasePayload) {
+  return request<{ message: string }>(`/periods/bases/${baseId}`, {
+    method: "PATCH",
+    body,
     headers: {
       Authorization: `Bearer ${token}`
     }
