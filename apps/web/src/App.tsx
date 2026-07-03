@@ -1967,6 +1967,8 @@ function PeriodsScreen({
     endDate: "",
     paymentType: "semanal" as "semanal" | "quinzenal" | "mensal"
   });
+  const [isCreatePeriodModalOpen, setIsCreatePeriodModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"active" | "finished">("active");
 
   const baseByType = useMemo(
     () =>
@@ -1978,11 +1980,22 @@ function PeriodsScreen({
     [bases]
   );
 
+  const activePeriods = useMemo(
+    () => periods.filter((period) => period.status !== "aprovado"),
+    [periods]
+  );
+
+  const finishedPeriods = useMemo(
+    () => periods.filter((period) => period.status === "aprovado"),
+    [periods]
+  );
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const success = await onCreatePeriod(formValues);
 
     if (success) {
+      setIsCreatePeriodModalOpen(false);
       setFormValues({
         name: "",
         startDate: "",
@@ -2047,113 +2060,63 @@ function PeriodsScreen({
       </section>
 
       <section className="panel">
-        <div className="panel__header">
+        <div className="panel__header panel__header--split">
           <div>
             <h3>Novo periodo de pagamento</h3>
-            <p>Escolha o intervalo, a descricao e o tipo de periodicidade.</p>
+            <p>Abra o pop-up para criar um novo periodo com o mesmo fluxo visual ja usado no sistema.</p>
           </div>
+          <button
+            className="primary-button primary-button--inline"
+            type="button"
+            onClick={() => setIsCreatePeriodModalOpen(true)}
+          >
+            Novo periodo de pagamento
+            <ArrowRight size={18} weight="bold" />
+          </button>
         </div>
 
-        <form className="admin-form period-form" onSubmit={handleSubmit}>
-          <label className="field">
-            <span>Descricao do periodo</span>
-            <input
-              name="name"
-              placeholder="Pagamento Semanal 1 a 7"
-              required
-              value={formValues.name}
-              onChange={(event) =>
-                setFormValues((current) => ({
-                  ...current,
-                  name: event.target.value
-                }))
-              }
-            />
-          </label>
-
-          <label className="field">
-            <span>Tipo de pagamento</span>
-            <select
-              name="paymentType"
-              className="field__select"
-              value={formValues.paymentType}
-              onChange={(event) =>
-                setFormValues((current) => ({
-                  ...current,
-                  paymentType: event.target.value as "semanal" | "quinzenal" | "mensal"
-                }))
-              }
-            >
-              <option value="semanal">SEMANAL</option>
-              <option value="quinzenal">QUINZENAL</option>
-              <option value="mensal">MENSAL</option>
-            </select>
-          </label>
-
-          <label className="field">
-            <span>Data de inicio</span>
-            <input
-              name="startDate"
-              type="date"
-              required
-              value={formValues.startDate}
-              onChange={(event) =>
-                setFormValues((current) => ({
-                  ...current,
-                  startDate: event.target.value
-                }))
-              }
-            />
-          </label>
-
-          <label className="field">
-            <span>Data de fim</span>
-            <input
-              name="endDate"
-              type="date"
-              required
-              value={formValues.endDate}
-              onChange={(event) =>
-                setFormValues((current) => ({
-                  ...current,
-                  endDate: event.target.value
-                }))
-              }
-            />
-          </label>
-
-          <div className="field">
-            <span>Bases vinculadas automaticamente</span>
-            <div className="checkbox-grid">
-              {(formValues.paymentType === "mensal" ? bases : baseByType[formValues.paymentType] || []).map(
-                (base) => (
-                  <span className="mini-chip" key={base.id}>
-                    {base.name}
-                  </span>
-                )
-              )}
-            </div>
+        <div className="period-launch-card">
+          <div>
+            <strong>Crie um novo periodo sem sair da tela</strong>
+            <p>O formulario completo abre em um pop-up no mesmo padrao dos demais modais do sistema.</p>
           </div>
-
-          <div className="admin-form__actions">
-            <button className="primary-button primary-button--inline" type="submit">
-              Criar periodo
-              <ArrowRight size={18} weight="bold" />
-            </button>
-          </div>
-        </form>
+          <button className="ghost-button" type="button" onClick={() => setIsCreatePeriodModalOpen(true)}>
+            Abrir criacao
+            <ArrowRight size={16} />
+          </button>
+        </div>
       </section>
 
       <section className="panel">
-        <div className="panel__header">
+        <div className="panel__header panel__header--split">
           <div>
             <h3>Periodos cadastrados</h3>
-            <p>Os periodos aparecem aqui e tambem ficam disponiveis na tela de envio de PDFs.</p>
+            <p>Visualize periodos ativos ou finalizados em abas separadas.</p>
+          </div>
+          <div className="period-tabs" role="tablist" aria-label="Filtro de periodos">
+            <button
+              className={`period-tab ${activeTab === "active" ? "period-tab--active" : ""}`}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "active"}
+              onClick={() => setActiveTab("active")}
+            >
+              Periodos ativos
+            </button>
+            <button
+              className={`period-tab ${activeTab === "finished" ? "period-tab--active" : ""}`}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "finished"}
+              onClick={() => setActiveTab("finished")}
+            >
+              Periodos finalizados
+            </button>
           </div>
         </div>
 
         <div className="period-list">
-          {periods.map((period) => {
+          {(activeTab === "active" ? activePeriods : finishedPeriods).map((period) => {
             const uploadedByBaseEntries = period.bases.map((base) => ({
               ...base,
               total: period.uploadedByBase[base.id] || 0
@@ -2200,8 +2163,126 @@ function PeriodsScreen({
               </article>
             );
           })}
+          {(activeTab === "active" ? activePeriods : finishedPeriods).length === 0 ? (
+            <div className="empty-state">
+              <strong>Nenhum periodo {activeTab === "active" ? "ativo" : "finalizado"} encontrado</strong>
+              <p>Crie um novo periodo ou altere o status de um registro existente para ve-lo aqui.</p>
+            </div>
+          ) : null}
         </div>
       </section>
+
+      {isCreatePeriodModalOpen ? (
+        <div className="modal-overlay" onClick={() => setIsCreatePeriodModalOpen(false)}>
+          <div
+            className="modal-card modal-card--confirm modal-card--periods"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-period-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-card__header">
+              <div>
+                <p className="eyebrow">Administracao de periodos</p>
+                <h3 id="create-period-title">Novo periodo de pagamento</h3>
+                <p>Defina a descricao, o tipo e o intervalo para gerar o periodo.</p>
+              </div>
+              <button className="ghost-button ghost-button--small" type="button" onClick={() => setIsCreatePeriodModalOpen(false)}>
+                Fechar
+              </button>
+            </div>
+
+            <form className="admin-form period-form admin-form--modal" onSubmit={handleSubmit}>
+              <label className="field">
+                <span>Descricao do periodo</span>
+                <input
+                  name="name"
+                  placeholder="Pagamento Semanal 1 a 7"
+                  required
+                  value={formValues.name}
+                  onChange={(event) =>
+                    setFormValues((current) => ({
+                      ...current,
+                      name: event.target.value
+                    }))
+                  }
+                />
+              </label>
+
+              <label className="field">
+                <span>Tipo de pagamento</span>
+                <select
+                  name="paymentType"
+                  className="field__select"
+                  value={formValues.paymentType}
+                  onChange={(event) =>
+                    setFormValues((current) => ({
+                      ...current,
+                      paymentType: event.target.value as "semanal" | "quinzenal" | "mensal"
+                    }))
+                  }
+                >
+                  <option value="semanal">SEMANAL</option>
+                  <option value="quinzenal">QUINZENAL</option>
+                  <option value="mensal">MENSAL</option>
+                </select>
+              </label>
+
+              <label className="field">
+                <span>Data de inicio</span>
+                <input
+                  name="startDate"
+                  type="date"
+                  required
+                  value={formValues.startDate}
+                  onChange={(event) =>
+                    setFormValues((current) => ({
+                      ...current,
+                      startDate: event.target.value
+                    }))
+                  }
+                />
+              </label>
+
+              <label className="field">
+                <span>Data de fim</span>
+                <input
+                  name="endDate"
+                  type="date"
+                  required
+                  value={formValues.endDate}
+                  onChange={(event) =>
+                    setFormValues((current) => ({
+                      ...current,
+                      endDate: event.target.value
+                    }))
+                  }
+                />
+              </label>
+
+              <div className="field">
+                <span>Bases vinculadas automaticamente</span>
+                <div className="checkbox-grid">
+                  {(formValues.paymentType === "mensal" ? bases : baseByType[formValues.paymentType] || []).map(
+                    (base) => (
+                      <span className="mini-chip" key={base.id}>
+                        {base.name}
+                      </span>
+                    )
+                  )}
+                </div>
+              </div>
+
+              <div className="admin-form__actions">
+                <button className="primary-button primary-button--inline" type="submit">
+                  Criar periodo
+                  <ArrowRight size={18} weight="bold" />
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
