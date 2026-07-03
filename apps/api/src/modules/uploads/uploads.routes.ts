@@ -27,6 +27,54 @@ function buildUploadStorageFolder(periodId: string, basePaymentId: string) {
   return `uploads/periodos/${periodId}/bases/${basePaymentId}`;
 }
 
+const PDFONLINE_WEBHOOK_URL = String(
+  process.env.PDFONLINE_WEBHOOK_URL ||
+    process.env.PDFONLINE_SYNC_URL ||
+    process.env.PDFONLINE_BRIDGE_URL ||
+    ""
+).trim();
+
+const PDFONLINE_WEBHOOK_TOKEN = String(
+  process.env.PDFONLINE_WEBHOOK_TOKEN ||
+    process.env.PDFONLINE_BRIDGE_TOKEN ||
+    process.env.PDFONLINE_INTEGRATION_TOKEN ||
+    ""
+).trim();
+
+function buildPdfonlineWebhookHeaders() {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json"
+  };
+
+  if (PDFONLINE_WEBHOOK_TOKEN) {
+    headers.Authorization = `Bearer ${PDFONLINE_WEBHOOK_TOKEN}`;
+    headers["x-bridge-token"] = PDFONLINE_WEBHOOK_TOKEN;
+    headers["x-pdfonline-bridge-token"] = PDFONLINE_WEBHOOK_TOKEN;
+    headers["x-portal-pdfonline-token"] = PDFONLINE_WEBHOOK_TOKEN;
+    headers["x-webhook-token"] = PDFONLINE_WEBHOOK_TOKEN;
+  }
+
+  return headers;
+}
+
+async function notifyPdfonline(payload: Record<string, unknown>) {
+  if (!PDFONLINE_WEBHOOK_URL) {
+    return { skipped: true, reason: "missing-webhook-url" };
+  }
+
+  const response = await fetch(PDFONLINE_WEBHOOK_URL, {
+    method: "POST",
+    headers: buildPdfonlineWebhookHeaders(),
+    body: JSON.stringify(payload)
+  });
+
+  return {
+    skipped: false,
+    ok: response.ok,
+    status: response.status
+  };
+}
+
 type UploadHistoryItem = Awaited<ReturnType<typeof prisma.uploadPdf.findMany>>[number] & {
   usuario: {
     nome: string;
@@ -252,30 +300,29 @@ router.post("/", upload.array("files", 20), (req, res) => {
       return;
     }
 
-    await prisma.uploadPdf.createMany({
-      data: await Promise.all(
-        files.map(async (file) => {
-          const key = createStorageKey(buildUploadStorageFolder(periodId, basePaymentId), file.originalname);
-          await uploadObject({
-            key,
-            body: file.buffer,
-            contentType: file.mimetype
-          });
+    const createdUploads = await Promise.all(
+      files.map(async (file) => {
+        const key = createStorageKey(buildUploadStorageFolder(periodId, basePaymentId), file.originalname);
+        await uploadObject({
+          key,
+          body: file.buffer,
+          contentType: file.mimetype
+        });
 
-          return {
+        return prisma.uploadPdf.create({
+          data: {
             nomeArquivo: file.originalname,
             nomeOriginal: file.originalname,
             caminhoArquivo: key,
-            content: file.buffer,
             versao: 1,
             status: UploadStatus.pendente,
             usuarioId: req.auth!.userId,
             periodoPagamentoId: periodId,
             basePagamentoId: basePaymentId
-          };
-        })
-      )
-    });
+          }
+        });
+      })
+    );
 
     await prisma.logAuditoria.create({
       data: {
@@ -291,6 +338,33 @@ router.post("/", upload.array("files", 20), (req, res) => {
           basePaymentId
         }
       }
+    });
+
+    void Promise.all(
+      createdUploads.map((uploadRecord) =>
+        notifyPdfonline({
+          event: "portal.upload.created",
+          type: "portal.upload.created",
+          source: "portal-administrativo",
+          target: "pdfonline",
+          upload: {
+            id: uploadRecord.id,
+            nomeArquivo: uploadRecord.nomeArquivo,
+            nomeOriginal: uploadRecord.nomeOriginal,
+            caminhoArquivo: uploadRecord.caminhoArquivo,
+            versao: uploadRecord.versao,
+            status: uploadRecord.status,
+            usuarioId: uploadRecord.usuarioId,
+            periodoPagamentoId: uploadRecord.periodoPagamentoId,
+            basePagamentoId: uploadRecord.basePagamentoId,
+            motoristaId: uploadRecord.motoristaId,
+            substituiUploadId: uploadRecord.substituiUploadId,
+            criadoEm: uploadRecord.criadoEm.toISOString()
+          }
+        })
+      )
+    ).catch((error) => {
+      console.warn("Falha ao sincronizar upload com o pdfonline:", error instanceof Error ? error.message : error);
     });
 
     res.status(201).json({
@@ -427,7 +501,7 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
       contentType: file.mimetype
     });
 
-    await prisma.$transaction([
+    const [, replacementUpload] = await prisma.$transaction([
       prisma.uploadPdf.update({
         where: {
           id: currentUpload.id
@@ -441,7 +515,6 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
           nomeArquivo: file.originalname,
           nomeOriginal: file.originalname,
           caminhoArquivo: key,
-          content: file.buffer,
           versao: currentUpload.versao + 1,
           status: UploadStatus.pendente,
           usuarioId: req.auth.userId,
@@ -467,6 +540,30 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
           novo: file.originalname
         }
       }
+    });
+
+    void notifyPdfonline({
+      event: "portal.upload.replaced",
+      type: "portal.upload.replaced",
+      source: "portal-administrativo",
+      target: "pdfonline",
+      upload: {
+        id: replacementUpload.id,
+        nomeArquivo: file.originalname,
+        nomeOriginal: file.originalname,
+        caminhoArquivo: key,
+        versao: currentUpload.versao + 1,
+        status: UploadStatus.pendente,
+        usuarioId: req.auth.userId,
+        periodoPagamentoId: currentUpload.periodoPagamentoId,
+        basePagamentoId: currentUpload.basePagamentoId,
+        motoristaId: currentUpload.motoristaId,
+        substituiUploadId: currentUpload.id,
+        criadoEm: replacementUpload.criadoEm.toISOString()
+      },
+      replacedUploadId: currentUpload.id
+    }).catch((error) => {
+      console.warn("Falha ao sincronizar substituicao com o pdfonline:", error instanceof Error ? error.message : error);
     });
 
     res.json({
