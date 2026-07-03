@@ -72,7 +72,8 @@ import {
 import { FinanceiroScreen } from "./FinanceiroScreen";
 
 type AccessLevel = "N1" | "N2" | "N3" | "N4";
-type View = "login" | "first-access" | "dashboard" | "pdfs" | "users" | "periods" | "financeiro" | "atendimento";
+type AuthView = "login" | "first-access";
+type RouteView = "dashboard" | "pdfs" | "users" | "periods" | "financeiro" | "atendimento";
 
 type Activity = {
   icon: "pdf" | "user" | "view";
@@ -95,6 +96,15 @@ type UploadHistoryState = {
   uploadId: string;
   entries: UploadRow[];
 } | null;
+
+const routePaths: Record<RouteView, string> = {
+  dashboard: "/dashboard",
+  pdfs: "/envio-pdfs",
+  users: "/usuarios",
+  periods: "/periodos",
+  financeiro: "/notas-fiscais",
+  atendimento: "/atendimento"
+};
 
 const menuItems = [
   { key: "dashboard", label: "Dashboard", icon: HouseLine },
@@ -161,9 +171,76 @@ function formatDateOnly(dateValue: string) {
   return `${day}/${month}/${year}`;
 }
 
+function getRouteViewFromPath(pathname: string): RouteView {
+  const normalized = pathname.replace(/\/+$/, "") || "/";
+
+  if (normalized === "/" || normalized === "/dashboard") {
+    return "dashboard";
+  }
+
+  if (normalized === "/envio-pdfs") {
+    return "pdfs";
+  }
+
+  if (normalized === "/usuarios") {
+    return "users";
+  }
+
+  if (normalized === "/periodos") {
+    return "periods";
+  }
+
+  if (normalized === "/notas-fiscais") {
+    return "financeiro";
+  }
+
+  if (normalized === "/atendimento") {
+    return "atendimento";
+  }
+
+  return "dashboard";
+}
+
+function getRoutePath(view: RouteView) {
+  return routePaths[view];
+}
+
+function getDefaultRoute(user: SessionUser | null) {
+  if (!user) {
+    return "dashboard";
+  }
+
+  if (user.level === "N3" || user.level === "N4") {
+    return "dashboard";
+  }
+
+  if (user.modules.includes("dashboard")) {
+    return "dashboard";
+  }
+
+  return (user.modules.find((module) => module in routePaths) || "dashboard") as RouteView;
+}
+
+function canAccessRoute(user: SessionUser | null, route: RouteView) {
+  if (!user) {
+    return false;
+  }
+
+  if (user.level === "N3" || user.level === "N4") {
+    return true;
+  }
+
+  if (route === "periods") {
+    return false;
+  }
+
+  return user.modules.includes(route);
+}
+
 function App() {
-  const [view, setView] = useState<View>("login");
-  const [activeView, setActiveView] = useState<Exclude<View, "login" | "first-access">>("dashboard");
+  const initialRoute = getRouteViewFromPath(window.location.pathname);
+  const [view, setView] = useState<AuthView>("login");
+  const [activeView, setActiveView] = useState<RouteView>(initialRoute);
   const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
   const [token, setToken] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -190,6 +267,7 @@ function App() {
   const [usersLoaded, setUsersLoaded] = useState(false);
   const [uploadsLoaded, setUploadsLoaded] = useState(false);
   const [periodDataLoaded, setPeriodDataLoaded] = useState(false);
+  const requestedRouteRef = useRef<RouteView | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
   const allowedMenu = useMemo(() => {
@@ -197,9 +275,13 @@ function App() {
       return [];
     }
 
+    if (currentUser.level === "N3" || currentUser.level === "N4") {
+      return menuItems;
+    }
+
     return menuItems.filter((item) => {
       if (item.key === "periods") {
-        return currentUser.level === "N3" || currentUser.level === "N4";
+        return false;
       }
 
       return currentUser.modules.includes(item.key);
@@ -218,6 +300,11 @@ function App() {
     setUsersLoaded(false);
     setUploadsLoaded(false);
     setPeriodDataLoaded(false);
+  };
+
+  const navigateToRoute = (route: RouteView) => {
+    setActiveView(route);
+    window.history.pushState({}, "", getRoutePath(route));
   };
 
   const loadDashboardSummary = async () => {
@@ -249,6 +336,9 @@ function App() {
     const storedSession = localStorage.getItem("portal-admin-session");
 
     if (!storedSession) {
+      if (window.location.pathname !== "/login" && window.location.pathname !== "/first-access") {
+        requestedRouteRef.current = getRouteViewFromPath(window.location.pathname);
+      }
       return;
     }
 
@@ -268,15 +358,31 @@ function App() {
 
         if (session.firstAccess) {
           setView("first-access");
+          window.history.replaceState({}, "", "/first-access");
           return;
         }
 
-        setActiveView("dashboard");
-        setView("dashboard");
+        const requestedRoute = requestedRouteRef.current || getRouteViewFromPath(window.location.pathname);
+        const safeRoute = canAccessRoute(session.user, requestedRoute) ? requestedRoute : getDefaultRoute(session.user);
+        setActiveView(safeRoute);
+        window.history.replaceState({}, "", getRoutePath(safeRoute));
+        requestedRouteRef.current = null;
       } catch {
         localStorage.removeItem("portal-admin-session");
       }
     })();
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const nextRoute = getRouteViewFromPath(window.location.pathname);
+      setActiveView(nextRoute);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
   }, []);
 
   useEffect(() => {
@@ -301,6 +407,16 @@ function App() {
 
   useEffect(() => {
     if (!token || !currentUser || view === "login" || view === "first-access") {
+      return;
+    }
+
+    if (!canAccessRoute(currentUser, activeView)) {
+      setFlashMessage({ type: "error", text: "Acesso negado." });
+      const fallbackRoute = getDefaultRoute(currentUser);
+      if (fallbackRoute !== activeView) {
+        setActiveView(fallbackRoute);
+        window.history.replaceState({}, "", getRoutePath(fallbackRoute));
+      }
       return;
     }
 
@@ -416,15 +532,16 @@ function App() {
 
       if (response.firstAccess) {
         setView("first-access");
+        window.history.replaceState({}, "", "/first-access");
         return;
       }
 
-      const nextView = response.user.modules.includes("dashboard")
-        ? "dashboard"
-        : ((response.user.modules[0] || "dashboard") as Exclude<View, "login" | "first-access">);
+      const requestedRoute = requestedRouteRef.current || getRouteViewFromPath(window.location.pathname);
+      const nextView = canAccessRoute(response.user, requestedRoute) ? requestedRoute : getDefaultRoute(response.user);
 
       setActiveView(nextView);
-      setView(nextView);
+      window.history.replaceState({}, "", getRoutePath(nextView));
+      requestedRouteRef.current = null;
     } catch (error) {
       setLoginError(error instanceof Error ? error.message : "Falha ao autenticar usuario.");
     } finally {
@@ -472,8 +589,7 @@ function App() {
           user: updatedUser
         })
       );
-      setActiveView("dashboard");
-      setView("dashboard");
+      navigateToRoute("dashboard");
     } catch (error) {
       setPasswordError(error instanceof Error ? error.message : "Falha ao alterar a senha.");
     } finally {
@@ -510,8 +626,9 @@ function App() {
     setDeleteUploadTarget(null);
     setDeletePeriodTarget(null);
     setFinanceMotoristaTarget(null);
-    setActiveView("dashboard");
+    requestedRouteRef.current = null;
     setView("login");
+    window.history.replaceState({}, "", "/login");
     clearLoadedState();
     localStorage.removeItem("portal-admin-session");
   };
@@ -693,14 +810,12 @@ function App() {
   };
 
   const openUsersCreateModal = () => {
-    setActiveView("users");
-    setView("users");
+    navigateToRoute("users");
     setCreateUserSignal((current) => current + 1);
   };
 
   const openPdfUploadShortcut = () => {
-    setActiveView("pdfs");
-    setView("pdfs");
+    navigateToRoute("pdfs");
     setFlashMessage({
       type: "success",
       text: "A tela de envio de PDFs foi aberta."
@@ -710,8 +825,7 @@ function App() {
 
   const openMotoristaInAtendimento = (motoristaId: string) => {
     setFinanceMotoristaTarget(motoristaId);
-    setActiveView("atendimento");
-    setView("atendimento");
+    navigateToRoute("atendimento");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -819,8 +933,7 @@ function App() {
       });
       setFlashMessage({ type: "success", text: response.message });
       await Promise.all([loadUploadsData(), loadDashboardSummary()]);
-      setActiveView("pdfs");
-      setView("pdfs");
+      navigateToRoute("pdfs");
     } catch (error) {
       setFlashMessage({
         type: "error",
@@ -1130,18 +1243,17 @@ function App() {
         <div>
           <nav className="sidebar__nav">
             {allowedMenu.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeView === item.key;
-              return (
-                <button
-                  key={item.key}
-                  className={`sidebar__item ${isActive ? "sidebar__item--active" : ""}`}
-                  onClick={() => {
-                    setActiveView(item.key);
-                    setView(item.key);
-                  }}
-                  type="button"
-                >
+                  const Icon = item.icon;
+                  const isActive = activeView === item.key;
+                  return (
+                    <button
+                      key={item.key}
+                      className={`sidebar__item ${isActive ? "sidebar__item--active" : ""}`}
+                      onClick={() => {
+                        navigateToRoute(item.key);
+                      }}
+                      type="button"
+                    >
                   <Icon size={22} />
                   <span>{item.label}</span>
                 </button>
