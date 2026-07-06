@@ -532,7 +532,6 @@ export function FinanceiroScreen({
               <span className="status-pill">
                 {selectedPeriod ? formatStatusLabel(selectedPeriod.status) : "Sem periodo selecionado"}
               </span>
-              <small>Use o seletor para alternar rapidamente entre periodos.</small>
             </div>
           </div>
 
@@ -547,7 +546,6 @@ export function FinanceiroScreen({
                 >
                   <div className="finance-period-card__top">
                     <div>
-                      <p className="eyebrow">Periodo {period.paymentType.toUpperCase()}</p>
                       <h4>{period.name}</h4>
                       <p>
                         {formatDateOnly(period.startDate)} ate {formatDateOnly(period.endDate)}
@@ -556,21 +554,6 @@ export function FinanceiroScreen({
                     <span className={`status-pill ${period.status === "disponivel" ? "status-pill--active" : ""}`}>
                       {formatStatusLabel(period.status)}
                     </span>
-                  </div>
-
-                  <div className="finance-period-card__meta">
-                    <span>{period.createdBy || "Criado pelo sistema"}</span>
-                    <small>{period.createdAt ? formatDateTime(period.createdAt) : "Sem data de criacao"}</small>
-                    <small>{period.bases.length} bases vinculadas</small>
-                    <small>{period.uploadedTotal} PDFs anexados</small>
-                  </div>
-
-                  <div className="module-chips">
-                    {period.bases.map((base) => (
-                      <span className="mini-chip" key={`${period.id}-${base.id}`}>
-                        {base.name}
-                      </span>
-                    ))}
                   </div>
 
                   <div className="period-card__actions finance-period-card__actions">
@@ -671,7 +654,6 @@ export function FinanceiroScreen({
                 </div>
                 <div className="finance-period-hero__meta">
                   <span>{formatStatusLabel(selectedPeriod.status)}</span>
-                  <small>{selectedPeriod.createdBy || "Sem criador informado"}</small>
                 </div>
               </div>
             ) : (
