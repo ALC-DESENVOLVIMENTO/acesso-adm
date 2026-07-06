@@ -799,11 +799,11 @@ button {
 .stat-card__icon,
 .activity-item__icon,
 .quick-action-card__icon {
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px;
   display: grid;
   place-items: center;
-  border-radius: 20px;
+  border-radius: 16px;
   background: rgba(255, 95, 83, 0.12);
   color: #ff5f53;
   flex: none;
@@ -892,13 +892,13 @@ button {
 .quick-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
+  gap: 12px;
 }
 
 .quick-actions-editor {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
   margin-top: 12px;
 }
 
@@ -907,8 +907,8 @@ button {
   grid-template-columns: auto auto 1fr;
   gap: 12px;
   align-items: center;
-  padding: 12px 14px;
-  border-radius: 18px;
+  padding: 10px 12px;
+  border-radius: 16px;
   background: rgba(244, 246, 250, 0.9);
   border: 1px solid rgba(31, 36, 48, 0.06);
 }
@@ -919,11 +919,11 @@ button {
 }
 
 .quick-actions-editor__icon {
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   display: grid;
   place-items: center;
-  border-radius: 14px;
+  border-radius: 12px;
   background: rgba(255, 95, 83, 0.12);
   color: #ff5f53;
 }
@@ -1284,14 +1284,25 @@ button {
 .quick-action-card {
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 18px 20px;
+  gap: 12px;
+  padding: 12px 14px;
+  min-height: 78px;
   text-align: left;
 }
 
 .quick-action-card > svg:last-child {
   margin-left: auto;
   color: #202839;
+}
+
+.quick-action-card strong {
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.quick-action-card span {
+  font-size: 0.88rem;
+  line-height: 1.35;
 }
 
 .table-wrap {
