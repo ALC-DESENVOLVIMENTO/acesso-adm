@@ -141,6 +141,8 @@ const userModuleOptions = [
   { code: "atendimento", label: "Atendimento" }
 ] as const;
 
+const loginPreviewImages = ["/login-preview-dashboard.png", "/login-preview-home.png"];
+
 const activities: Activity[] = [
   {
     icon: "pdf",
@@ -311,12 +313,26 @@ function App() {
   const [financeMotoristaTarget, setFinanceMotoristaTarget] = useState<string | null>(null);
   const [accessDenied, setAccessDenied] = useState<AccessDeniedState>(null);
   const [profilePhotoBroken, setProfilePhotoBroken] = useState(false);
+  const [loginPreviewIndex, setLoginPreviewIndex] = useState(0);
   const [dashboardLoaded, setDashboardLoaded] = useState(false);
   const [usersLoaded, setUsersLoaded] = useState(false);
   const [uploadsLoaded, setUploadsLoaded] = useState(false);
   const [periodDataLoaded, setPeriodDataLoaded] = useState(false);
   const requestedRouteRef = useRef<RouteView | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (view !== "login") {
+      return;
+    }
+
+    setLoginPreviewIndex(0);
+    const timer = window.setInterval(() => {
+      setLoginPreviewIndex((current) => (current + 1) % loginPreviewImages.length);
+    }, 5000);
+
+    return () => window.clearInterval(timer);
+  }, [view]);
 
   const allowedMenu = useMemo(() => {
     if (!currentUser) {
@@ -1321,11 +1337,16 @@ function App() {
                 </div>
               </div>
               <div className="hero-preview__content hero-preview__content--image">
-                <img
-                  className="hero-preview__image"
-                  src="/login-preview-dashboard.png"
-                  alt="Previa do painel administrativo"
-                />
+                {loginPreviewImages.map((src, index) => (
+                  <img
+                    key={src}
+                    className={`hero-preview__image hero-preview__image--layer ${
+                      index === loginPreviewIndex ? "hero-preview__image--active" : ""
+                    }`}
+                    src={src}
+                    alt="Previa do painel administrativo"
+                  />
+                ))}
               </div>
             </div>
           </div>
