@@ -148,6 +148,7 @@ export function FinanceiroScreen({
   const [motoristas, setMotoristas] = useState<FinanceiroMotoristaRow[]>([]);
   const [selectedPeriodId, setSelectedPeriodId] = useState("");
   const [selectedBaseId, setSelectedBaseId] = useState("");
+  const [periodViewTab, setPeriodViewTab] = useState<"bases" | "motoristas">("bases");
   const [searchTerm, setSearchTerm] = useState("");
   const [cpfTerm, setCpfTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
@@ -173,6 +174,11 @@ export function FinanceiroScreen({
       ? bases
       : bases.filter((base) => base.paymentType === selectedPeriod.paymentType);
   }, [bases, selectedPeriod]);
+
+  const selectedBase = useMemo(
+    () => allowedBases.find((base) => base.id === selectedBaseId) || null,
+    [allowedBases, selectedBaseId]
+  );
 
   const visibleMotoristas = useMemo(() => {
     return motoristas.filter((row) => {
@@ -239,6 +245,7 @@ export function FinanceiroScreen({
         setErrorMessage("");
         setBusyMessage("Carregando bases do periodo...");
         await loadBaseCards(selectedPeriodId);
+        setPeriodViewTab("bases");
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "Falha ao carregar bases.");
       } finally {
@@ -506,6 +513,29 @@ export function FinanceiroScreen({
             ) : null}
           </div>
 
+          <div className="finance-period-selector">
+            <label className="field finance-period-selector__field">
+              <span>Periodo selecionado</span>
+              <select
+                className="field__select"
+                value={selectedPeriodId}
+                onChange={(event) => setSelectedPeriodId(event.target.value)}
+              >
+                {periods.map((period) => (
+                  <option key={period.id} value={period.id}>
+                    {period.name} - {formatStatusLabel(period.status)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="finance-period-selector__summary">
+              <span className="status-pill">
+                {selectedPeriod ? formatStatusLabel(selectedPeriod.status) : "Sem periodo selecionado"}
+              </span>
+              <small>Use o seletor para alternar rapidamente entre periodos.</small>
+            </div>
+          </div>
+
           <div className="finance-period-list">
             {periods.map((period) => {
               const isSelected = period.id === selectedPeriodId;
@@ -605,7 +635,24 @@ export function FinanceiroScreen({
         </article>
 
         <div className="finance-stack">
-          <article className="panel finance-panel">
+          <div className="period-tabs finance-section-tabs">
+            <button
+              className={`period-tab ${periodViewTab === "bases" ? "period-tab--active" : ""}`}
+              type="button"
+              onClick={() => setPeriodViewTab("bases")}
+            >
+              Periodo ativo
+            </button>
+            <button
+              className={`period-tab ${periodViewTab === "motoristas" ? "period-tab--active" : ""}`}
+              type="button"
+              onClick={() => setPeriodViewTab("motoristas")}
+            >
+              Motoristas do periodo
+            </button>
+          </div>
+
+          <article className="panel finance-panel" style={{ display: periodViewTab === "bases" ? "grid" : "none" }}>
             <div className="panel__header">
               <div>
                 <h3>Periodo ativo</h3>
@@ -653,7 +700,10 @@ export function FinanceiroScreen({
                   <button
                     className="ghost-button ghost-button--small"
                     type="button"
-                    onClick={() => setSelectedBaseId(base.id)}
+                    onClick={() => {
+                      setSelectedBaseId(base.id);
+                      setPeriodViewTab("motoristas");
+                    }}
                   >
                     Abrir
                   </button>
@@ -662,13 +712,30 @@ export function FinanceiroScreen({
             </div>
           </article>
 
-          <article className="panel finance-panel">
+          <article
+            className="panel finance-panel"
+            style={{ display: periodViewTab === "motoristas" ? "grid" : "none" }}
+          >
             <div className="panel__header">
               <div>
                 <h3>Motoristas do periodo</h3>
                 <p>Filtre por motoristas e acompanhe o status da nota fiscal em tempo real.</p>
               </div>
             </div>
+
+            {selectedBase ? (
+              <div className="finance-period-hero finance-period-hero--compact">
+                <div>
+                  <p className="eyebrow">Base selecionada</p>
+                  <h4>{selectedBase.name}</h4>
+                  <p>{selectedBase.paymentType.toUpperCase()}</p>
+                </div>
+                <div className="finance-period-hero__meta">
+                  <span>{selectedBase.motoristas} motoristas</span>
+                  <small>Base ativa para consulta</small>
+                </div>
+              </div>
+            ) : null}
 
             <div className="filters-row finance-filters">
               <label className="search-field">

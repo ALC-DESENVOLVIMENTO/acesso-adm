@@ -61,6 +61,14 @@ function countUnique(values: Array<string | null | undefined>) {
   return new Set(values.filter((item): item is string => Boolean(item))).size;
 }
 
+const receivedNoteStatuses = new Set([
+  "nota_fiscal_recebida",
+  "nota_fiscal_em_analise",
+  "nota_fiscal_aprovada",
+  "nota_fiscal_rejeitada",
+  "processo_concluido"
+]);
+
 function computeAttendanceStatus(ticketStatuses: string[], attendanceCount: number) {
   if (ticketStatuses.some((status) => status === "em_andamento")) {
     return "Em atendimento";
@@ -106,6 +114,8 @@ router.get("/summary", (_req, res) => {
           }
         },
         select: {
+          id: true,
+          substituiUploadId: true,
           motoristaId: true
         }
       }),
@@ -117,21 +127,11 @@ router.get("/summary", (_req, res) => {
       })
     ]);
 
-    const receivedStatuses = new Set([
-      "nota_fiscal_recebida",
-      "nota_fiscal_em_analise",
-      "nota_fiscal_aprovada",
-      "nota_fiscal_rejeitada",
-      "processo_concluido"
-    ]);
-
-    const pendingStatuses = new Set([
-      "pdf_aguardando_envio",
-      "pdf_enviado_ao_motorista",
-      "motorista_visualizou",
-      "aguardando_envio_nota_fiscal"
-    ]);
-
+    const childReferences = new Set(
+      uploads.map((item) => item.substituiUploadId).filter((value): value is string => Boolean(value))
+    );
+    const visibleUploads = uploads.filter((item) => !childReferences.has(item.id));
+    const completedNotes = receivedRows.filter((item) => receivedNoteStatuses.has(item.status));
     const analysisStatuses = new Set(["nota_fiscal_em_analise"]);
     const rejectedStatuses = new Set(["nota_fiscal_rejeitada"]);
     const attendanceStatuses = new Set(["em_atendimento", "chamado_aberto"]);
@@ -140,10 +140,10 @@ router.get("/summary", (_req, res) => {
     res.json({
       activePeriods: periods.filter((period) => period.status !== "aprovado").length,
       bases,
-      motoristas: countUnique([...uploads.map((item) => item.motoristaId), ...receivedRows.map((item) => item.motoristaId)]),
-      pdfsSent: uploads.length,
-      notesReceived: receivedRows.filter((item) => receivedStatuses.has(item.status)).length,
-      notesPending: receivedRows.filter((item) => pendingStatuses.has(item.status)).length,
+      motoristas: countUnique([...visibleUploads.map((item) => item.motoristaId), ...receivedRows.map((item) => item.motoristaId)]),
+      pdfsSent: visibleUploads.length,
+      notesReceived: completedNotes.length,
+      notesPending: Math.max(visibleUploads.length - completedNotes.length, 0),
       inAnalysis: receivedRows.filter((item) => analysisStatuses.has(item.status)).length,
       rejected: receivedRows.filter((item) => rejectedStatuses.has(item.status)).length,
       inAttendance: receivedRows.filter((item) => attendanceStatuses.has(item.status)).length,
@@ -204,6 +204,7 @@ router.get("/periods/:periodId/bases", (req, res) => {
       const baseId = periodBase.basePagamento.id;
       const baseUploads = visibleUploads.filter((item) => item.basePagamentoId === baseId);
       const baseRecebidos = period.pdfsRecebidos.filter((item) => item.basePagamentoId === baseId);
+      const completedBaseRecebidos = baseRecebidos.filter((item) => receivedNoteStatuses.has(item.status));
       const motoristas = countUnique([
         ...baseUploads.map((item) => item.motoristaId),
         ...baseRecebidos.map((item) => item.motoristaId)
@@ -216,12 +217,8 @@ router.get("/periods/:periodId/bases", (req, res) => {
         motoristas,
         pdfsSent: baseUploads.length,
         pdfsPending: baseUploads.filter((item) => item.status === "pendente").length,
-        notesReceived: baseRecebidos.filter((item) =>
-          ["nota_fiscal_recebida", "nota_fiscal_em_analise", "nota_fiscal_aprovada", "nota_fiscal_rejeitada", "processo_concluido"].includes(item.status)
-        ).length,
-        notesPending: baseRecebidos.filter((item) =>
-          ["pdf_aguardando_envio", "pdf_enviado_ao_motorista", "motorista_visualizou", "aguardando_envio_nota_fiscal"].includes(item.status)
-        ).length
+        notesReceived: completedBaseRecebidos.length,
+        notesPending: Math.max(baseUploads.length - completedBaseRecebidos.length, 0)
       };
     });
 

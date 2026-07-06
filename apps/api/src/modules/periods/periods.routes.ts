@@ -641,18 +641,54 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
       }
     });
 
-    void notifyPdfOnline(
-      "portal.period.status_changed",
-      {
-        periodId: updated.id,
-        status: parsed.data.status
-      },
-      {
-        userId: auth.userId
-      }
-    ).catch((error) => {
-      console.warn("PDF Online bridge period-status notify failed:", error instanceof Error ? error.message : error);
-    });
+    if (parsed.data.status === "aprovado") {
+      const approvedPeriod = await prisma.periodoPagamento.findUnique({
+        where: {
+          id: updated.id
+        },
+        include: {
+          bases: {
+            include: {
+              basePagamento: true
+            }
+          },
+          uploads: {
+            select: {
+              id: true,
+              nomeOriginal: true,
+              caminhoArquivo: true,
+              basePagamentoId: true,
+              substituiUploadId: true
+            }
+          }
+        }
+      });
+
+      const childReferences = new Set(
+        approvedPeriod?.uploads.map((item) => item.substituiUploadId).filter((value): value is string => Boolean(value)) || []
+      );
+      const visibleUploads =
+        approvedPeriod?.uploads.filter((item) => !childReferences.has(item.id)).map((item) => ({
+          uploadId: item.id,
+          fileName: item.nomeOriginal,
+          storageKey: item.caminhoArquivo,
+          basePaymentId: item.basePagamentoId
+        })) || [];
+
+      void notifyPdfOnline(
+        "portal.period.status_changed",
+        {
+          periodId: updated.id,
+          status: parsed.data.status,
+          uploads: visibleUploads
+        },
+        {
+          userId: auth.userId
+        }
+      ).catch((error) => {
+        console.warn("PDF Online bridge period-status notify failed:", error instanceof Error ? error.message : error);
+      });
+    }
 
     res.json({
       message: "Status do periodo atualizado com sucesso."

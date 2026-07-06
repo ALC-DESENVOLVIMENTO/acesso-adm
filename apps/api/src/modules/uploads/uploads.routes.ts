@@ -296,24 +296,26 @@ router.post("/", upload.array("files", 20), (req, res) => {
       }
     });
 
-    void notifyPdfOnline(
-      "portal.upload.created",
-      {
-        periodId,
-        basePaymentId,
-        uploads: preparedFiles.map(({ file, storageKey }) => ({
-          name: file.originalname,
-          storageKey,
-          type: file.mimetype,
-          size: file.size
-        }))
-      },
-      {
-        userId: req.auth.userId
-      }
-    ).catch((error) => {
-      console.warn("PDF Online bridge upload notify failed:", error instanceof Error ? error.message : error);
-    });
+    if (period.status === "aprovado") {
+      void notifyPdfOnline(
+        "portal.upload.created",
+        {
+          periodId,
+          basePaymentId,
+          uploads: preparedFiles.map(({ file, storageKey }) => ({
+            name: file.originalname,
+            storageKey,
+            type: file.mimetype,
+            size: file.size
+          }))
+        },
+        {
+          userId: req.auth.userId
+        }
+      ).catch((error) => {
+        console.warn("PDF Online bridge upload notify failed:", error instanceof Error ? error.message : error);
+      });
+    }
 
     res.status(201).json({
       message: "Upload concluido com sucesso."
@@ -347,6 +349,17 @@ router.delete("/:id", (req, res) => {
       });
       return;
     }
+
+    const period = upload.periodoPagamentoId
+      ? await prisma.periodoPagamento.findUnique({
+          where: {
+            id: upload.periodoPagamentoId
+          },
+          select: {
+            status: true
+          }
+        })
+      : null;
 
     const canDelete =
       req.auth.level === "N3" ||
@@ -383,21 +396,23 @@ router.delete("/:id", (req, res) => {
       }
     });
 
-    void notifyPdfOnline(
-      "portal.upload.removed",
-      {
-        uploadId: upload.id,
-        fileName: upload.nomeOriginal,
-        storageKey: upload.caminhoArquivo,
-        periodId: upload.periodoPagamentoId,
-        basePaymentId: upload.basePagamentoId
-      },
-      {
-        userId: req.auth.userId
-      }
-    ).catch((error) => {
-      console.warn("PDF Online bridge removal notify failed:", error instanceof Error ? error.message : error);
-    });
+    if (period?.status === "aprovado") {
+      void notifyPdfOnline(
+        "portal.upload.removed",
+        {
+          uploadId: upload.id,
+          fileName: upload.nomeOriginal,
+          storageKey: upload.caminhoArquivo,
+          periodId: upload.periodoPagamentoId,
+          basePaymentId: upload.basePagamentoId
+        },
+        {
+          userId: req.auth.userId
+        }
+      ).catch((error) => {
+        console.warn("PDF Online bridge removal notify failed:", error instanceof Error ? error.message : error);
+      });
+    }
 
     res.json({
       message: "PDF removido logicamente com sucesso."
@@ -442,6 +457,17 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
       });
       return;
     }
+
+    const period = currentUpload.periodoPagamentoId
+      ? await prisma.periodoPagamento.findUnique({
+          where: {
+            id: currentUpload.periodoPagamentoId
+          },
+          select: {
+            status: true
+          }
+        })
+      : null;
 
     const canReplace =
       req.auth.level === "N3" ||
@@ -508,22 +534,24 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
       }
     });
 
-    void notifyPdfOnline(
-      "portal.upload.replaced",
-      {
-        uploadId: currentUpload.id,
-        previousFileName: currentUpload.nomeOriginal,
-        nextFileName: file.originalname,
-        storageKey: key,
-        periodId: currentUpload.periodoPagamentoId,
-        basePaymentId: currentUpload.basePagamentoId
-      },
-      {
-        userId: req.auth.userId
-      }
-    ).catch((error) => {
-      console.warn("PDF Online bridge replace notify failed:", error instanceof Error ? error.message : error);
-    });
+    if (period?.status === "aprovado") {
+      void notifyPdfOnline(
+        "portal.upload.replaced",
+        {
+          uploadId: currentUpload.id,
+          previousFileName: currentUpload.nomeOriginal,
+          nextFileName: file.originalname,
+          storageKey: key,
+          periodId: currentUpload.periodoPagamentoId,
+          basePaymentId: currentUpload.basePagamentoId
+        },
+        {
+          userId: req.auth.userId
+        }
+      ).catch((error) => {
+        console.warn("PDF Online bridge replace notify failed:", error instanceof Error ? error.message : error);
+      });
+    }
 
     res.json({
       message: "PDF substituido com sucesso."
