@@ -143,6 +143,16 @@ const userModuleOptions = [
 
 const loginPreviewImages = ["/login-preview-dashboard.png", "/login-preview-pdfs.png"];
 
+const quickActionStorageKey = "portal-adm.quick-actions";
+const quickActionLabels: Record<RouteView, { title: string; description: string; icon: typeof FileArrowUp }> = {
+  dashboard: { title: "Dashboard", description: "Visao geral do portal.", icon: HouseLine },
+  pdfs: { title: "Enviar PDF", description: "Faca o envio de novos documentos.", icon: FileArrowUp },
+  users: { title: "Cadastrar Usuario", description: "Adicione novos usuarios e niveis de acesso.", icon: UserCirclePlus },
+  periods: { title: "Criacao de Periodo", description: "Gerencie periodos e bases.", icon: CalendarBlank },
+  financeiro: { title: "Notas Fiscais", description: "Acompanhe notas fiscais e status.", icon: FilePdf },
+  atendimento: { title: "Atendimento", description: "Abra o CRM do motorista.", icon: ChatCenteredDots }
+};
+
 const activities: Activity[] = [
   {
     icon: "pdf",
@@ -292,6 +302,8 @@ function App() {
   const [profileModalMode, setProfileModalMode] = useState<ProfileModalMode>(null);
   const [profileActionError, setProfileActionError] = useState("");
   const [profileActionLoading, setProfileActionLoading] = useState(false);
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
+  const [quickActions, setQuickActions] = useState<RouteView[]>([]);
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary>(initialSummary);
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [uploads, setUploads] = useState<UploadRow[]>([]);
@@ -320,6 +332,37 @@ function App() {
   const [periodDataLoaded, setPeriodDataLoaded] = useState(false);
   const requestedRouteRef = useRef<RouteView | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!currentUser) {
+      setQuickActions([]);
+      return;
+    }
+
+    try {
+      const raw = window.localStorage.getItem(`${quickActionStorageKey}:${currentUser.id}`);
+      const parsed = raw ? (JSON.parse(raw) as RouteView[]) : [];
+      const permitted = allowedMenu
+        .map((item) => item.key)
+        .filter((route) => route !== "dashboard");
+
+      const normalized = parsed.filter((route) => permitted.includes(route));
+      setQuickActions(normalized.length > 0 ? normalized : permitted.slice(0, 2));
+    } catch {
+      const permitted = allowedMenu
+        .map((item) => item.key)
+        .filter((route) => route !== "dashboard");
+      setQuickActions(permitted.slice(0, 2));
+    }
+  }, [allowedMenu, currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) {
+      return;
+    }
+
+    window.localStorage.setItem(`${quickActionStorageKey}:${currentUser.id}`, JSON.stringify(quickActions));
+  }, [currentUser, quickActions]);
 
   useEffect(() => {
     if (view !== "login") {
@@ -1606,8 +1649,14 @@ function App() {
           <DashboardScreen
             currentUser={currentUser}
             summary={dashboardSummary}
+            allowedRoutes={allowedMenu.map((item) => item.key)}
+            onNavigate={navigateToRoute}
             onOpenCreateUser={openUsersCreateModal}
             onOpenPdfUpload={openPdfUploadShortcut}
+            onUpdateQuickActions={setQuickActions}
+            onCloseQuickActions={() => setQuickActionsOpen(false)}
+            quickActionsOpen={quickActionsOpen}
+            quickActions={quickActions}
           />
         ) : null}
         {!accessDenied && activeView === "periods" ? (
@@ -1990,13 +2039,25 @@ function App() {
 function DashboardScreen({
   currentUser,
   summary,
+  allowedRoutes,
+  onNavigate,
   onOpenCreateUser,
-  onOpenPdfUpload
+  onOpenPdfUpload,
+  onUpdateQuickActions,
+  onCloseQuickActions,
+  quickActionsOpen,
+  quickActions
 }: {
   currentUser: SessionUser | null;
   summary: DashboardSummary;
+  allowedRoutes: RouteView[];
+  onNavigate: (route: RouteView) => void;
   onOpenCreateUser: () => void;
   onOpenPdfUpload: () => void;
+  onUpdateQuickActions: (routes: RouteView[]) => void;
+  onCloseQuickActions: () => void;
+  quickActionsOpen: boolean;
+  quickActions: RouteView[];
 }) {
   const stats = [
     {
@@ -2025,6 +2086,8 @@ function DashboardScreen({
     }
   ];
 
+  const quickActionOptions = allowedRoutes.filter((route) => route !== "dashboard");
+
   return (
     <div className="screen">
       <section className="screen__intro">
@@ -2042,40 +2105,112 @@ function DashboardScreen({
         </div>
       </section>
 
+      {quickActionsOpen ? (
+        <div className="modal-overlay" onClick={onCloseQuickActions}>
+          <div
+            className="modal-card modal-card--confirm modal-card--user modal-card--quick-actions"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="quick-actions-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-card__header">
+              <div>
+                <p className="eyebrow">Acesso rapido</p>
+                <h3 id="quick-actions-title">Editar atalhos</h3>
+                <p>Selecione apenas telas que este usuario pode acessar.</p>
+              </div>
+              <button className="ghost-button ghost-button--small" type="button" onClick={onCloseQuickActions}>
+                Fechar
+              </button>
+            </div>
+
+            <div className="quick-actions-editor">
+              {quickActionOptions.map((route) => {
+                const config = quickActionLabels[route];
+                const checked = quickActions.includes(route);
+                const Icon = config.icon;
+
+                return (
+                  <label className="quick-actions-editor__item" key={route}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(event) => {
+                        onUpdateQuickActions(
+                          event.target.checked
+                            ? Array.from(new Set([...quickActions, route]))
+                            : quickActions.filter((item) => item !== route)
+                        );
+                      }}
+                    />
+                    <span className="quick-actions-editor__icon">
+                      <Icon size={18} />
+                    </span>
+                    <span className="quick-actions-editor__text">
+                      <strong>{config.title}</strong>
+                      <small>{config.description}</small>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="modal-card__actions">
+              <button className="ghost-button" type="button" onClick={onCloseQuickActions}>
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <section className="panel">
-        <div className="panel__header">
+        <div className="panel__header panel__header--split">
           <div>
             <h3>Acesso Rapido</h3>
             <p>Atalhos operacionais para a equipe administrativa</p>
           </div>
+          <button className="ghost-button ghost-button--small" type="button" onClick={() => setQuickActionsOpen(true)}>
+            Editar atalhos
+          </button>
         </div>
 
         <div className="quick-actions">
-          {currentUser?.modules.includes("pdfs") ? (
-            <button className="quick-action-card" type="button" onClick={onOpenPdfUpload}>
-              <div className="quick-action-card__icon">
-                <FileArrowUp size={26} />
-              </div>
-              <div>
-                <strong>Enviar PDF</strong>
-                <span>Faca o envio de novos documentos.</span>
-              </div>
-              <ArrowRight size={20} />
-            </button>
-          ) : null}
+          {quickActions.map((route) => {
+            const config = quickActionLabels[route];
+            const Icon = config.icon;
 
-          {currentUser?.modules.includes("users") ? (
-            <button className="quick-action-card" type="button" onClick={onOpenCreateUser}>
-              <div className="quick-action-card__icon">
-                <UserCirclePlus size={26} />
-              </div>
-              <div>
-                <strong>Cadastrar Usuario</strong>
-                <span>Adicione novos usuarios e niveis de acesso.</span>
-              </div>
-              <ArrowRight size={20} />
-            </button>
-          ) : null}
+            return (
+              <button
+                className="quick-action-card"
+                type="button"
+                key={route}
+                onClick={() => {
+                  if (route === "pdfs") {
+                    onOpenPdfUpload();
+                    return;
+                  }
+
+                  if (route === "users") {
+                    onOpenCreateUser();
+                    return;
+                  }
+
+                  onNavigate(route);
+                }}
+              >
+                <div className="quick-action-card__icon">
+                  <Icon size={26} />
+                </div>
+                <div>
+                  <strong>{config.title}</strong>
+                  <span>{config.description}</span>
+                </div>
+                <ArrowRight size={20} />
+              </button>
+            );
+          })}
         </div>
       </section>
 
