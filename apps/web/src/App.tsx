@@ -333,6 +333,24 @@ function App() {
   const requestedRouteRef = useRef<RouteView | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
+  const allowedMenu = useMemo(() => {
+    if (!currentUser) {
+      return [];
+    }
+
+    if (currentUser.level === "N3" || currentUser.level === "N4") {
+      return menuItems;
+    }
+
+    return menuItems.filter((item) => {
+      if (item.key === "periods") {
+        return false;
+      }
+
+      return currentUser.modules.includes(item.key);
+    });
+  }, [currentUser]);
+
   useEffect(() => {
     if (!currentUser) {
       setQuickActions([]);
@@ -376,24 +394,6 @@ function App() {
 
     return () => window.clearInterval(timer);
   }, [view]);
-
-  const allowedMenu = useMemo(() => {
-    if (!currentUser) {
-      return [];
-    }
-
-    if (currentUser.level === "N3" || currentUser.level === "N4") {
-      return menuItems;
-    }
-
-    return menuItems.filter((item) => {
-      if (item.key === "periods") {
-        return false;
-      }
-
-      return currentUser.modules.includes(item.key);
-    });
-  }, [currentUser]);
 
   const canSeePdfData = useMemo(() => currentUser?.modules.includes("pdfs") ?? false, [currentUser]);
   const canSeeUsersData = useMemo(() => currentUser?.modules.includes("users") ?? false, [currentUser]);
