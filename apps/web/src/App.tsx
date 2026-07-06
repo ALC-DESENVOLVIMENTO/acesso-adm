@@ -141,7 +141,7 @@ const userModuleOptions = [
   { code: "atendimento", label: "Atendimento" }
 ] as const;
 
-const loginPreviewImages = ["/login-preview-dashboard.png", "/login-preview-home.png"];
+const loginPreviewImages = ["/login-preview-dashboard.png", "/login-preview-pdfs.png"];
 
 const activities: Activity[] = [
   {
