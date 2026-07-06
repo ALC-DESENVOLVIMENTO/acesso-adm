@@ -141,7 +141,6 @@ export function FinanceiroScreen({
   const canAccess =
     Boolean(currentUser) &&
     (currentUser?.modules.includes("financeiro") || currentUser?.level === "N3" || currentUser?.level === "N4");
-  const canManagePeriods = currentUser?.level === "N3" || currentUser?.level === "N4";
 
   const [summary, setSummary] = useState<FinanceiroSummary>(initialSummary);
   const [baseCards, setBaseCards] = useState<FinanceiroBaseCard[]>([]);
@@ -164,6 +163,11 @@ export function FinanceiroScreen({
     () => periods.find((period) => period.id === selectedPeriodId) || null,
     [periods, selectedPeriodId]
   );
+
+  const visiblePeriods = useMemo(() => {
+    const activePeriods = periods.filter((period) => period.status !== "aprovado");
+    return activePeriods.length > 0 ? activePeriods : periods;
+  }, [periods]);
 
   const allowedBases = useMemo(() => {
     if (!selectedPeriod) {
@@ -221,17 +225,17 @@ export function FinanceiroScreen({
   };
 
   useEffect(() => {
-    if (!periods.length) {
+    if (!visiblePeriods.length) {
       setSelectedPeriodId("");
       return;
     }
 
-    const defaultPeriod = periods.find((period) => period.status !== "aprovado") || periods[0];
+    const defaultPeriod = visiblePeriods[0];
 
-    if (!selectedPeriodId || !periods.some((period) => period.id === selectedPeriodId)) {
+    if (!selectedPeriodId || !visiblePeriods.some((period) => period.id === selectedPeriodId)) {
       setSelectedPeriodId(defaultPeriod.id);
     }
-  }, [periods, selectedPeriodId]);
+  }, [selectedPeriodId, visiblePeriods]);
 
   useEffect(() => {
     if (!selectedPeriodId) {
@@ -503,14 +507,8 @@ export function FinanceiroScreen({
           <div className="panel__header">
             <div>
               <h3>Periodos de pagamento</h3>
-              <p>Crie, edite, encerre e reabra periodos sem sair do financeiro.</p>
+              <p>Selecione um periodo aberto para acompanhar os PDFs e as notas fiscais.</p>
             </div>
-            {canManagePeriods ? (
-              <button className="primary-button primary-button--inline" type="button" onClick={openCreateModal}>
-                Novo periodo
-                <ArrowRight size={18} weight="bold" />
-              </button>
-            ) : null}
           </div>
 
           <div className="finance-period-selector">
@@ -521,9 +519,9 @@ export function FinanceiroScreen({
                 value={selectedPeriodId}
                 onChange={(event) => setSelectedPeriodId(event.target.value)}
               >
-                {periods.map((period) => (
+                {visiblePeriods.map((period) => (
                   <option key={period.id} value={period.id}>
-                    {period.name} - {formatStatusLabel(period.status)}
+                    {period.name}
                   </option>
                 ))}
               </select>
@@ -536,7 +534,7 @@ export function FinanceiroScreen({
           </div>
 
           <div className="finance-period-list">
-            {periods.map((period) => {
+            {visiblePeriods.map((period) => {
               const isSelected = period.id === selectedPeriodId;
               return (
                 <article
@@ -556,61 +554,6 @@ export function FinanceiroScreen({
                     </span>
                   </div>
 
-                  <div className="period-card__actions finance-period-card__actions">
-                    {canManagePeriods ? (
-                      <div className="period-card__actions finance-period-card__actions">
-                        <button
-                          className="ghost-button ghost-button--small"
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            openEditModal(period);
-                          }}
-                        >
-                          Editar
-                          <PencilSimple size={16} />
-                        </button>
-                        <button
-                          className="ghost-button ghost-button--small"
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void handleChangePeriodStatus(period);
-                          }}
-                        >
-                          {period.status === "aprovado" ? "Reabrir" : "Encerrar"}
-                        </button>
-                        <button
-                          className="ghost-button ghost-button--small"
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void updatePaymentPeriodStatus(token, period.id, { status: "aprovado" })
-                              .then(onRefreshPeriods)
-                              .then(loadSummary)
-                              .catch((error) => {
-                                setErrorMessage(
-                                  error instanceof Error ? error.message : "Falha ao processar periodo."
-                                );
-                              });
-                          }}
-                        >
-                          Processar
-                        </button>
-                        <button
-                          className="ghost-button ghost-button--small ghost-button--danger"
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setDeleteTarget(period);
-                          }}
-                        >
-                          Excluir
-                          <TrashSimple size={16} />
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
                 </article>
               );
             })}
