@@ -1320,23 +1320,12 @@ function App() {
                   <span className="hero-preview__menu-item" />
                 </div>
               </div>
-              <div className="hero-preview__content">
-                <div className="hero-preview__topbar" />
-                <div className="hero-preview__kpis">
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                </div>
-                <div className="hero-preview__body">
-                  <div className="hero-preview__chart" />
-                  <div className="hero-preview__activity">
-                    <span />
-                    <span />
-                    <span />
-                    <span />
-                  </div>
-                </div>
+              <div className="hero-preview__content hero-preview__content--image">
+                <img
+                  className="hero-preview__image"
+                  src="/login-preview-dashboard.png"
+                  alt="Previa do painel administrativo"
+                />
               </div>
             </div>
           </div>
