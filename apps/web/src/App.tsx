@@ -1520,6 +1520,9 @@ function App() {
                       className={`sidebar__item ${isActive ? "sidebar__item--active" : ""}`}
                       onClick={() => {
                         navigateToRoute(item.key);
+                        if (item.key === "users") {
+                          openUsersCreateModal();
+                        }
                       }}
                       type="button"
                     >
