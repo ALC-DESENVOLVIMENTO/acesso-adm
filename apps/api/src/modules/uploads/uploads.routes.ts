@@ -15,8 +15,6 @@ import {
   normalizeText,
   resolveDriverRegistryByIdentity
 } from "../../lib/driver-registry.js";
-import { upsertDriverPdfReceivedFromUpload } from "../../lib/driver-pdf-received.js";
-import { notifyPdfOnline } from "../../lib/pdfonline-bridge.js";
 
 const router = Router();
 const upload = multer({
@@ -479,47 +477,6 @@ router.post("/", upload.array("files", 20), (req, res) => {
       }
     });
 
-    if (period.status === "aprovado") {
-      await Promise.all(
-        createdUploads.map((item) =>
-          upsertDriverPdfReceivedFromUpload({
-          uploadPdfId: item.id,
-            motoristaId: item.motoristaId as string,
-            periodId,
-            basePaymentId,
-            fileName: item.file.originalname,
-            storageKey: item.storageKey,
-            mimeType: item.file.mimetype,
-            createdByUserId: auth.userId
-          })
-        )
-      );
-
-      void notifyPdfOnline(
-        "portal.upload.created",
-        {
-          periodId,
-          basePaymentId,
-          uploads: createdUploads.map((item) => ({
-            uploadId: item.id,
-            name: item.nomeOriginal,
-            storageKey: item.storageKey,
-            type: item.file.mimetype,
-            size: item.file.size,
-            motoristaId: item.motoristaId,
-            motoristaNome: item.motoristaNome,
-            motoristaCpf: item.motoristaCpf,
-            baseName: item.baseName
-          }))
-        },
-        {
-          userId: auth.userId
-        }
-      ).catch((error) => {
-        console.warn("PDF Online bridge upload notify failed:", error instanceof Error ? error.message : error);
-      });
-    }
-
     res.status(201).json({
       message: "Upload concluido com sucesso."
     });
@@ -555,17 +512,6 @@ router.delete("/:id", (req, res) => {
       return;
     }
 
-    const period = upload.periodoPagamentoId
-      ? await prisma.periodoPagamento.findUnique({
-          where: {
-            id: upload.periodoPagamentoId
-          },
-          select: {
-            status: true
-          }
-        })
-      : null;
-
     const canDelete =
       auth.level === "N3" ||
       auth.level === "N4" ||
@@ -600,24 +546,6 @@ router.delete("/:id", (req, res) => {
         }
       }
     });
-
-    if (period?.status === "aprovado") {
-      void notifyPdfOnline(
-        "portal.upload.removed",
-        {
-          uploadId: upload.id,
-          fileName: upload.nomeOriginal,
-          storageKey: upload.caminhoArquivo,
-          periodId: upload.periodoPagamentoId,
-          basePaymentId: upload.basePagamentoId
-        },
-        {
-          userId: auth.userId
-        }
-      ).catch((error) => {
-        console.warn("PDF Online bridge removal notify failed:", error instanceof Error ? error.message : error);
-      });
-    }
 
     res.json({
       message: "PDF removido logicamente com sucesso."
@@ -671,17 +599,6 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
       });
       return;
     }
-
-    const period = currentUpload.periodoPagamentoId
-      ? await prisma.periodoPagamento.findUnique({
-          where: {
-            id: currentUpload.periodoPagamentoId
-          },
-          select: {
-            status: true
-          }
-        })
-      : null;
 
     const canReplace =
       auth.level === "N3" ||
@@ -748,39 +665,6 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
         }
       }
     });
-
-    if (period?.status === "aprovado") {
-      if (newUpload.motoristaId && newUpload.periodoPagamentoId && newUpload.basePagamentoId) {
-        await upsertDriverPdfReceivedFromUpload({
-          uploadPdfId: newUpload.id,
-          motoristaId: newUpload.motoristaId,
-          periodId: newUpload.periodoPagamentoId,
-          basePaymentId: newUpload.basePagamentoId,
-          fileName: newUpload.nomeOriginal,
-          storageKey: newUpload.caminhoArquivo,
-          mimeType: file.mimetype,
-          createdByUserId: auth.userId
-        });
-      }
-
-      void notifyPdfOnline(
-        "portal.upload.replaced",
-        {
-          uploadId: currentUpload.id,
-          previousFileName: currentUpload.nomeOriginal,
-          nextFileName: file.originalname,
-          storageKey: key,
-          periodId: currentUpload.periodoPagamentoId,
-          basePaymentId: currentUpload.basePagamentoId,
-          motoristaId: newUpload.motoristaId || currentUpload.motoristaId || null
-        },
-        {
-          userId: auth.userId
-        }
-      ).catch((error) => {
-        console.warn("PDF Online bridge replace notify failed:", error instanceof Error ? error.message : error);
-      });
-    }
 
     res.json({
       message: "PDF substituido com sucesso."

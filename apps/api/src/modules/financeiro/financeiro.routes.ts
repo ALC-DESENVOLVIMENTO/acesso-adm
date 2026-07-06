@@ -1,3 +1,4 @@
+﻿import { UploadStatus } from "@prisma/client";
 import { Router } from "express";
 import { z } from "zod";
 import { requireAuth, requireModuleAccess } from "../../middlewares/auth.middleware.js";
@@ -43,12 +44,12 @@ function formatStatusLabel(value: string) {
     motorista_visualizou: "Motorista visualizou o PDF",
     aguardando_envio_nota_fiscal: "Aguardando envio da Nota Fiscal",
     nota_fiscal_recebida: "Nota Fiscal recebida",
-    nota_fiscal_em_analise: "Nota Fiscal em análise",
+    nota_fiscal_em_analise: "Nota Fiscal em anÃ¡lise",
     nota_fiscal_aprovada: "Nota Fiscal aprovada",
     nota_fiscal_rejeitada: "Nota Fiscal rejeitada",
     em_atendimento: "Em atendimento via Chat",
     chamado_aberto: "Chamado aberto",
-    processo_concluido: "Processo concluído"
+    processo_concluido: "Processo concluÃ­do"
   };
 
   return labels[value] || value;
@@ -71,8 +72,104 @@ type SummaryUploadRecord = {
   caminhoArquivo: string;
   criadoEm: Date;
   usuarioId: string;
+  status: string;
   substituiUploadId: string | null;
 };
+
+type MotoristaUploadRecord = SummaryUploadRecord & {
+  motorista: {
+    id: string;
+    nome: string;
+    cpf: string;
+    statusCadastro: string;
+    cidade: string | null;
+    estado: string | null;
+    empresaVinculada: string | null;
+    atendimentos: Array<{ id: string }>;
+    chamados: Array<{ status: string }>;
+  } | null;
+  periodoPagamento: {
+    nome: string;
+  } | null;
+  basePagamento: {
+    nome: string;
+  } | null;
+  usuario: {
+    nome: string;
+  };
+};
+
+type ReceivedRecord = {
+  id: string;
+  uploadPdfId: string | null;
+  motoristaId: string | null;
+  periodoPagamentoId: string | null;
+  basePagamentoId: string | null;
+  status: string;
+  uploadEm: Date;
+  enviadoAoMotoristaEm: Date | null;
+  visualizadoEm: Date | null;
+  motivoRejeicao: string | null;
+  observacoes: string | null;
+  caminhoArquivo: string | null;
+  nomeArquivo: string | null;
+};
+
+function filterVisibleUploads<T extends { id: string; substituiUploadId: string | null; status?: string }>(uploads: T[]) {
+  const childReferences = new Set(
+    uploads.map((item) => item.substituiUploadId).filter((value): value is string => Boolean(value))
+  );
+
+  return uploads.filter((item) => !childReferences.has(item.id) && item.status !== "removido");
+}
+
+function pickLatestReceived(
+  receivedRows: ReceivedRecord[],
+  upload: MotoristaUploadRecord
+) {
+  if (!upload.motoristaId || !upload.periodoPagamentoId || !upload.basePagamentoId) {
+    return null;
+  }
+
+  const byUpload = receivedRows.find((item) => item.uploadPdfId && item.uploadPdfId === upload.id);
+
+  if (byUpload) {
+    return byUpload;
+  }
+
+  return (
+    receivedRows
+      .filter(
+        (item) =>
+          item.motoristaId === upload.motoristaId &&
+          item.periodoPagamentoId === upload.periodoPagamentoId &&
+          item.basePagamentoId === upload.basePagamentoId
+      )
+      .sort((left, right) => right.uploadEm.getTime() - left.uploadEm.getTime())[0] || null
+  );
+}
+
+function dedupeLatestUploadsByMotorista<T extends { id: string; motoristaId: string | null; criadoEm: Date; substituiUploadId: string | null; status?: string }>(
+  uploads: T[]
+) {
+  const visibleUploads = filterVisibleUploads(uploads);
+  const latestByMotorista = new Map<string, T>();
+
+  for (const upload of [...visibleUploads].sort((left, right) => right.criadoEm.getTime() - left.criadoEm.getTime())) {
+    if (!upload.motoristaId) {
+      continue;
+    }
+
+    if (!latestByMotorista.has(upload.motoristaId)) {
+      latestByMotorista.set(upload.motoristaId, upload);
+    }
+  }
+
+  return {
+    visibleUploads,
+    latestUploads: Array.from(latestByMotorista.values())
+  };
+}
 
 async function syncApprovedDriverPdfReceipts(
   periods: Array<{ id: string; status: string }>,
@@ -188,7 +285,8 @@ router.get("/summary", (_req, res) => {
           nomeOriginal: true,
           caminhoArquivo: true,
           criadoEm: true,
-          usuarioId: true
+          usuarioId: true,
+          status: true
         }
       })
     ]);
@@ -202,13 +300,14 @@ router.get("/summary", (_req, res) => {
       }
     });
 
-    const childReferences = new Set(
-      uploads.map((item) => item.substituiUploadId).filter((value): value is string => Boolean(value))
+    const { visibleUploads } = dedupeLatestUploadsByMotorista(uploads);
+    const activeMotoristaIds = new Set(
+      visibleUploads.map((item) => item.motoristaId).filter((value): value is string => Boolean(value))
     );
-    const visibleUploads = uploads.filter((item) => !childReferences.has(item.id));
+    const filteredReceivedRows = receivedRows.filter((item) => item.motoristaId && activeMotoristaIds.has(item.motoristaId));
     const sentMotoristas = countUnique(visibleUploads.map((item) => item.motoristaId));
     const completedMotoristas = countUnique(
-      receivedRows.filter((item) => receivedNoteStatuses.has(item.status)).map((item) => item.motoristaId)
+      filteredReceivedRows.filter((item) => receivedNoteStatuses.has(item.status)).map((item) => item.motoristaId)
     );
     const analysisStatuses = new Set(["nota_fiscal_em_analise"]);
     const rejectedStatuses = new Set(["nota_fiscal_rejeitada"]);
@@ -218,14 +317,14 @@ router.get("/summary", (_req, res) => {
     res.json({
       activePeriods: periods.filter((period) => period.status !== "aprovado").length,
       bases,
-      motoristas: countUnique([...visibleUploads.map((item) => item.motoristaId), ...receivedRows.map((item) => item.motoristaId)]),
+      motoristas: countUnique([...visibleUploads.map((item) => item.motoristaId), ...filteredReceivedRows.map((item) => item.motoristaId)]),
       pdfsSent: sentMotoristas,
       notesReceived: completedMotoristas,
       notesPending: Math.max(sentMotoristas - completedMotoristas, 0),
-      inAnalysis: countUnique(receivedRows.filter((item) => analysisStatuses.has(item.status)).map((item) => item.motoristaId)),
-      rejected: countUnique(receivedRows.filter((item) => rejectedStatuses.has(item.status)).map((item) => item.motoristaId)),
-      inAttendance: countUnique(receivedRows.filter((item) => attendanceStatuses.has(item.status)).map((item) => item.motoristaId)),
-      concluded: countUnique(receivedRows.filter((item) => concludedStatuses.has(item.status)).map((item) => item.motoristaId))
+      inAnalysis: countUnique(filteredReceivedRows.filter((item) => analysisStatuses.has(item.status)).map((item) => item.motoristaId)),
+      rejected: countUnique(filteredReceivedRows.filter((item) => rejectedStatuses.has(item.status)).map((item) => item.motoristaId)),
+      inAttendance: countUnique(filteredReceivedRows.filter((item) => attendanceStatuses.has(item.status)).map((item) => item.motoristaId)),
+      concluded: countUnique(filteredReceivedRows.filter((item) => concludedStatuses.has(item.status)).map((item) => item.motoristaId))
     });
   })().catch((error) => {
     res.status(500).json({
@@ -254,15 +353,24 @@ router.get("/periods/:periodId/bases", (req, res) => {
             id: true,
             motoristaId: true,
             basePagamentoId: true,
+            criadoEm: true,
             status: true,
             substituiUploadId: true
           }
         },
         pdfsRecebidos: {
           select: {
+            id: true,
+            uploadPdfId: true,
             motoristaId: true,
             basePagamentoId: true,
-            status: true
+            periodoPagamentoId: true,
+            status: true,
+            uploadEm: true,
+            enviadoAoMotoristaEm: true,
+            visualizadoEm: true,
+            caminhoArquivo: true,
+            nomeArquivo: true
           }
         }
       }
@@ -275,13 +383,14 @@ router.get("/periods/:periodId/bases", (req, res) => {
       return;
     }
 
-    const childReferences = new Set(period.uploads.map((item) => item.substituiUploadId).filter(Boolean) as string[]);
-    const visibleUploads = period.uploads.filter((item) => !childReferences.has(item.id));
+    const { visibleUploads } = dedupeLatestUploadsByMotorista(period.uploads);
 
     const bases = period.bases.map((periodBase) => {
       const baseId = periodBase.basePagamento.id;
       const baseUploads = visibleUploads.filter((item) => item.basePagamentoId === baseId);
-      const baseRecebidos = period.pdfsRecebidos.filter((item) => item.basePagamentoId === baseId);
+      const baseRecebidos = period.pdfsRecebidos.filter(
+        (item) => item.basePagamentoId === baseId && baseUploads.some((upload) => upload.motoristaId === item.motoristaId)
+      );
       const completedBaseRecebidos = baseRecebidos.filter((item) => receivedNoteStatuses.has(item.status));
       const motoristas = countUnique([
         ...baseUploads.map((item) => item.motoristaId),
@@ -331,39 +440,43 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
     }
 
     const { periodId, baseId, search, cpf, status } = parsed.data;
+    const normalizedSearch = search?.trim();
+    const normalizedCpf = cpf?.replace(/\D/g, "") || "";
 
-    const records = await prisma.driverPdfReceived.findMany({
+    const uploads = await prisma.uploadPdf.findMany({
       where: {
         periodoPagamentoId: periodId,
         basePagamentoId: baseId,
-        ...(status && status !== "todos" ? { status } : {}),
-        ...(search || cpf
+        status: {
+          not: UploadStatus.removido
+        },
+        ...(normalizedSearch || normalizedCpf
           ? {
               OR: [
-                search
+                normalizedSearch
                   ? {
                       motorista: {
                         nome: {
-                          contains: search,
+                          contains: normalizedSearch,
                           mode: "insensitive"
                         }
                       }
                     }
                   : undefined,
-                search
+                normalizedSearch
                   ? {
                       motorista: {
                         cpf: {
-                          contains: search.replace(/\D/g, "")
+                          contains: normalizedSearch.replace(/\D/g, "")
                         }
                       }
                     }
                   : undefined,
-                cpf
+                normalizedCpf
                   ? {
                       motorista: {
                         cpf: {
-                          contains: cpf.replace(/\D/g, "")
+                          contains: normalizedCpf
                         }
                       }
                     }
@@ -408,62 +521,107 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
           select: {
             nome: true
           }
-        },
-        aprovador: {
-          select: {
-            nome: true
-          }
-        },
-        rejeitador: {
-          select: {
-            nome: true
-          }
         }
       },
       orderBy: {
-        atualizadoEm: "desc"
+        criadoEm: "desc"
       }
     });
 
-    const mapped = records.flatMap((row) => {
-      if (!row.motorista || !row.basePagamento || !row.periodoPagamento) {
+    const receivedRows = await prisma.driverPdfReceived.findMany({
+      where: {
+        periodoPagamentoId: periodId,
+        basePagamentoId: baseId
+      },
+      select: {
+        id: true,
+        uploadPdfId: true,
+        motoristaId: true,
+        periodoPagamentoId: true,
+        basePagamentoId: true,
+        status: true,
+        uploadEm: true,
+        enviadoAoMotoristaEm: true,
+        visualizadoEm: true,
+        motivoRejeicao: true,
+        observacoes: true,
+        caminhoArquivo: true,
+        nomeArquivo: true
+      }
+    });
+
+    const latestUploads = new Map<string, (typeof uploads)[number]>();
+
+    for (const upload of uploads) {
+      if (!upload.motoristaId || latestUploads.has(upload.motoristaId)) {
+        continue;
+      }
+
+      latestUploads.set(upload.motoristaId, upload);
+    }
+
+    const mapped = Array.from(latestUploads.values()).flatMap((upload) => {
+      if (!upload.motorista || !upload.basePagamento || !upload.periodoPagamento) {
         return [];
       }
 
-      const ticketStatuses = row.motorista.chamados.map((item) => item.status);
-      const attendanceStatus = computeAttendanceStatus(ticketStatuses, row.motorista.atendimentos.length);
+      const receipt =
+        receivedRows.find((item) => item.uploadPdfId && item.uploadPdfId === upload.id) ||
+        receivedRows
+          .filter(
+            (item) =>
+              item.motoristaId === upload.motoristaId &&
+              item.periodoPagamentoId === upload.periodoPagamentoId &&
+              item.basePagamentoId === upload.basePagamentoId
+          )
+          .sort((left, right) => right.uploadEm.getTime() - left.uploadEm.getTime())[0] ||
+        null;
+
+      const ticketStatuses = upload.motorista.chamados.map((item) => item.status);
+      const attendanceStatus = computeAttendanceStatus(ticketStatuses, upload.motorista.atendimentos.length);
+      const currentStatus = receipt?.status || "pdf_aguardando_envio";
+      const pdfSentAt = receipt?.enviadoAoMotoristaEm || upload.criadoEm;
+      const noteReceivedAt = receipt?.status === "nota_fiscal_recebida" ? receipt.uploadEm : null;
 
       return {
-        id: row.id,
-        motoristaId: row.motoristaId,
-        nome: row.motorista.nome,
-        cpf: row.motorista.cpf,
-        base: row.basePagamento.nome,
-        periodoPagamento: row.periodoPagamento.nome,
-        pdfEnviadoEm: toIso(row.enviadoAoMotoristaEm || row.uploadEm),
-        pdfVisualizadoEm: toIso(row.visualizadoEm),
-        notaFiscalEnviadaEm: toIso(row.uploadEm),
-        notaFiscalRecebidaEm: row.status === "nota_fiscal_recebida" ? toIso(row.uploadEm) : null,
-        status: row.status,
-        statusLabel: formatStatusLabel(row.status),
+        id: receipt?.id || upload.id,
+        motoristaId: upload.motoristaId,
+        nome: upload.motorista.nome,
+        cpf: upload.motorista.cpf,
+        base: upload.basePagamento.nome,
+        periodoPagamento: upload.periodoPagamento.nome,
+        pdfEnviadoEm: toIso(pdfSentAt),
+        pdfVisualizadoEm: toIso(receipt?.visualizadoEm),
+        notaFiscalEnviadaEm: receipt ? toIso(receipt.uploadEm) : null,
+        notaFiscalRecebidaEm: noteReceivedAt ? toIso(noteReceivedAt) : null,
+        status: currentStatus,
+        statusLabel: formatStatusLabel(currentStatus),
         situacaoAtendimento: attendanceStatus,
-        ultimaAtualizacao: toIso(row.atualizadoEm),
+        ultimaAtualizacao: toIso(receipt?.uploadEm || upload.criadoEm),
         atendimentoStatus: attendanceStatus,
         statusNotaFiscal:
-          row.status === "nota_fiscal_rejeitada"
+          currentStatus === "nota_fiscal_rejeitada"
             ? "Rejeitada"
-            : row.status === "nota_fiscal_aprovada"
+            : currentStatus === "nota_fiscal_aprovada"
               ? "Aprovada"
-              : row.status === "nota_fiscal_em_analise"
+              : currentStatus === "nota_fiscal_em_analise"
                 ? "Em análise"
-                : row.status === "nota_fiscal_recebida"
+                : currentStatus === "nota_fiscal_recebida"
                   ? "Recebida"
                   : "Pendente",
-        caminhoArquivo: buildStorageObjectUrl(row.caminhoArquivo)
+        caminhoArquivo: buildStorageObjectUrl(upload.caminhoArquivo)
       };
     });
 
-    res.json(mapped);
+    const filtered = mapped.filter((row) => {
+      if (!status || status === "todos") {
+        return true;
+      }
+
+      return row.status === status;
+    });
+
+    res.json(filtered);
   })().catch((error) => {
     res.status(500).json({
       message: "Falha ao listar motoristas do periodo financeiro.",

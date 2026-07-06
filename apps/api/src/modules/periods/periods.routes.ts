@@ -111,6 +111,8 @@ function serializePeriod(period: {
     id: string;
     motoristaId: string | null;
     basePagamentoId: string | null;
+    criadoEm: Date;
+    status: string;
     substituiUploadId: string | null;
   }>;
 }) {
@@ -120,7 +122,9 @@ function serializePeriod(period: {
       .filter((value): value is string => Boolean(value))
   );
 
-  const visibleUploads = period.uploads.filter((item) => !childReferences.has(item.id));
+  const visibleUploads = period.uploads.filter(
+    (item) => !childReferences.has(item.id) && item.status !== "removido"
+  );
   const uploadedByBase: Record<string, number> = {};
   const uploadedByBaseMotorists = new Map<string, Set<string>>();
 
@@ -377,6 +381,8 @@ router.get("/", (_req, res) => {
             id: true,
             motoristaId: true,
             basePagamentoId: true,
+            criadoEm: true,
+            status: true,
             substituiUploadId: true
           }
         }
@@ -449,6 +455,8 @@ router.post("/", requireAdmin, (req, res) => {
             id: true,
             motoristaId: true,
             basePagamentoId: true,
+            criadoEm: true,
+            status: true,
             substituiUploadId: true
           }
         }
@@ -675,6 +683,7 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
               caminhoArquivo: true,
               basePagamentoId: true,
               criadoEm: true,
+              status: true,
               substituiUploadId: true
             }
           }
@@ -684,7 +693,8 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
       const childReferences = new Set(
         approvedPeriod?.uploads.map((item) => item.substituiUploadId).filter((value): value is string => Boolean(value)) || []
       );
-      const visibleUploads = approvedPeriod?.uploads.filter((item) => !childReferences.has(item.id)) || [];
+      const visibleUploads =
+        approvedPeriod?.uploads.filter((item) => !childReferences.has(item.id) && item.status !== "removido") || [];
       const latestVisibleUploads = new Map<string, (typeof visibleUploads)[number]>();
 
       for (const upload of [...visibleUploads].sort(
