@@ -1655,6 +1655,7 @@ function App() {
             onOpenPdfUpload={openPdfUploadShortcut}
             onUpdateQuickActions={setQuickActions}
             onCloseQuickActions={() => setQuickActionsOpen(false)}
+            onOpenQuickActions={() => setQuickActionsOpen(true)}
             quickActionsOpen={quickActionsOpen}
             quickActions={quickActions}
           />
@@ -2045,6 +2046,7 @@ function DashboardScreen({
   onOpenPdfUpload,
   onUpdateQuickActions,
   onCloseQuickActions,
+  onOpenQuickActions,
   quickActionsOpen,
   quickActions
 }: {
@@ -2056,6 +2058,7 @@ function DashboardScreen({
   onOpenPdfUpload: () => void;
   onUpdateQuickActions: (routes: RouteView[]) => void;
   onCloseQuickActions: () => void;
+  onOpenQuickActions: () => void;
   quickActionsOpen: boolean;
   quickActions: RouteView[];
 }) {
@@ -2171,7 +2174,7 @@ function DashboardScreen({
             <h3>Acesso Rapido</h3>
             <p>Atalhos operacionais para a equipe administrativa</p>
           </div>
-          <button className="ghost-button ghost-button--small" type="button" onClick={() => setQuickActionsOpen(true)}>
+          <button className="ghost-button ghost-button--small" type="button" onClick={onOpenQuickActions}>
             Editar atalhos
           </button>
         </div>
