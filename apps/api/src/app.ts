@@ -7,6 +7,7 @@ import atendimentoRoutes from "./modules/atendimento/atendimento.routes.js";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes.js";
 import financeiroRoutes from "./modules/financeiro/financeiro.routes.js";
 import periodsRoutes from "./modules/periods/periods.routes.js";
+import webhooksRoutes from "./modules/webhooks/webhooks.routes.js";
 import storageRoutes from "./modules/storage/storage.routes.js";
 import uploadsRoutes from "./modules/uploads/uploads.routes.js";
 import usersRoutes from "./modules/users/users.routes.js";
@@ -36,6 +37,7 @@ export function createApp() {
   app.use("/api/periods", periodsRoutes);
   app.use("/api/storage", storageRoutes);
   app.use("/api/uploads", uploadsRoutes);
+  app.use("/api/webhooks", webhooksRoutes);
   app.use("/api/users", usersRoutes);
 
   const webDistPath = path.resolve(process.cwd(), "../web/dist");

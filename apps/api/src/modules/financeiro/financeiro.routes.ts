@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAuth, requireModuleAccess } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
 import { buildStorageObjectUrl } from "../../lib/storage.js";
+import { upsertDriverPdfReceivedFromUpload } from "../../lib/driver-pdf-received.js";
 
 const router = Router();
 
@@ -61,6 +62,70 @@ function countUnique(values: Array<string | null | undefined>) {
   return new Set(values.filter((item): item is string => Boolean(item))).size;
 }
 
+type SummaryUploadRecord = {
+  id: string;
+  motoristaId: string | null;
+  periodoPagamentoId: string | null;
+  basePagamentoId: string | null;
+  nomeOriginal: string;
+  caminhoArquivo: string;
+  criadoEm: Date;
+  usuarioId: string;
+  substituiUploadId: string | null;
+};
+
+async function syncApprovedDriverPdfReceipts(
+  periods: Array<{ id: string; status: string }>,
+  uploads: SummaryUploadRecord[]
+) {
+  const approvedPeriodIds = new Set(periods.filter((period) => period.status === "aprovado").map((period) => period.id));
+
+  if (approvedPeriodIds.size === 0) {
+    return;
+  }
+
+  const groupedByPeriod = new Map<string, Map<string, SummaryUploadRecord>>();
+
+  const childReferences = new Set(
+    uploads.map((item) => item.substituiUploadId).filter((value): value is string => Boolean(value))
+  );
+
+  for (const upload of [...uploads].sort((left, right) => right.criadoEm.getTime() - left.criadoEm.getTime())) {
+    if (!upload.periodoPagamentoId || !approvedPeriodIds.has(upload.periodoPagamentoId)) {
+      continue;
+    }
+
+    if (!upload.motoristaId || !upload.basePagamentoId || childReferences.has(upload.id)) {
+      continue;
+    }
+
+    const periodMap = groupedByPeriod.get(upload.periodoPagamentoId) || new Map<string, SummaryUploadRecord>();
+    const key = `${upload.motoristaId}|${upload.basePagamentoId}`;
+
+    if (!periodMap.has(key)) {
+      periodMap.set(key, upload);
+    }
+
+    groupedByPeriod.set(upload.periodoPagamentoId, periodMap);
+  }
+
+  for (const [periodId, periodUploads] of groupedByPeriod.entries()) {
+    await Promise.all(
+      Array.from(periodUploads.values()).map((upload) =>
+        upsertDriverPdfReceivedFromUpload({
+          uploadPdfId: upload.id,
+          motoristaId: upload.motoristaId as string,
+          periodId,
+          basePaymentId: upload.basePagamentoId as string,
+          fileName: upload.nomeOriginal,
+          storageKey: upload.caminhoArquivo,
+          createdByUserId: upload.usuarioId
+        })
+      )
+    );
+  }
+}
+
 const receivedNoteStatuses = new Set([
   "nota_fiscal_recebida",
   "nota_fiscal_em_analise",
@@ -91,9 +156,10 @@ function computeAttendanceStatus(ticketStatuses: string[], attendanceCount: numb
 
 router.get("/summary", (_req, res) => {
   void (async () => {
-    const [periods, bases, uploads, receivedRows] = await Promise.all([
+    const [periods, bases, uploads] = await Promise.all([
       prisma.periodoPagamento.findMany({
         select: {
+          id: true,
           status: true,
           bases: {
             select: {
@@ -116,22 +182,34 @@ router.get("/summary", (_req, res) => {
         select: {
           id: true,
           substituiUploadId: true,
-          motoristaId: true
-        }
-      }),
-      prisma.driverPdfReceived.findMany({
-        select: {
           motoristaId: true,
-          status: true
+          periodoPagamentoId: true,
+          basePagamentoId: true,
+          nomeOriginal: true,
+          caminhoArquivo: true,
+          criadoEm: true,
+          usuarioId: true
         }
       })
     ]);
+
+    await syncApprovedDriverPdfReceipts(periods, uploads);
+
+    const receivedRows = await prisma.driverPdfReceived.findMany({
+      select: {
+        motoristaId: true,
+        status: true
+      }
+    });
 
     const childReferences = new Set(
       uploads.map((item) => item.substituiUploadId).filter((value): value is string => Boolean(value))
     );
     const visibleUploads = uploads.filter((item) => !childReferences.has(item.id));
-    const completedNotes = receivedRows.filter((item) => receivedNoteStatuses.has(item.status));
+    const sentMotoristas = countUnique(visibleUploads.map((item) => item.motoristaId));
+    const completedMotoristas = countUnique(
+      receivedRows.filter((item) => receivedNoteStatuses.has(item.status)).map((item) => item.motoristaId)
+    );
     const analysisStatuses = new Set(["nota_fiscal_em_analise"]);
     const rejectedStatuses = new Set(["nota_fiscal_rejeitada"]);
     const attendanceStatuses = new Set(["em_atendimento", "chamado_aberto"]);
@@ -141,13 +219,13 @@ router.get("/summary", (_req, res) => {
       activePeriods: periods.filter((period) => period.status !== "aprovado").length,
       bases,
       motoristas: countUnique([...visibleUploads.map((item) => item.motoristaId), ...receivedRows.map((item) => item.motoristaId)]),
-      pdfsSent: visibleUploads.length,
-      notesReceived: completedNotes.length,
-      notesPending: Math.max(visibleUploads.length - completedNotes.length, 0),
-      inAnalysis: receivedRows.filter((item) => analysisStatuses.has(item.status)).length,
-      rejected: receivedRows.filter((item) => rejectedStatuses.has(item.status)).length,
-      inAttendance: receivedRows.filter((item) => attendanceStatuses.has(item.status)).length,
-      concluded: receivedRows.filter((item) => concludedStatuses.has(item.status)).length
+      pdfsSent: sentMotoristas,
+      notesReceived: completedMotoristas,
+      notesPending: Math.max(sentMotoristas - completedMotoristas, 0),
+      inAnalysis: countUnique(receivedRows.filter((item) => analysisStatuses.has(item.status)).map((item) => item.motoristaId)),
+      rejected: countUnique(receivedRows.filter((item) => rejectedStatuses.has(item.status)).map((item) => item.motoristaId)),
+      inAttendance: countUnique(receivedRows.filter((item) => attendanceStatuses.has(item.status)).map((item) => item.motoristaId)),
+      concluded: countUnique(receivedRows.filter((item) => concludedStatuses.has(item.status)).map((item) => item.motoristaId))
     });
   })().catch((error) => {
     res.status(500).json({
@@ -209,16 +287,19 @@ router.get("/periods/:periodId/bases", (req, res) => {
         ...baseUploads.map((item) => item.motoristaId),
         ...baseRecebidos.map((item) => item.motoristaId)
       ]);
+      const pdfsSent = countUnique(baseUploads.map((item) => item.motoristaId));
+      const pdfsPending = countUnique(baseUploads.filter((item) => item.status === "pendente").map((item) => item.motoristaId));
+      const notesReceived = countUnique(completedBaseRecebidos.map((item) => item.motoristaId));
 
       return {
         id: baseId,
         name: periodBase.basePagamento.nome,
         paymentType: periodBase.basePagamento.tipoPadrao,
         motoristas,
-        pdfsSent: baseUploads.length,
-        pdfsPending: baseUploads.filter((item) => item.status === "pendente").length,
-        notesReceived: completedBaseRecebidos.length,
-        notesPending: Math.max(baseUploads.length - completedBaseRecebidos.length, 0)
+        pdfsSent,
+        pdfsPending,
+        notesReceived,
+        notesPending: Math.max(pdfsSent - notesReceived, 0)
       };
     });
 

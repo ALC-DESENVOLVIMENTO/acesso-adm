@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireAdmin, requireAuth } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
+import { upsertDriverPdfReceivedFromUpload } from "../../lib/driver-pdf-received.js";
 import { notifyPdfOnline } from "../../lib/pdfonline-bridge.js";
 
 const router = Router();
@@ -108,6 +109,7 @@ function serializePeriod(period: {
   }>;
   uploads: Array<{
     id: string;
+    motoristaId: string | null;
     basePagamentoId: string | null;
     substituiUploadId: string | null;
   }>;
@@ -120,16 +122,27 @@ function serializePeriod(period: {
 
   const visibleUploads = period.uploads.filter((item) => !childReferences.has(item.id));
   const uploadedByBase: Record<string, number> = {};
+  const uploadedByBaseMotorists = new Map<string, Set<string>>();
 
   for (const upload of visibleUploads) {
-    if (!upload.basePagamentoId) {
+    if (!upload.basePagamentoId || !upload.motoristaId) {
       continue;
     }
 
-    uploadedByBase[upload.basePagamentoId] = (uploadedByBase[upload.basePagamentoId] || 0) + 1;
+    if (!uploadedByBaseMotorists.has(upload.basePagamentoId)) {
+      uploadedByBaseMotorists.set(upload.basePagamentoId, new Set());
+    }
+
+    uploadedByBaseMotorists.get(upload.basePagamentoId)?.add(upload.motoristaId);
   }
 
-  const uploadedTotal = visibleUploads.length;
+  for (const [baseId, motoristaSet] of uploadedByBaseMotorists.entries()) {
+    uploadedByBase[baseId] = motoristaSet.size;
+  }
+
+  const uploadedTotal = new Set(
+    visibleUploads.map((item) => item.motoristaId).filter((value): value is string => Boolean(value))
+  ).size;
   const expectedTotal = period.bases.length;
   const derivedStatus =
     period.status === "aprovado"
@@ -362,6 +375,7 @@ router.get("/", (_req, res) => {
         uploads: {
           select: {
             id: true,
+            motoristaId: true,
             basePagamentoId: true,
             substituiUploadId: true
           }
@@ -433,6 +447,7 @@ router.post("/", requireAdmin, (req, res) => {
         uploads: {
           select: {
             id: true,
+            motoristaId: true,
             basePagamentoId: true,
             substituiUploadId: true
           }
@@ -655,9 +670,11 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
           uploads: {
             select: {
               id: true,
+              motoristaId: true,
               nomeOriginal: true,
               caminhoArquivo: true,
               basePagamentoId: true,
+              criadoEm: true,
               substituiUploadId: true
             }
           }
@@ -667,20 +684,51 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
       const childReferences = new Set(
         approvedPeriod?.uploads.map((item) => item.substituiUploadId).filter((value): value is string => Boolean(value)) || []
       );
-      const visibleUploads =
-        approvedPeriod?.uploads.filter((item) => !childReferences.has(item.id)).map((item) => ({
-          uploadId: item.id,
-          fileName: item.nomeOriginal,
-          storageKey: item.caminhoArquivo,
-          basePaymentId: item.basePagamentoId
-        })) || [];
+      const visibleUploads = approvedPeriod?.uploads.filter((item) => !childReferences.has(item.id)) || [];
+      const latestVisibleUploads = new Map<string, (typeof visibleUploads)[number]>();
+
+      for (const upload of [...visibleUploads].sort(
+        (left, right) => right.criadoEm.getTime() - left.criadoEm.getTime()
+      )) {
+        if (!upload.motoristaId || !upload.basePagamentoId) {
+          continue;
+        }
+
+        const key = `${upload.motoristaId}|${upload.basePagamentoId}`;
+
+        if (!latestVisibleUploads.has(key)) {
+          latestVisibleUploads.set(key, upload);
+        }
+      }
+
+      await Promise.all(
+        Array.from(latestVisibleUploads.values())
+          .filter((item): item is (typeof visibleUploads)[number] & { motoristaId: string; basePagamentoId: string } => Boolean(item.motoristaId && item.basePagamentoId))
+          .map((item) =>
+            upsertDriverPdfReceivedFromUpload({
+              uploadPdfId: item.id,
+              motoristaId: item.motoristaId,
+              periodId: updated.id,
+              basePaymentId: item.basePagamentoId,
+              fileName: item.nomeOriginal,
+              storageKey: item.caminhoArquivo,
+              createdByUserId: auth.userId
+            })
+          )
+      );
 
       void notifyPdfOnline(
         "portal.period.status_changed",
         {
           periodId: updated.id,
           status: parsed.data.status,
-          uploads: visibleUploads
+          uploads: Array.from(latestVisibleUploads.values()).map((item) => ({
+            uploadId: item.id,
+            fileName: item.nomeOriginal,
+            storageKey: item.caminhoArquivo,
+            basePaymentId: item.basePagamentoId,
+            motoristaId: item.motoristaId
+          }))
         },
         {
           userId: auth.userId

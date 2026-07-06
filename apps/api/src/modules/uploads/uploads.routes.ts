@@ -10,6 +10,12 @@ import {
   deleteObject,
   uploadObject
 } from "../../lib/storage.js";
+import {
+  ensureMotoristaFromRegistryMatch,
+  normalizeText,
+  resolveDriverRegistryByIdentity
+} from "../../lib/driver-registry.js";
+import { upsertDriverPdfReceivedFromUpload } from "../../lib/driver-pdf-received.js";
 import { notifyPdfOnline } from "../../lib/pdfonline-bridge.js";
 
 const router = Router();
@@ -119,6 +125,102 @@ async function getUploadHistory(uploadId: string) {
     .map(serializeUpload);
 }
 
+function normalizeFileIdentityOptions(body: Record<string, unknown>, fileName: string) {
+  const rawName = String(body?.motoristaNome || "").trim();
+  const rawCpf = String(body?.motoristaCpf || "").trim();
+  const rawCnpj = String(body?.motoristaCnpj || "").trim();
+
+  return {
+    fileName,
+    name: rawName || undefined,
+    cpf: rawCpf || undefined,
+    cnpj: rawCnpj || undefined
+  };
+}
+
+function formatRegistryMismatchMessage(options: {
+  motoristaNome: string;
+  expectedBase: string;
+  foundBase: string | null;
+}) {
+  const parts = [`O motorista ${options.motoristaNome}`];
+
+  if (options.foundBase) {
+    parts.push(`esta vinculado a ${options.foundBase}`);
+  } else {
+    parts.push("nao possui base identificada");
+  }
+
+  parts.push(`e nao a base selecionada ${options.expectedBase}.`);
+
+  return parts.join(" ");
+}
+
+async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseName: string, body: Record<string, unknown>) {
+  const identity = normalizeFileIdentityOptions(body, file.originalname);
+  const resolved = await resolveDriverRegistryByIdentity(identity);
+
+  if (!resolved) {
+    return {
+      error: `Nao foi possivel localizar o motorista no pre-cadastro para o arquivo ${file.originalname}.`
+    } as const;
+  }
+
+  let match = "ambiguous" in resolved ? null : resolved;
+
+  if (!match && "ambiguous" in resolved) {
+    const normalizedBase = normalizeText(selectedBaseName);
+    const baseMatches = resolved.matches.filter((item) => normalizeText(item.base || "") === normalizedBase);
+
+    if (baseMatches.length === 1) {
+      match = baseMatches[0];
+    } else if (baseMatches.length > 1) {
+      match =
+        baseMatches.find((item) => item.cpfDigits && identity.cpf && item.cpfDigits === identity.cpf.replace(/\D/g, "")) ||
+        baseMatches.find((item) => item.cnpj && identity.cnpj && item.cnpj.replace(/\D/g, "") === identity.cnpj.replace(/\D/g, "")) ||
+        null;
+    }
+
+    if (!match) {
+      return {
+        error: `Motorista duplicado ou sem identificacao suficiente para o arquivo ${file.originalname}. Informe CPF ou CNPJ para validar o pre-cadastro.`
+      } as const;
+    }
+  }
+
+  if (!match) {
+    return {
+      error: `Nao foi possivel resolver o motorista do arquivo ${file.originalname}.`
+    } as const;
+  }
+
+  if (normalizeText(match.base || "") !== normalizeText(selectedBaseName)) {
+    return {
+      error: formatRegistryMismatchMessage({
+        motoristaNome: match.nome,
+        expectedBase: selectedBaseName,
+        foundBase: match.base
+      })
+    } as const;
+  }
+
+  const motoristaId = await ensureMotoristaFromRegistryMatch(match);
+
+  if (!motoristaId) {
+    return {
+      error: `Nao foi possivel sincronizar o motorista ${match.nome} no banco de dados.`
+    } as const;
+  }
+
+  return {
+    motoristaId,
+    motoristaNome: match.nome,
+    motoristaCpf: match.cpfDigits || match.cpf,
+    motoristaCnpj: match.cnpj || null,
+    baseName: match.base || selectedBaseName
+  } as const;
+}
+
 router.get("/", (_req, res) => {
   void (async () => {
     const uploads = await prisma.uploadPdf.findMany({
@@ -189,6 +291,8 @@ router.post("/", upload.array("files", 20), (req, res) => {
       return;
     }
 
+    const auth = req.auth;
+
     const files = (req.files as Express.Multer.File[]) || [];
     const periodId = String(req.body?.periodId || "").trim();
     const basePaymentId = String(req.body?.basePaymentId || "").trim();
@@ -249,9 +353,54 @@ router.post("/", upload.array("files", 20), (req, res) => {
       return;
     }
 
+    const selectedBase = period.bases.find((item) => item.basePagamentoId === basePaymentId)?.basePagamento;
+
+    if (!selectedBase) {
+      res.status(404).json({
+        message: "Base selecionada nao encontrada no periodo."
+      });
+      return;
+    }
+
+    const resolvedFiles = await Promise.all(
+      files.map(async (file) => {
+        const resolved = await resolveUploadMotorista(file, selectedBase.nome, req.body as Record<string, unknown>);
+
+        if ("error" in resolved) {
+          return resolved;
+        }
+
+        return {
+          file,
+          ...resolved
+        };
+      })
+    );
+
+    const validationError = resolvedFiles.find((item) => "error" in item);
+
+    if (validationError && "error" in validationError) {
+      res.status(400).json({
+        message: validationError.error
+      });
+      return;
+    }
+
+    const validFiles = resolvedFiles as Array<
+      {
+        file: Express.Multer.File;
+        motoristaId: string;
+        motoristaNome: string;
+        motoristaCpf: string;
+        motoristaCnpj: string | null;
+        baseName: string;
+      }
+    >;
+
     const storageFolder = ["uploads", `periodos/${periodId}`, `bases/${basePaymentId}`].join("/");
     const preparedFiles = await Promise.all(
-      files.map(async (file) => {
+      validFiles.map(async (item) => {
+        const { file, motoristaId, motoristaNome, motoristaCpf, baseName } = item;
         const storageKey = createStorageKey(storageFolder, file.originalname);
 
         await uploadObject({
@@ -262,27 +411,61 @@ router.post("/", upload.array("files", 20), (req, res) => {
 
         return {
           file,
-          storageKey
+          storageKey,
+          motoristaId,
+          motoristaNome,
+          motoristaCpf,
+          baseName
         };
       })
     );
 
-    await prisma.uploadPdf.createMany({
-      data: preparedFiles.map(({ file, storageKey }) => ({
-        nomeArquivo: file.originalname,
-        nomeOriginal: file.originalname,
-        caminhoArquivo: storageKey,
-        versao: 1,
-        status: UploadStatus.pendente,
-        usuarioId: req.auth!.userId,
-        periodoPagamentoId: periodId,
-        basePagamentoId: basePaymentId
-      }))
-    });
+    const createdUploads: Array<{
+      id: string;
+      nomeArquivo: string;
+      nomeOriginal: string;
+      caminhoArquivo: string;
+      versao: number;
+      status: UploadStatus;
+      usuarioId: string;
+      motoristaId: string | null;
+      periodoPagamentoId: string | null;
+      basePagamentoId: string | null;
+      motoristaNome: string;
+      motoristaCpf: string;
+      baseName: string;
+      file: Express.Multer.File;
+      storageKey: string;
+    }> = [];
+
+    for (const prepared of preparedFiles) {
+      const createdUpload = await prisma.uploadPdf.create({
+        data: {
+          nomeArquivo: prepared.file.originalname,
+          nomeOriginal: prepared.file.originalname,
+          caminhoArquivo: prepared.storageKey,
+          versao: 1,
+          status: UploadStatus.pendente,
+          usuarioId: auth.userId,
+          motoristaId: prepared.motoristaId,
+          periodoPagamentoId: periodId,
+          basePagamentoId: basePaymentId
+        }
+      });
+
+      createdUploads.push({
+        ...createdUpload,
+        motoristaNome: prepared.motoristaNome,
+        motoristaCpf: prepared.motoristaCpf,
+        baseName: prepared.baseName,
+        file: prepared.file,
+        storageKey: prepared.storageKey
+      });
+    }
 
     await prisma.logAuditoria.create({
       data: {
-        usuarioId: req.auth.userId,
+        usuarioId: auth.userId,
         acao: "upload_pdfs",
         entidade: "uploads_pdf",
         ipOrigem: req.ip,
@@ -297,20 +480,40 @@ router.post("/", upload.array("files", 20), (req, res) => {
     });
 
     if (period.status === "aprovado") {
+      await Promise.all(
+        createdUploads.map((item) =>
+          upsertDriverPdfReceivedFromUpload({
+          uploadPdfId: item.id,
+            motoristaId: item.motoristaId as string,
+            periodId,
+            basePaymentId,
+            fileName: item.file.originalname,
+            storageKey: item.storageKey,
+            mimeType: item.file.mimetype,
+            createdByUserId: auth.userId
+          })
+        )
+      );
+
       void notifyPdfOnline(
         "portal.upload.created",
         {
           periodId,
           basePaymentId,
-          uploads: preparedFiles.map(({ file, storageKey }) => ({
-            name: file.originalname,
-            storageKey,
-            type: file.mimetype,
-            size: file.size
+          uploads: createdUploads.map((item) => ({
+            uploadId: item.id,
+            name: item.nomeOriginal,
+            storageKey: item.storageKey,
+            type: item.file.mimetype,
+            size: item.file.size,
+            motoristaId: item.motoristaId,
+            motoristaNome: item.motoristaNome,
+            motoristaCpf: item.motoristaCpf,
+            baseName: item.baseName
           }))
         },
         {
-          userId: req.auth.userId
+          userId: auth.userId
         }
       ).catch((error) => {
         console.warn("PDF Online bridge upload notify failed:", error instanceof Error ? error.message : error);
@@ -337,6 +540,8 @@ router.delete("/:id", (req, res) => {
       return;
     }
 
+    const auth = req.auth;
+
     const upload = await prisma.uploadPdf.findUnique({
       where: {
         id: String(req.params.id)
@@ -362,9 +567,9 @@ router.delete("/:id", (req, res) => {
       : null;
 
     const canDelete =
-      req.auth.level === "N3" ||
-      req.auth.level === "N4" ||
-      upload.usuarioId === req.auth.userId;
+      auth.level === "N3" ||
+      auth.level === "N4" ||
+      upload.usuarioId === auth.userId;
 
     if (!canDelete) {
       res.status(403).json({
@@ -384,7 +589,7 @@ router.delete("/:id", (req, res) => {
 
     await prisma.logAuditoria.create({
       data: {
-        usuarioId: req.auth.userId,
+        usuarioId: auth.userId,
         acao: "remover_pdf_logicamente",
         entidade: "uploads_pdf",
         entidadeId: upload.id,
@@ -407,7 +612,7 @@ router.delete("/:id", (req, res) => {
           basePaymentId: upload.basePagamentoId
         },
         {
-          userId: req.auth.userId
+          userId: auth.userId
         }
       ).catch((error) => {
         console.warn("PDF Online bridge removal notify failed:", error instanceof Error ? error.message : error);
@@ -436,6 +641,8 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
       return;
     }
 
+    const auth = req.auth;
+
     const file = req.file;
 
     if (!file) {
@@ -448,6 +655,13 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
     const currentUpload = await prisma.uploadPdf.findUnique({
       where: {
         id: String(req.params.id)
+      },
+      include: {
+        basePagamento: {
+          select: {
+            nome: true
+          }
+        }
       }
     });
 
@@ -470,9 +684,9 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
       : null;
 
     const canReplace =
-      req.auth.level === "N3" ||
-      req.auth.level === "N4" ||
-      currentUpload.usuarioId === req.auth.userId;
+      auth.level === "N3" ||
+      auth.level === "N4" ||
+      currentUpload.usuarioId === auth.userId;
 
     if (!canReplace) {
       res.status(403).json({
@@ -493,7 +707,7 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
       contentType: file.mimetype
     });
 
-    await prisma.$transaction([
+    const [_updatedUpload, newUpload] = await prisma.$transaction([
       prisma.uploadPdf.update({
         where: {
           id: currentUpload.id
@@ -509,7 +723,8 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
           caminhoArquivo: key,
           versao: currentUpload.versao + 1,
           status: UploadStatus.pendente,
-          usuarioId: req.auth.userId,
+          usuarioId: auth.userId,
+          motoristaId: currentUpload.motoristaId,
           periodoPagamentoId: currentUpload.periodoPagamentoId,
           basePagamentoId: currentUpload.basePagamentoId,
           substituiUploadId: currentUpload.id
@@ -521,7 +736,7 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
 
     await prisma.logAuditoria.create({
       data: {
-        usuarioId: req.auth.userId,
+        usuarioId: auth.userId,
         acao: "substituir_pdf",
         entidade: "uploads_pdf",
         entidadeId: currentUpload.id,
@@ -535,6 +750,19 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
     });
 
     if (period?.status === "aprovado") {
+      if (newUpload.motoristaId && newUpload.periodoPagamentoId && newUpload.basePagamentoId) {
+        await upsertDriverPdfReceivedFromUpload({
+          uploadPdfId: newUpload.id,
+          motoristaId: newUpload.motoristaId,
+          periodId: newUpload.periodoPagamentoId,
+          basePaymentId: newUpload.basePagamentoId,
+          fileName: newUpload.nomeOriginal,
+          storageKey: newUpload.caminhoArquivo,
+          mimeType: file.mimetype,
+          createdByUserId: auth.userId
+        });
+      }
+
       void notifyPdfOnline(
         "portal.upload.replaced",
         {
@@ -543,10 +771,11 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
           nextFileName: file.originalname,
           storageKey: key,
           periodId: currentUpload.periodoPagamentoId,
-          basePaymentId: currentUpload.basePagamentoId
+          basePaymentId: currentUpload.basePagamentoId,
+          motoristaId: newUpload.motoristaId || currentUpload.motoristaId || null
         },
         {
-          userId: req.auth.userId
+          userId: auth.userId
         }
       ).catch((error) => {
         console.warn("PDF Online bridge replace notify failed:", error instanceof Error ? error.message : error);
