@@ -727,6 +727,41 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
           )
       );
 
+      await Promise.all(
+        Array.from(latestVisibleUploads.values())
+          .filter((item): item is (typeof visibleUploads)[number] & { motoristaId: string; basePagamentoId: string } => Boolean(item.motoristaId && item.basePagamentoId))
+          .map((item) =>
+            notifyPdfOnline(
+              "portal.upload.created",
+              {
+                id: item.id,
+                uploadId: item.id,
+                uploadPdfId: item.id,
+                periodId: updated.id,
+                periodoPagamentoId: updated.id,
+                basePaymentId: item.basePagamentoId,
+                basePagamentoId: item.basePagamentoId,
+                motoristaId: item.motoristaId,
+                nomeArquivo: item.nomeOriginal,
+                nomeOriginal: item.nomeOriginal,
+                caminhoArquivo: item.caminhoArquivo,
+                storageKey: item.caminhoArquivo,
+                status: "pendente",
+                tipoArquivo: "application/pdf",
+                versao: 1,
+                observacoes: `PDF liberado no periodo ${approvedPeriod?.nome || updated.id}`
+              },
+              {
+                userId: auth.userId,
+                periodId: updated.id,
+                basePaymentId: item.basePagamentoId
+              }
+            ).catch((error) => {
+              console.warn("PDF Online bridge upload-created on approval failed:", error instanceof Error ? error.message : error);
+            })
+          )
+      );
+
       void notifyPdfOnline(
         "portal.period.status_changed",
         {
