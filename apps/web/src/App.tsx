@@ -1,4 +1,4 @@
-import {
+﻿import {
   ArrowRight,
   Camera,
   CaretDown,
@@ -55,6 +55,7 @@ import {
   createAtendimentoChamado,
   createAtendimentoMovimento,
   closeAtendimentoChamado,
+  updateAtendimentoMotorista,
   replaceUpload,
   resetUserPassword,
   updateUser,
@@ -64,6 +65,7 @@ import {
   type AtendimentoClassificacao,
   type AtendimentoDetail,
   type AtendimentoMotoristaSearch,
+  type AtendimentoMotoristaUpdatePayload,
   type LoginResponse,
   type PaymentBase,
   type PaymentPeriod,
@@ -118,7 +120,7 @@ const menuItems = [
   { key: "dashboard", label: "Dashboard", icon: HouseLine },
   { key: "pdfs", label: "Envio de PDFs", icon: FileArrowUp },
   { key: "users", label: "Cadastro de Usuarios", icon: UserCirclePlus },
-  { key: "periods", label: "Criação de Periodo", icon: CalendarBlank },
+  { key: "periods", label: "Criacao de Periodo", icon: CalendarBlank },
   { key: "financeiro", label: "Notas Fiscais", icon: FilePdf },
   { key: "atendimento", label: "Atendimento", icon: ChatCenteredDots }
 ] as const;
@@ -2078,12 +2080,6 @@ function DashboardScreen({
       value: String(summary.pendingPdfs),
       detail: "Aguardando processamento",
       icon: Eye
-    },
-    {
-      label: "Chamados Aguardando",
-      value: String(summary.ticketsWaiting),
-      detail: `${summary.closedTickets} concluidos`,
-      icon: CalendarBlank
     }
   ];
 
@@ -2215,7 +2211,7 @@ function DashboardScreen({
         </div>
       </section>
 
-      <section className="stats-grid">
+      <section className="stats-grid stats-grid--three">
         {stats.map((item) => {
           const Icon = item.icon;
           return (
@@ -3021,7 +3017,7 @@ function PdfsScreen({
                   <div>
                     <h4>Lote {batch.baseName}</h4>
                     <p>
-                      {batch.ownerName} · {batch.periodName} ·{" "}
+                      {batch.ownerName} - {batch.periodName} -{" "}
                       {new Date(batch.lastSentAt).toLocaleString("pt-BR")}
                     </p>
                   </div>
@@ -3045,7 +3041,7 @@ function PdfsScreen({
                         <div>
                           <strong>{row.fileName}</strong>
                           <span>
-                            {row.status} · {new Date(row.sentAt).toLocaleString("pt-BR")}
+                            {row.status} - {new Date(row.sentAt).toLocaleString("pt-BR")}
                           </span>
                         </div>
 
@@ -3118,10 +3114,10 @@ function PdfsScreen({
                 </div>
                 <div className="history-item__body">
                   <strong>
-                    Versao {entry.version} · {entry.fileName}
+                    Versao {entry.version} - {entry.fileName}
                   </strong>
                   <span>
-                    {entry.owner} · {new Date(entry.sentAt).toLocaleString("pt-BR")}
+                    {entry.owner} - {new Date(entry.sentAt).toLocaleString("pt-BR")}
                   </span>
                 </div>
                 <span className="status-pill">{entry.status}</span>
@@ -3537,18 +3533,31 @@ function AtendimentoScreen({
   onConsumeFocusMotorista?: () => void;
 }) {
   const isAdmin = currentUser?.level === "N3" || currentUser?.level === "N4";
+  const detailTabs = [
+    { key: "dados", label: "Dados do Motorista" },
+    { key: "classificacoes", label: "Classificacoes" },
+    { key: "notas", label: "Notas internas" },
+    { key: "pdfs", label: "Historico de PDFs" },
+    { key: "historico", label: "Historico de Atendimento" },
+    { key: "chamados", label: "Chamados" }
+  ] as const;
+  type DetailTab = (typeof detailTabs)[number]["key"];
+
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<AtendimentoMotoristaSearch[]>([]);
   const [selectedMotoristaId, setSelectedMotoristaId] = useState<string | null>(null);
   const [detail, setDetail] = useState<AtendimentoDetail | null>(null);
   const [classificacoes, setClassificacoes] = useState<AtendimentoClassificacao[]>([]);
   const [selectedClassificacoes, setSelectedClassificacoes] = useState<string[]>([]);
+  const [activeDetailTab, setActiveDetailTab] = useState<DetailTab>("dados");
   const [statusFilter, setStatusFilter] = useState<AtendimentoDetail["chamados"][number]["status"] | "todos">(
     "todos"
   );
   const [loading, setLoading] = useState("");
   const [noteContent, setNoteContent] = useState("");
   const [editingNote, setEditingNote] = useState<{ id: string; content: string } | null>(null);
+  const [motoristaEditOpen, setMotoristaEditOpen] = useState(false);
+  const [motoristaEditForm, setMotoristaEditForm] = useState<AtendimentoMotoristaUpdatePayload | null>(null);
   const [newTicketOpen, setNewTicketOpen] = useState(false);
   const [ticketAction, setTicketAction] = useState<
     | { mode: "move"; chamadoId: string; subject: string }
@@ -3565,6 +3574,25 @@ function AtendimentoScreen({
 
     return detail.chamados.filter((ticket) => statusFilter === "todos" || ticket.status === statusFilter);
   }, [detail, statusFilter]);
+
+  const selectedMotoristaBase = detail?.motorista.base || detail?.motorista.empresaVinculada || "Base nao informada";
+
+  const buildMotoristaEditForm = (motorista: AtendimentoDetail["motorista"]): AtendimentoMotoristaUpdatePayload => ({
+    nome: motorista.nome || "",
+    cpf: motorista.cpf || "",
+    rg: motorista.rg || "",
+    dataNascimento: motorista.dataNascimento ? new Date(motorista.dataNascimento).toISOString().slice(0, 10) : "",
+    telefone: motorista.telefone || "",
+    whatsapp: motorista.whatsapp || "",
+    email: motorista.email || "",
+    endereco: motorista.endereco || "",
+    cidade: motorista.cidade || "",
+    estado: motorista.estado || "",
+    cep: motorista.cep || "",
+    statusCadastro: motorista.statusCadastro,
+    empresaVinculada: motorista.empresaVinculada || "",
+    observacoesGerais: motorista.observacoesGerais || ""
+  });
 
   useEffect(() => {
     if (focusMotoristaId) {
@@ -3656,11 +3684,27 @@ function AtendimentoScreen({
   useEffect(() => {
     if (!detail) {
       setSelectedClassificacoes([]);
+      setMotoristaEditOpen(false);
+      setMotoristaEditForm(null);
+      setActiveDetailTab("dados");
       return;
     }
 
     setSelectedClassificacoes(detail.motorista.classificacoes.map((item) => item.id));
+    setMotoristaEditForm(buildMotoristaEditForm(detail.motorista));
   }, [detail]);
+
+  useEffect(() => {
+    if (!selectedMotoristaId) {
+      return;
+    }
+
+    setActiveDetailTab("dados");
+    setTicketAction(null);
+    setNewTicketOpen(false);
+    setEditingNote(null);
+    setMotoristaEditOpen(false);
+  }, [selectedMotoristaId]);
 
   const refreshDetail = async (motoristaId = selectedMotoristaId) => {
     if (!token || !motoristaId) {
@@ -3699,6 +3743,41 @@ function AtendimentoScreen({
       }
     } catch (error) {
       setLoading(error instanceof Error ? error.message : "Falha ao atualizar classificacoes.");
+    } finally {
+      setLoading("");
+    }
+  };
+
+  const handleOpenMotoristaEdit = () => {
+    if (!detail) {
+      return;
+    }
+
+    setMotoristaEditForm(buildMotoristaEditForm(detail.motorista));
+    setMotoristaEditOpen(true);
+  };
+
+  const handleMotoristaEditSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!detail || !motoristaEditForm) {
+      return;
+    }
+
+    setLoading("Atualizando motorista...");
+
+    try {
+      const response = await updateAtendimentoMotorista(token, detail.motorista.id, motoristaEditForm);
+
+      if (response.detail) {
+        setDetail(response.detail);
+      } else {
+        await refreshDetail(detail.motorista.id);
+      }
+
+      setMotoristaEditOpen(false);
+    } catch (error) {
+      setLoading(error instanceof Error ? error.message : "Falha ao atualizar motorista.");
     } finally {
       setLoading("");
     }
@@ -3931,11 +4010,11 @@ function AtendimentoScreen({
                   }`}
                   type="button"
                   onClick={() => setSelectedMotoristaId(result.id)}
-                >
+                  >
                   <strong>{result.name}</strong>
                   <span>{result.cpf}</span>
                   <small>
-                    {result.base || "Sem base"} · {result.status}
+                    {result.base || result.company || "Sem base"} - {result.status}
                   </small>
                 </button>
               ))
@@ -3954,294 +4033,332 @@ function AtendimentoScreen({
 
       {detail ? (
         <>
-          <section className="crm-grid">
-            <article className="panel crm-card">
-              <div className="panel__header">
-                <div>
-                  <h3>Dados do Motorista</h3>
-                  <p>Informacoes cadastrais carregadas diretamente do banco de dados.</p>
-                </div>
+          <section className="panel crm-card crm-card--detail">
+            <div className="panel__header panel__header--split">
+              <div>
+                <h3>Dados do Motorista</h3>
+                <p>Informacoes cadastrais carregadas diretamente do banco de dados.</p>
+              </div>
+              <div className="crm-card__header-actions">
                 <span className="status-pill status-pill--active">{detail.motorista.statusCadastro}</span>
-              </div>
-
-              <div className="crm-driver">
-                <div className="crm-driver__hero">
-                  <div>
-                    <p className="eyebrow">Motorista selecionado</p>
-                    <h4>{detail.motorista.nome}</h4>
-                    <p>{detail.motorista.cpf}</p>
-                  </div>
-                  <div className="crm-driver__meta">
-                    <span>{detail.motorista.base || "Base nao informada"}</span>
-                    <span>{detail.motorista.estado || "--"}</span>
-                    <span>{detail.motorista.empresaVinculada || "Sem empresa vinculada"}</span>
-                  </div>
-                </div>
-
-                <div className="crm-driver__grid">
-                  <div><strong>CPF</strong><span>{detail.motorista.cpf}</span></div>
-                  <div><strong>RG</strong><span>{detail.motorista.rg || "Nao informado"}</span></div>
-                  <div><strong>Nascimento</strong><span>{detail.motorista.dataNascimento ? new Date(detail.motorista.dataNascimento).toLocaleDateString("pt-BR") : "Nao informado"}</span></div>
-                  <div><strong>Telefone</strong><span>{detail.motorista.telefone || "Nao informado"}</span></div>
-                  <div><strong>WhatsApp</strong><span>{detail.motorista.whatsapp || "Nao informado"}</span></div>
-                  <div><strong>E-mail</strong><span>{detail.motorista.email || "Nao informado"}</span></div>
-                  <div><strong>Endereco</strong><span>{detail.motorista.endereco || "Nao informado"}</span></div>
-                  <div><strong>Base</strong><span>{detail.motorista.base || "Nao informado"}</span></div>
-                  <div><strong>Favorecido</strong><span>{detail.motorista.nomeFavorecido || "Nao informado"}</span></div>
-                  <div><strong>CPF/CNPJ Favorecido</strong><span>{detail.motorista.cpfFavorecido || detail.motorista.cnpjFavorecido || "Nao informado"}</span></div>
-                  <div><strong>CEP</strong><span>{detail.motorista.cep || "Nao informado"}</span></div>
-                  <div><strong>Criado em</strong><span>{new Date(detail.motorista.dataCriacao).toLocaleString("pt-BR")}</span></div>
-                  <div><strong>Atualizado em</strong><span>{new Date(detail.motorista.ultimaAtualizacao).toLocaleString("pt-BR")}</span></div>
-                  <div><strong>Observacoes</strong><span>{detail.motorista.observacoesGerais || "Sem observacoes"}</span></div>
-                </div>
-              </div>
-            </article>
-
-            <article className="panel crm-card">
-              <div className="panel__header">
-                <div>
-                  <h3>Classificacoes do perfil</h3>
-                  <p>Etiquetas comportamentais editaveis sem alterar codigo.</p>
-                </div>
-                <button className="ghost-button" type="button" onClick={handleSaveTags}>
-                  Salvar tags
-                </button>
-              </div>
-
-              <div className="checkbox-grid crm-tags">
-                {classificacoes.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`checkbox-chip ${
-                      selectedClassificacoes.includes(item.id) ? "checkbox-chip--active" : ""
-                    }`}
-                    onClick={() => handleToggleTag(item.id)}
-                  >
-                    {item.name}
+                {isAdmin ? (
+                  <button className="ghost-button ghost-button--small" type="button" onClick={handleOpenMotoristaEdit}>
+                    Editar cadastro
+                    <PencilSimple size={16} />
                   </button>
-                ))}
+                ) : null}
               </div>
-            </article>
-          </section>
+            </div>
 
-          <section className="crm-grid crm-grid--two">
-            <article className="panel crm-card">
-              <div className="panel__header">
-                <div>
-                  <h3>Historico de PDFs</h3>
-                  <p>Arquivos mais recentes para os mais antigos.</p>
-                </div>
-              </div>
-
-              <div className="crm-list">
-                {detail.pdfs.length > 0 ? (
-                  detail.pdfs.map((pdf) => (
-                    <article className="crm-list__item" key={pdf.id}>
-                      <div>
-                        <strong>{pdf.nomeDocumento}</strong>
-                        <span>
-                          {pdf.tipo} · {new Date(pdf.dataEnvio).toLocaleString("pt-BR")}
-                        </span>
-                        <small>{pdf.usuarioResponsavel}</small>
-                      </div>
-                      <div className="table-actions">
-                        <span className="status-pill">{formatStatusLabel(pdf.status)}</span>
-                        <button
-                          className="ghost-button ghost-button--small"
-                          type="button"
-                          onClick={() => window.open(`${pdf.downloadUrl}`, "_blank")}
-                        >
-                          Visualizar
-                        </button>
-                        <button
-                          className="ghost-button ghost-button--small"
-                          type="button"
-                          onClick={() => window.open(`${pdf.downloadUrl}`, "_blank")}
-                        >
-                          Download
-                        </button>
-                      </div>
-                    </article>
-                  ))
-                ) : (
-                  <div className="crm-empty">Nenhum PDF vinculado a este motorista.</div>
-                )}
-              </div>
-            </article>
-
-            <article className="panel crm-card">
-              <div className="panel__header">
-                <div>
-                  <h3>Notas internas</h3>
-                  <p>Conteudo restrito a equipe interna.</p>
-                </div>
-              </div>
-
-              <form className="crm-note-form" onSubmit={handleCreateNote}>
-                <textarea
-                  className="crm-textarea"
-                  placeholder="Escreva uma nota interna..."
-                  value={noteContent}
-                  onChange={(event) => setNoteContent(event.target.value)}
-                />
-                <div className="crm-note-form__actions">
-                  <button className="primary-button primary-button--inline" type="submit">
-                    Salvar nota
-                  </button>
-                </div>
-              </form>
-
-              <div className="crm-list">
-                {detail.notas.length > 0 ? (
-                  detail.notas.map((note) => (
-                    <article className="crm-list__item" key={note.id}>
-                      <div>
-                        <strong>{note.usuario}</strong>
-                        <span>{new Date(note.dataHora).toLocaleString("pt-BR")}</span>
-                        <p>{note.conteudo}</p>
-                      </div>
-                      <div className="table-actions">
-                        <button
-                          className="ghost-button ghost-button--small"
-                          type="button"
-                          onClick={() => setEditingNote({ id: note.id, content: note.conteudo })}
-                        >
-                          Editar
-                        </button>
-                        {isAdmin ? (
-                          <button
-                            className="ghost-button ghost-button--small ghost-button--danger"
-                            type="button"
-                            onClick={() => void handleDeleteNote(note.id)}
-                          >
-                            Excluir
-                          </button>
-                        ) : null}
-                      </div>
-                    </article>
-                  ))
-                ) : (
-                  <div className="crm-empty">Nenhuma nota interna registrada.</div>
-                )}
-              </div>
-            </article>
-          </section>
-
-          <section className="crm-grid crm-grid--two">
-            <article className="panel crm-card">
-              <div className="panel__header">
-                <div>
-                  <h3>Historico de Atendimento</h3>
-                  <p>Timeline unica com chamadas, PDFs, notas e logs.</p>
-                </div>
-              </div>
-
-              <div className="timeline">
-                {detail.timeline.length > 0 ? (
-                  detail.timeline.map((item) => (
-                    <article className={`timeline-item timeline-item--${item.type}`} key={item.id}>
-                      <div className="timeline-item__marker" />
-                      <div className="timeline-item__content">
-                        <strong>{item.title}</strong>
-                        <span>{item.subtitle}</span>
-                      </div>
-                      <div className="timeline-item__meta">
-                        <strong>{item.date}</strong>
-                        <span>{item.time}</span>
-                      </div>
-                    </article>
-                  ))
-                ) : (
-                  <div className="crm-empty">Sem eventos no historico ainda.</div>
-                )}
-              </div>
-            </article>
-
-            <article className="panel crm-card">
-              <div className="panel__header">
-                <div>
-                  <h3>Chamados</h3>
-                  <p>Abertos, em andamento e resolvidos.</p>
-                </div>
-                <button className="primary-button primary-button--inline" type="button" onClick={() => setNewTicketOpen(true)}>
-                  Novo Chamado
+            <div className="crm-detail-tabs" role="tablist" aria-label="Detalhes do motorista">
+              {detailTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeDetailTab === tab.key}
+                  className={`crm-detail-tab ${activeDetailTab === tab.key ? "crm-detail-tab--active" : ""}`}
+                  onClick={() => setActiveDetailTab(tab.key)}
+                >
+                  {tab.label}
                 </button>
-              </div>
+              ))}
+            </div>
 
-              <div className="quick-meta">
-                {(["todos", "aberto", "em_andamento", "aguardando_motorista", "concluido", "cancelado"] as const).map(
-                  (status) => (
-                    <button
-                      key={status}
-                      type="button"
-                      className={`quick-meta__chip ${statusFilter === status ? "quick-meta__chip--active" : ""}`}
-                      onClick={() => setStatusFilter(status)}
-                    >
-                      {status === "todos" ? "Todos" : formatStatusLabel(status)}
+            <div className="crm-detail-content">
+              {activeDetailTab === 'dados' ? (
+                <div className="crm-driver">
+                  <div className="crm-driver__hero">
+                    <div>
+                      <p className="eyebrow">Motorista selecionado</p>
+                      <h4>{detail.motorista.nome}</h4>
+                      <p>{detail.motorista.cpf}</p>
+                    </div>
+                    <div className="crm-driver__meta">
+                      <span>{selectedMotoristaBase}</span>
+                      <span>{detail.motorista.estado || '--'}</span>
+                      <span>{detail.motorista.empresaVinculada || 'Sem empresa vinculada'}</span>
+                    </div>
+                  </div>
+
+                  <div className="crm-driver__grid">
+                    <div><strong>CPF</strong><span>{detail.motorista.cpf}</span></div>
+                    <div><strong>RG</strong><span>{detail.motorista.rg || 'Nao informado'}</span></div>
+                    <div><strong>Nascimento</strong><span>{detail.motorista.dataNascimento ? new Date(detail.motorista.dataNascimento).toLocaleDateString('pt-BR') : 'Nao informado'}</span></div>
+                    <div><strong>Telefone</strong><span>{detail.motorista.telefone || 'Nao informado'}</span></div>
+                    <div><strong>WhatsApp</strong><span>{detail.motorista.whatsapp || 'Nao informado'}</span></div>
+                    <div><strong>E-mail</strong><span>{detail.motorista.email || 'Nao informado'}</span></div>
+                    <div><strong>Endereco</strong><span>{detail.motorista.endereco || 'Nao informado'}</span></div>
+                    <div><strong>Base</strong><span>{selectedMotoristaBase}</span></div>
+                    <div><strong>Favorecido</strong><span>{detail.motorista.nomeFavorecido || 'Nao informado'}</span></div>
+                    <div><strong>CPF/CNPJ Favorecido</strong><span>{detail.motorista.cpfFavorecido || detail.motorista.cnpjFavorecido || 'Nao informado'}</span></div>
+                    <div><strong>CEP</strong><span>{detail.motorista.cep || 'Nao informado'}</span></div>
+                    <div><strong>Criado em</strong><span>{new Date(detail.motorista.dataCriacao).toLocaleString('pt-BR')}</span></div>
+                    <div><strong>Atualizado em</strong><span>{new Date(detail.motorista.ultimaAtualizacao).toLocaleString('pt-BR')}</span></div>
+                    <div><strong>Observacoes</strong><span>{detail.motorista.observacoesGerais || 'Sem observacoes'}</span></div>
+                  </div>
+                </div>
+              ) : null}
+
+              {activeDetailTab === 'classificacoes' ? (
+                <div className="crm-tab-panel-content">
+                  <div className="crm-tab-panel__header">
+                    <div>
+                      <strong>Classificacoes do perfil</strong>
+                      <p>Etiquetas comportamentais editaveis sem alterar codigo.</p>
+                    </div>
+                    <button className="ghost-button" type="button" onClick={handleSaveTags}>
+                      Salvar tags
                     </button>
-                  )
-                )}
-              </div>
+                  </div>
+                  <div className="checkbox-grid crm-tags">
+                    {classificacoes.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={`checkbox-chip ${
+                          selectedClassificacoes.includes(item.id) ? "checkbox-chip--active" : ""
+                        }`}
+                        onClick={() => handleToggleTag(item.id)}
+                      >
+                        {item.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
 
-              <div className="crm-list crm-list--tickets">
-                {filteredChamados.length > 0 ? (
-                  filteredChamados.map((ticket) => (
-                    <article className="crm-ticket" key={ticket.id}>
-                      <div className="crm-ticket__header">
-                        <div>
-                          <strong>{ticket.assunto}</strong>
-                          <span>
-                            #{ticket.numero} · {ticket.categoria} · {ticket.responsavel || "Sem responsavel"}
-                          </span>
-                        </div>
-                        <div className="crm-ticket__badges">
-                          <span className="status-pill">{formatStatusLabel(ticket.status)}</span>
-                          <span className="status-pill">{formatStatusLabel(ticket.prioridade)}</span>
-                        </div>
-                      </div>
+              {activeDetailTab === 'notas' ? (
+                <div className="crm-tab-panel-content">
+                  <div className="crm-tab-panel__header">
+                    <div>
+                      <strong>Notas internas</strong>
+                      <p>Conteudo restrito a equipe interna.</p>
+                    </div>
+                  </div>
 
-                      <p>{ticket.titulo}</p>
+                  <form className="crm-note-form" onSubmit={handleCreateNote}>
+                    <textarea
+                      className="crm-textarea"
+                      placeholder="Escreva uma nota interna..."
+                      value={noteContent}
+                      onChange={(event) => setNoteContent(event.target.value)}
+                    />
+                    <div className="crm-note-form__actions">
+                      <button className="primary-button primary-button--inline" type="submit">
+                        Salvar nota
+                      </button>
+                    </div>
+                  </form>
 
-                      <div className="crm-ticket__meta">
-                        <small>
-                          Abertura: {new Date(ticket.dataAbertura).toLocaleString("pt-BR")} · Atualizacao:{" "}
-                          {new Date(ticket.ultimaAtualizacao).toLocaleString("pt-BR")}
-                        </small>
-                      </div>
-
-                      <div className="crm-ticket__history">
-                        {ticket.historico.slice(0, 2).map((entry) => (
-                          <div key={entry.id} className="crm-ticket__history-item">
-                            <span>{entry.usuario}</span>
-                            <small>{entry.descricao}</small>
+                  <div className="crm-list">
+                    {detail.notas.length > 0 ? (
+                      detail.notas.map((note) => (
+                        <article className="crm-list__item" key={note.id}>
+                          <div>
+                            <strong>{note.usuario}</strong>
+                            <span>{new Date(note.dataHora).toLocaleString('pt-BR')}</span>
+                            <p>{note.conteudo}</p>
                           </div>
-                        ))}
-                      </div>
+                          <div className="table-actions">
+                            <button
+                              className="ghost-button ghost-button--small"
+                              type="button"
+                              onClick={() => setEditingNote({ id: note.id, content: note.conteudo })}
+                            >
+                              Editar
+                            </button>
+                            {isAdmin ? (
+                              <button
+                                className="ghost-button ghost-button--small ghost-button--danger"
+                                type="button"
+                                onClick={() => void handleDeleteNote(note.id)}
+                              >
+                                Excluir
+                              </button>
+                            ) : null}
+                          </div>
+                        </article>
+                      ))
+                    ) : (
+                      <div className="crm-empty">Nenhuma nota interna registrada.</div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
 
-                      <div className="table-actions">
+              {activeDetailTab === 'pdfs' ? (
+                <div className="crm-tab-panel-content">
+                  <div className="crm-tab-panel__header">
+                    <div>
+                      <strong>Historico de PDFs</strong>
+                      <p>Arquivos mais recentes para os mais antigos.</p>
+                    </div>
+                  </div>
+                  <div className="crm-list">
+                    {detail.pdfs.length > 0 ? (
+                      detail.pdfs.map((pdf) => (
+                        <article className="crm-list__item" key={pdf.id}>
+                          <div>
+                            <strong>{pdf.nomeDocumento}</strong>
+                            <span>
+                              {pdf.tipo} - {new Date(pdf.dataEnvio).toLocaleString('pt-BR')}
+                            </span>
+                            <small>{pdf.usuarioResponsavel}</small>
+                          </div>
+                          <div className="table-actions">
+                            <span className="status-pill">{formatStatusLabel(pdf.status)}</span>
+                            <button
+                              className="ghost-button ghost-button--small"
+                              type="button"
+                              onClick={() => window.open(`${pdf.downloadUrl}`, "_blank")}
+                            >
+                              Visualizar
+                            </button>
+                            <button
+                              className="ghost-button ghost-button--small"
+                              type="button"
+                              onClick={() => window.open(`${pdf.downloadUrl}`, "_blank")}
+                            >
+                              Download
+                            </button>
+                          </div>
+                        </article>
+                      ))
+                    ) : (
+                      <div className="crm-empty">Nenhum PDF vinculado a este motorista.</div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+              {activeDetailTab === 'historico' ? (
+                <div className="crm-tab-panel-content">
+                  <div className="crm-tab-panel__header">
+                    <div>
+                      <strong>Historico de Atendimento</strong>
+                      <p>Timeline unica com chamadas, PDFs, notas e logs.</p>
+                    </div>
+                  </div>
+                  <div className="timeline">
+                    {detail.timeline.length > 0 ? (
+                      detail.timeline.map((item) => (
+                        <article className={`timeline-item timeline-item--${item.type}`} key={item.id}>
+                          <div className="timeline-item__marker" />
+                          <div className="timeline-item__content">
+                            <strong>{item.title}</strong>
+                            <span>{item.subtitle}</span>
+                          </div>
+                          <div className="timeline-item__meta">
+                            <strong>{item.date}</strong>
+                            <span>{item.time}</span>
+                          </div>
+                        </article>
+                      ))
+                    ) : (
+                      <div className="crm-empty">Sem eventos no historico ainda.</div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+              {activeDetailTab === 'chamados' ? (
+                <div className="crm-tab-panel-content">
+                  <div className="crm-tab-panel__header">
+                    <div>
+                      <strong>Chamados</strong>
+                      <p>Abertos, em andamento e resolvidos.</p>
+                    </div>
+                    <button className="primary-button primary-button--inline" type="button" onClick={() => setNewTicketOpen(true)}>
+                      Novo Chamado
+                    </button>
+                  </div>
+
+                  <div className="quick-meta">
+                    {(['todos', 'aberto', 'em_andamento', 'aguardando_motorista', 'concluido', 'cancelado'] as const).map(
+                      (status) => (
                         <button
-                          className="ghost-button ghost-button--small"
+                          key={status}
                           type="button"
-                          onClick={() => setTicketAction({ mode: "move", chamadoId: ticket.id, subject: ticket.assunto })}
+                          className={`quick-meta__chip ${statusFilter === status ? "quick-meta__chip--active" : ""}`}
+                          onClick={() => setStatusFilter(status)}
                         >
-                          Atualizar
+                          {status === 'todos' ? 'Todos' : formatStatusLabel(status)}
                         </button>
-                        <button
-                          className="ghost-button ghost-button--small"
-                          type="button"
-                          onClick={() => setTicketAction({ mode: "close", chamadoId: ticket.id, subject: ticket.assunto })}
-                        >
-                          Encerrar
-                        </button>
-                      </div>
-                    </article>
-                  ))
-                ) : (
-                  <div className="crm-empty">Nenhum chamado para o filtro selecionado.</div>
-                )}
-              </div>
-            </article>
+                      )
+                    )}
+                  </div>
+
+                  <div className="crm-list crm-list--tickets">
+                    {filteredChamados.length > 0 ? (
+                      filteredChamados.map((ticket) => {
+                        const canMutateTicket = !['concluido', 'cancelado', 'resolvido'].includes(ticket.status);
+
+                        return (
+                          <article className="crm-ticket" key={ticket.id}>
+                            <div className="crm-ticket__header">
+                              <div>
+                                <strong>{ticket.assunto}</strong>
+                                <span>
+                                  #{ticket.numero} - {ticket.categoria} - {ticket.responsavel || 'Sem responsavel'}
+                                </span>
+                              </div>
+                              <div className="crm-ticket__badges">
+                                <span className="status-pill">{formatStatusLabel(ticket.status)}</span>
+                                <span className="status-pill">{formatStatusLabel(ticket.prioridade)}</span>
+                              </div>
+                            </div>
+
+                            <p>{ticket.titulo}</p>
+
+                            <div className="crm-ticket__meta">
+                              <small>
+                                Abertura: {new Date(ticket.dataAbertura).toLocaleString('pt-BR')} - Atualizacao:{' '}
+                                {new Date(ticket.ultimaAtualizacao).toLocaleString('pt-BR')}
+                              </small>
+                            </div>
+
+                            <div className="crm-ticket__history">
+                              {ticket.historico.slice(0, 2).map((entry) => (
+                                <div key={entry.id} className="crm-ticket__history-item">
+                                  <span>{entry.usuario}</span>
+                                  <small>{entry.descricao}</small>
+                                </div>
+                              ))}
+                            </div>
+
+                            {canMutateTicket ? (
+                              <div className="table-actions">
+                                <button
+                                  className="ghost-button ghost-button--small"
+                                  type="button"
+                                  onClick={() =>
+                                    setTicketAction({ mode: 'move', chamadoId: ticket.id, subject: ticket.assunto })
+                                  }
+                                >
+                                  Atualizar
+                                </button>
+                                <button
+                                  className="ghost-button ghost-button--small"
+                                  type="button"
+                                  onClick={() =>
+                                    setTicketAction({ mode: 'close', chamadoId: ticket.id, subject: ticket.assunto })
+                                  }
+                                >
+                                  Encerrar
+                                </button>
+                              </div>
+                            ) : null}
+                          </article>
+                        );
+                      })
+                    ) : (
+                      <div className="crm-empty">Nenhum chamado para o filtro selecionado.</div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </section>
         </>
       ) : (
@@ -4407,6 +4524,192 @@ function AtendimentoScreen({
         </div>
       ) : null}
 
+      {motoristaEditOpen && motoristaEditForm ? (
+        <div className="modal-overlay" onClick={() => setMotoristaEditOpen(false)}>
+          <div
+            className="modal-card modal-card--crm modal-card--motorista-edit"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-motorista-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-card__header">
+              <div>
+                <p className="eyebrow">Dados do motorista</p>
+                <h3 id="edit-motorista-title">Editar cadastro</h3>
+                <p>Atualize os dados e grave diretamente no banco.</p>
+              </div>
+              <button className="ghost-button ghost-button--small" type="button" onClick={() => setMotoristaEditOpen(false)}>
+                Fechar
+              </button>
+            </div>
+
+            <form className="admin-form admin-form--modal admin-form--motorista-edit" onSubmit={handleMotoristaEditSubmit}>
+              <label className="field field--full">
+                <span>Nome</span>
+                <input
+                  value={motoristaEditForm.nome}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) => (current ? { ...current, nome: event.target.value } : current))
+                  }
+                  required
+                />
+              </label>
+              <label className="field">
+                <span>CPF</span>
+                <input
+                  value={motoristaEditForm.cpf}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) => (current ? { ...current, cpf: event.target.value } : current))
+                  }
+                  required
+                />
+              </label>
+              <label className="field">
+                <span>RG</span>
+                <input
+                  value={motoristaEditForm.rg}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) => (current ? { ...current, rg: event.target.value } : current))
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>Data de nascimento</span>
+                <input
+                  type="date"
+                  value={motoristaEditForm.dataNascimento}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) =>
+                      current ? { ...current, dataNascimento: event.target.value } : current
+                    )
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>Status do cadastro</span>
+                <select
+                  className="field__select"
+                  value={motoristaEditForm.statusCadastro}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) =>
+                      current ? { ...current, statusCadastro: event.target.value as "ativo" | "inativo" | "bloqueado" } : current
+                    )
+                  }
+                >
+                  <option value="ativo">Ativo</option>
+                  <option value="inativo">Inativo</option>
+                  <option value="bloqueado">Bloqueado</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>Telefone</span>
+                <input
+                  value={motoristaEditForm.telefone}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) =>
+                      current ? { ...current, telefone: event.target.value } : current
+                    )
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>WhatsApp</span>
+                <input
+                  value={motoristaEditForm.whatsapp}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) =>
+                      current ? { ...current, whatsapp: event.target.value } : current
+                    )
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>E-mail</span>
+                <input
+                  type="email"
+                  value={motoristaEditForm.email}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) =>
+                      current ? { ...current, email: event.target.value } : current
+                    )
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>CEP</span>
+                <input
+                  value={motoristaEditForm.cep}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) => (current ? { ...current, cep: event.target.value } : current))
+                  }
+                />
+              </label>
+              <label className="field field--full">
+                <span>Endereco</span>
+                <input
+                  value={motoristaEditForm.endereco}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) =>
+                      current ? { ...current, endereco: event.target.value } : current
+                    )
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>Cidade</span>
+                <input
+                  value={motoristaEditForm.cidade}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) => (current ? { ...current, cidade: event.target.value } : current))
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>Estado</span>
+                <input
+                  value={motoristaEditForm.estado}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) => (current ? { ...current, estado: event.target.value } : current))
+                  }
+                />
+              </label>
+              <label className="field field--full">
+                <span>Empresa vinculada</span>
+                <input
+                  value={motoristaEditForm.empresaVinculada}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) =>
+                      current ? { ...current, empresaVinculada: event.target.value } : current
+                    )
+                  }
+                />
+              </label>
+              <label className="field field--full">
+                <span>Observacoes gerais</span>
+                <textarea
+                  className="crm-textarea"
+                  value={motoristaEditForm.observacoesGerais}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) =>
+                      current ? { ...current, observacoesGerais: event.target.value } : current
+                    )
+                  }
+                />
+              </label>
+              <div className="admin-form__actions">
+                <button className="ghost-button" type="button" onClick={() => setMotoristaEditOpen(false)}>
+                  Cancelar
+                </button>
+                <button className="primary-button primary-button--inline" type="submit">
+                  Salvar alteracoes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
       {editingNote ? (
         <div className="modal-overlay" onClick={() => setEditingNote(null)}>
           <div
@@ -4488,3 +4791,4 @@ function AccessDeniedScreen({
 }
 
 export default App;
+

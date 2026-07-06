@@ -10,7 +10,13 @@ router.get("/summary", (_req, res) => {
   void (async () => {
     const [uploads, processedPdfs, pendingPdfs, pendingInvoices, ticketsWaiting, closedTickets, usersCount] =
       await Promise.all([
-        prisma.uploadPdf.count(),
+        prisma.uploadPdf.count({
+          where: {
+            status: {
+              not: "removido"
+            }
+          }
+        }),
         prisma.uploadPdf.count({ where: { status: "processado" } }),
         prisma.uploadPdf.count({ where: { status: "pendente" } }),
         prisma.driverPdfReceived.count({

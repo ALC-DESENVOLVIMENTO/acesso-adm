@@ -169,6 +169,23 @@ export type AtendimentoMotoristaSearch = {
   totalChamados: number;
 };
 
+export type AtendimentoMotoristaUpdatePayload = {
+  nome: string;
+  cpf: string;
+  rg: string;
+  dataNascimento: string;
+  telefone: string;
+  whatsapp: string;
+  email: string;
+  endereco: string;
+  cidade: string;
+  estado: string;
+  cep: string;
+  statusCadastro: "ativo" | "inativo" | "bloqueado";
+  empresaVinculada: string;
+  observacoesGerais: string;
+};
+
 export type AtendimentoPdf = {
   id: string;
   nomeDocumento: string;
@@ -776,6 +793,23 @@ export function fetchAtendimentoMotorista(token: string, motoristaId: string) {
       Authorization: `Bearer ${token}`
     }
   });
+}
+
+export function updateAtendimentoMotorista(
+  token: string,
+  motoristaId: string,
+  body: AtendimentoMotoristaUpdatePayload
+) {
+  return request<{ message: string; detail: AtendimentoDetail | null }>(
+    `/atendimento/motoristas/${motoristaId}`,
+    {
+      method: "PATCH",
+      body,
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }
+  );
 }
 
 export function updateMotoristaClassificacoes(

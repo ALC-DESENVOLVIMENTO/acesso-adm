@@ -1580,15 +1580,31 @@ button {
   max-width: none;
 }
 
+.panel--crm-search {
+  padding-bottom: 20px;
+}
+
 .filters-row--crm {
-  grid-template-columns: minmax(360px, 0.9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.9fr);
   align-items: start;
+  gap: 18px;
+}
+
+.panel--crm-search .search-field {
+  min-height: 68px;
+  border-radius: 22px;
+  padding: 0 18px;
+}
+
+.panel--crm-search .search-field input {
+  min-height: 68px;
+  font-size: 1rem;
 }
 
 .crm-search-results {
   display: grid;
   gap: 10px;
-  max-height: 260px;
+  max-height: 320px;
   overflow: auto;
   padding-right: 4px;
 }
@@ -1607,6 +1623,9 @@ button {
   text-align: left;
   color: inherit;
   box-shadow: none;
+  display: grid;
+  gap: 4px;
+  min-height: 92px;
 }
 
 .crm-search-card strong,
@@ -1633,6 +1652,76 @@ button {
 
 .crm-grid--two {
   align-items: start;
+}
+
+.crm-card--detail {
+  display: grid;
+  gap: 16px;
+}
+
+.crm-card__header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.crm-detail-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 6px;
+  border-radius: 22px;
+  background: rgba(244, 246, 250, 0.72);
+  border: 1px solid rgba(31, 36, 48, 0.05);
+}
+
+.crm-detail-tab {
+  border: 1px solid transparent;
+  border-radius: 16px;
+  padding: 10px 14px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.crm-detail-tab--active {
+  background: rgba(255, 95, 83, 0.12);
+  border-color: rgba(255, 95, 83, 0.16);
+  color: #c94c41;
+}
+
+.crm-detail-tab:hover {
+  transform: translateY(-1px);
+}
+
+.crm-detail-content {
+  display: grid;
+  gap: 16px;
+}
+
+.crm-tab-panel-content {
+  display: grid;
+  gap: 16px;
+}
+
+.crm-tab-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.crm-tab-panel__header strong {
+  font-size: 1.1rem;
+}
+
+.crm-tab-panel__header p {
+  margin: 6px 0 0;
+  color: var(--muted);
 }
 
 .crm-card {
@@ -1761,6 +1850,9 @@ button {
 
 .checkbox-chip {
   border: 1px solid rgba(31, 36, 48, 0.08);
+  min-height: 56px;
+  padding-inline: 16px;
+  border-radius: 18px;
 }
 
 .checkbox-chip--active {
@@ -1893,6 +1985,35 @@ button {
 
 .modal-card--crm {
   width: min(1100px, 100%);
+}
+
+.modal-card--motorista-edit {
+  width: min(980px, 100%);
+}
+
+.admin-form--motorista-edit {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-form--motorista-edit .field {
+  gap: 8px;
+}
+
+.admin-form--motorista-edit .field input,
+.admin-form--motorista-edit .field select,
+.admin-form--motorista-edit .field textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.admin-form--motorista-edit .field input,
+.admin-form--motorista-edit .field select {
+  min-height: 50px;
+}
+
+.admin-form--motorista-edit .field--full {
+  grid-column: 1 / -1;
 }
 
 .modal-overlay {

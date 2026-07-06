@@ -1152,6 +1152,115 @@ router.get("/motoristas/:id", (req, res) => {
   });
 });
 
+router.patch("/motoristas/:id", (req, res) => {
+  void (async () => {
+    if (!req.auth) {
+      res.status(401).json({ message: "Sessao invalida." });
+      return;
+    }
+
+    const motoristaId = await resolveMotoristaId(routeParam(req.params.id));
+    if (!motoristaId) {
+      res.status(404).json({ message: "Motorista nao encontrado." });
+      return;
+    }
+
+    const body = req.body as Record<string, unknown>;
+    const nome = String(body.nome || "").trim();
+    const cpf = digitsOnly(String(body.cpf || "").trim());
+    const rg = String(body.rg || "").trim() || null;
+    const dataNascimentoRaw = String(body.dataNascimento || "").trim();
+    const telefone = String(body.telefone || "").trim() || null;
+    const whatsapp = String(body.whatsapp || "").trim() || null;
+    const email = String(body.email || "").trim() || null;
+    const endereco = String(body.endereco || "").trim() || null;
+    const cidade = String(body.cidade || "").trim() || null;
+    const estado = String(body.estado || "").trim() || null;
+    const cep = String(body.cep || "").trim() || null;
+    const statusCadastroRaw = String(body.statusCadastro || "").trim();
+    const empresaVinculada = String(body.empresaVinculada || "").trim() || null;
+    const observacoesGerais = String(body.observacoesGerais || "").trim() || null;
+
+    if (!nome || !cpf) {
+      res.status(400).json({
+        message: "Informe nome e CPF do motorista."
+      });
+      return;
+    }
+
+    const statusCadastro = ["ativo", "inativo", "bloqueado"].includes(statusCadastroRaw)
+      ? (statusCadastroRaw as "ativo" | "inativo" | "bloqueado")
+      : null;
+
+    if (!statusCadastro) {
+      res.status(400).json({
+        message: "Informe um status valido para o motorista."
+      });
+      return;
+    }
+
+    const updated = await prisma.motorista.update({
+      where: {
+        id: motoristaId
+      },
+      data: {
+        nome,
+        cpf,
+        rg,
+        dataNascimento: dataNascimentoRaw ? new Date(dataNascimentoRaw) : null,
+        telefone,
+        whatsapp,
+        email,
+        endereco,
+        cidade,
+        estado,
+        cep,
+        statusCadastro,
+        empresaVinculada,
+        observacoesGerais
+      }
+    });
+
+    await prisma.logAtendimento.create({
+      data: {
+        usuarioId: req.auth.userId,
+        motoristaId: updated.id,
+        acao: "editar_motorista",
+        entidade: "motoristas",
+        entidadeId: updated.id,
+        detalhes: {
+          nome,
+          cpf,
+          rg,
+          dataNascimento: dataNascimentoRaw || null,
+          telefone,
+          whatsapp,
+          email,
+          endereco,
+          cidade,
+          estado,
+          cep,
+          statusCadastro,
+          empresaVinculada,
+          observacoesGerais
+        }
+      }
+    });
+
+    const detail = await loadMotoristaDetail(updated.id);
+
+    res.json({
+      message: "Motorista atualizado com sucesso.",
+      detail
+    });
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao atualizar motorista.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
+
 router.patch("/motoristas/:id/classificacoes", (req, res) => {
   void (async () => {
     const motoristaId = await resolveMotoristaId(routeParam(req.params.id));
