@@ -145,6 +145,7 @@ export type FinanceiroMotoristaRow = {
   atendimentoStatus: string;
   statusNotaFiscal: string;
   caminhoArquivo: string | null;
+  notaFiscalDownloadUrl: string | null;
 };
 
 export type AtendimentoClassificacao = {
@@ -382,6 +383,27 @@ async function requestMultipart<T>(params: {
   return requestUpload<T>(params);
 }
 
+async function requestBlob(path: string, token: string) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(payload?.message || "Falha na comunicacao com a API.");
+  }
+
+  const contentDisposition = response.headers.get("content-disposition") || "";
+  const filenameMatch = /filename="?([^";]+)"?/i.exec(contentDisposition);
+
+  return {
+    blob: await response.blob(),
+    filename: filenameMatch?.[1] || null
+  };
+}
+
 export function loginRequest(body: { email: string; password: string }) {
   return request<LoginResponse>("/auth/login", {
     method: "POST",
@@ -529,6 +551,22 @@ export function fetchFinanceiroMotoristas(
       Authorization: `Bearer ${token}`
     }
   });
+}
+
+export function fetchFinanceiroNotaFiscalContent(token: string, receivedId: string) {
+  return requestBlob(`/financeiro/driver-pdfs/${receivedId}/content`, token);
+}
+
+export function exportFinanceiroNotasFiscais(token: string, periodId: string, baseId?: string | null) {
+  const params = new URLSearchParams();
+
+  if (baseId && baseId !== "all") {
+    params.set("baseId", baseId);
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+
+  return requestBlob(`/financeiro/periods/${periodId}/export${suffix}`, token);
 }
 
 export function createPaymentPeriod(token: string, body: CreatePaymentPeriodPayload) {

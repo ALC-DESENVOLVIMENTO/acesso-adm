@@ -1,9 +1,11 @@
-﻿import { UploadStatus } from "@prisma/client";
+import archiver from "archiver";
+import { UploadStatus } from "@prisma/client";
 import { Router } from "express";
 import { z } from "zod";
 import { requireAuth, requireModuleAccess } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
-import { buildStorageObjectUrl } from "../../lib/storage.js";
+import { buildStorageObjectUrl, fetchObjectBuffer } from "../../lib/storage.js";
+import { loadDriverPdfReceivedContent } from "../../lib/driver-pdf-received-content.js";
 import { upsertDriverPdfReceivedFromUpload } from "../../lib/driver-pdf-received.js";
 
 const router = Router();
@@ -12,7 +14,7 @@ router.use(requireAuth, requireModuleAccess("financeiro"));
 
 const listFiltersSchema = z.object({
   periodId: z.string().uuid().optional(),
-  baseId: z.string().uuid().optional(),
+  baseId: z.string().trim().min(1).optional(),
   search: z.string().trim().optional(),
   cpf: z.string().trim().optional(),
   status: z
@@ -39,17 +41,18 @@ function toIso(value: Date | null | undefined) {
 
 function formatStatusLabel(value: string) {
   const labels: Record<string, string> = {
+    pdf_aprovado: "PDF aprovado",
     pdf_aguardando_envio: "PDF aguardando envio ao motorista",
     pdf_enviado_ao_motorista: "PDF enviado ao motorista",
-    motorista_visualizou: "Motorista visualizou o PDF",
+    motorista_visualizou: "PDF visualizado",
     aguardando_envio_nota_fiscal: "Aguardando envio da Nota Fiscal",
     nota_fiscal_recebida: "Nota Fiscal recebida",
-    nota_fiscal_em_analise: "Nota Fiscal em anÃ¡lise",
+    nota_fiscal_em_analise: "Nota Fiscal em an?lise",
     nota_fiscal_aprovada: "Nota Fiscal aprovada",
-    nota_fiscal_rejeitada: "Nota Fiscal rejeitada",
-    em_atendimento: "Em atendimento via Chat",
+    nota_fiscal_rejeitada: "Nota Fiscal recusada",
+    em_atendimento: "Em atendimento",
     chamado_aberto: "Chamado aberto",
-    processo_concluido: "Processo concluÃ­do"
+    processo_concluido: "Processo conclu?do"
   };
 
   return labels[value] || value;
@@ -61,6 +64,58 @@ function toDateOnlyString(value: Date) {
 
 function countUnique(values: Array<string | null | undefined>) {
   return new Set(values.filter((item): item is string => Boolean(item))).size;
+}
+
+const noteStatuses = new Set([
+  "nota_fiscal_recebida",
+  "nota_fiscal_em_analise",
+  "nota_fiscal_aprovada",
+  "nota_fiscal_rejeitada",
+  "processo_concluido"
+]);
+
+function isNoteStatus(status: string | null | undefined) {
+  return Boolean(status && noteStatuses.has(status));
+}
+
+function normalizeScopeBaseId(baseId: string | null | undefined) {
+  const value = String(baseId || "").trim();
+
+  if (!value || value === "all") {
+    return null;
+  }
+
+  return value;
+}
+
+function sanitizeArchiveSegment(value: string) {
+  return (
+    value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9._-]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .replace(/_{2,}/g, "_") || "sem-nome"
+  );
+}
+
+function buildExportPath(periodName: string, baseName: string, motoristaName: string) {
+  return [
+    sanitizeArchiveSegment(periodName),
+    sanitizeArchiveSegment(baseName),
+    sanitizeArchiveSegment(motoristaName),
+    "NotaFiscal.pdf"
+  ].join("/");
+}
+
+function escapeCsv(value: string) {
+  const normalized = String(value || "");
+
+  if (/["\n,;]/.test(normalized)) {
+    return `"${normalized.replace(/"/g, '""')}"`;
+  }
+
+  return normalized;
 }
 
 type SummaryUploadRecord = {
@@ -442,14 +497,26 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
     const { periodId, baseId, search, cpf, status } = parsed.data;
     const normalizedSearch = search?.trim();
     const normalizedCpf = cpf?.replace(/\D/g, "") || "";
+    const scopeBaseId = normalizeScopeBaseId(baseId);
+
+    if (scopeBaseId && !/^[0-9a-fA-F-]{36}$/.test(scopeBaseId)) {
+      res.status(400).json({
+        message: "Base invalida para listar motoristas do periodo."
+      });
+      return;
+    }
 
     const uploads = await prisma.uploadPdf.findMany({
       where: {
         periodoPagamentoId: periodId,
-        basePagamentoId: baseId,
         status: {
           not: UploadStatus.removido
         },
+        ...(scopeBaseId
+          ? {
+              basePagamentoId: scopeBaseId
+            }
+          : {}),
         ...(normalizedSearch || normalizedCpf
           ? {
               OR: [
@@ -531,7 +598,11 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
     const receivedRows = await prisma.driverPdfReceived.findMany({
       where: {
         periodoPagamentoId: periodId,
-        basePagamentoId: baseId
+        ...(scopeBaseId
+          ? {
+              basePagamentoId: scopeBaseId
+            }
+          : {})
       },
       select: {
         id: true,
@@ -543,6 +614,8 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
         uploadEm: true,
         enviadoAoMotoristaEm: true,
         visualizadoEm: true,
+        aprovadoEm: true,
+        rejeitadoEm: true,
         motivoRejeicao: true,
         observacoes: true,
         caminhoArquivo: true,
@@ -552,12 +625,16 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
 
     const latestUploads = new Map<string, (typeof uploads)[number]>();
 
-    for (const upload of uploads) {
-      if (!upload.motoristaId || latestUploads.has(upload.motoristaId)) {
+    for (const upload of uploads.sort((left, right) => right.criadoEm.getTime() - left.criadoEm.getTime())) {
+      if (!upload.motoristaId || !upload.basePagamentoId) {
         continue;
       }
 
-      latestUploads.set(upload.motoristaId, upload);
+      const key = `${upload.motoristaId}|${upload.basePagamentoId}`;
+
+      if (!latestUploads.has(key)) {
+        latestUploads.set(key, upload);
+      }
     }
 
     const mapped = Array.from(latestUploads.values()).flatMap((upload) => {
@@ -579,9 +656,13 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
 
       const ticketStatuses = upload.motorista.chamados.map((item) => item.status);
       const attendanceStatus = computeAttendanceStatus(ticketStatuses, upload.motorista.atendimentos.length);
-      const currentStatus = receipt?.status || "pdf_aguardando_envio";
+      const currentStatus = isNoteStatus(receipt?.status) ? receipt?.status : receipt?.status || "pdf_aguardando_envio";
       const pdfSentAt = receipt?.enviadoAoMotoristaEm || upload.criadoEm;
-      const noteReceivedAt = receipt?.status === "nota_fiscal_recebida" ? receipt.uploadEm : null;
+      const noteSentAt = isNoteStatus(receipt?.status) ? receipt?.uploadEm : null;
+      const noteDownloadUrl =
+        isNoteStatus(receipt?.status) && receipt?.caminhoArquivo
+          ? buildStorageObjectUrl(receipt.caminhoArquivo)
+          : null;
 
       return {
         id: receipt?.id || upload.id,
@@ -592,24 +673,33 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
         periodoPagamento: upload.periodoPagamento.nome,
         pdfEnviadoEm: toIso(pdfSentAt),
         pdfVisualizadoEm: toIso(receipt?.visualizadoEm),
-        notaFiscalEnviadaEm: receipt ? toIso(receipt.uploadEm) : null,
-        notaFiscalRecebidaEm: noteReceivedAt ? toIso(noteReceivedAt) : null,
+        notaFiscalEnviadaEm: toIso(noteSentAt),
+        notaFiscalRecebidaEm: toIso(
+          receipt?.aprovadoEm ||
+            receipt?.rejeitadoEm ||
+            (isNoteStatus(receipt?.status) ? receipt.uploadEm : null)
+        ),
         status: currentStatus,
         statusLabel: formatStatusLabel(currentStatus),
         situacaoAtendimento: attendanceStatus,
-        ultimaAtualizacao: toIso(receipt?.uploadEm || upload.criadoEm),
+        ultimaAtualizacao: toIso(
+          receipt?.aprovadoEm || receipt?.rejeitadoEm || receipt?.uploadEm || upload.criadoEm
+        ),
         atendimentoStatus: attendanceStatus,
         statusNotaFiscal:
           currentStatus === "nota_fiscal_rejeitada"
-            ? "Rejeitada"
+            ? "Recusada"
             : currentStatus === "nota_fiscal_aprovada"
               ? "Aprovada"
               : currentStatus === "nota_fiscal_em_analise"
-                ? "Em análise"
+                ? "Em an?lise"
                 : currentStatus === "nota_fiscal_recebida"
                   ? "Recebida"
-                  : "Pendente",
-        caminhoArquivo: buildStorageObjectUrl(upload.caminhoArquivo)
+                  : currentStatus === "aguardando_envio_nota_fiscal"
+                    ? "Pendente"
+                    : "Pendente",
+        caminhoArquivo: buildStorageObjectUrl(upload.caminhoArquivo),
+        notaFiscalDownloadUrl: noteDownloadUrl
       };
     });
 
@@ -627,6 +717,324 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
       message: "Falha ao listar motoristas do periodo financeiro.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
+  });
+});
+
+router.get("/driver-pdfs/:receivedId/content", (req, res) => {
+  void (async () => {
+    const receivedId = String(req.params.receivedId || "").trim();
+
+    if (!receivedId) {
+      res.status(400).json({
+        message: "Nota fiscal invalida."
+      });
+      return;
+    }
+
+    const received = await prisma.driverPdfReceived.findUnique({
+      where: {
+        id: receivedId
+      },
+      select: {
+        id: true,
+        status: true,
+        nomeArquivo: true,
+        caminhoArquivo: true,
+        uploadPdfId: true
+      }
+    });
+
+    if (!received) {
+      res.status(404).json({
+        message: "Nota fiscal nao encontrada."
+      });
+      return;
+    }
+
+    const content = await loadDriverPdfReceivedContent(received.id, received.uploadPdfId || null);
+
+    if (!content) {
+      res.status(404).json({
+        message:
+          received.status === "nota_fiscal_recebida" ||
+          received.status === "nota_fiscal_em_analise" ||
+          received.status === "nota_fiscal_aprovada" ||
+          received.status === "nota_fiscal_rejeitada"
+            ? "Arquivo da nota fiscal nao encontrado no bucket."
+            : "Nota fiscal ainda nao enviada."
+      });
+      return;
+    }
+
+    const filename = String(received.nomeArquivo || "nota-fiscal.pdf").replace(/"/g, "'");
+    const shouldDownload = String(req.query.download || "") === "1";
+    res.writeHead(200, {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `${shouldDownload ? "attachment" : "inline"}; filename="${filename}"`
+    });
+    res.end(content);
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao carregar nota fiscal.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
+
+router.get("/periods/:periodId/export", (req, res) => {
+  void (async () => {
+    const periodId = String(req.params.periodId || "").trim();
+    const baseId = normalizeScopeBaseId(String(req.query.baseId || ""));
+    const motoristaIds = String(req.query.motoristaIds || "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const selectedMotoristaIds = new Set(motoristaIds);
+
+    if (!periodId) {
+      res.status(400).json({
+        message: "Periodo invalido para exportacao."
+      });
+      return;
+    }
+
+    if (baseId && !/^[0-9a-fA-F-]{36}$/.test(baseId)) {
+      res.status(400).json({
+        message: "Base invalida para exportacao."
+      });
+      return;
+    }
+
+    const period = await prisma.periodoPagamento.findUnique({
+      where: {
+        id: periodId
+      },
+      select: {
+        id: true,
+        nome: true,
+        bases: {
+          select: {
+            basePagamento: {
+              select: {
+                id: true,
+                nome: true
+              }
+            }
+          }
+        },
+        uploads: {
+          select: {
+            id: true,
+            motoristaId: true,
+            basePagamentoId: true,
+            nomeOriginal: true,
+            caminhoArquivo: true,
+            criadoEm: true,
+            status: true,
+            substituiUploadId: true,
+            motorista: {
+              select: {
+                nome: true,
+                cpf: true
+              }
+            },
+            basePagamento: {
+              select: {
+                nome: true
+              }
+            }
+          }
+        },
+        pdfsRecebidos: {
+          select: {
+            id: true,
+            uploadPdfId: true,
+            motoristaId: true,
+            basePagamentoId: true,
+            status: true,
+            uploadEm: true,
+            caminhoArquivo: true,
+            nomeArquivo: true,
+            motorista: {
+              select: {
+                nome: true,
+                cpf: true
+              }
+            },
+            basePagamento: {
+              select: {
+                nome: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!period) {
+      res.status(404).json({
+        message: "Periodo nao encontrado para exportacao."
+      });
+      return;
+    }
+
+    const visibleUploads = period.uploads.filter((upload) => upload.status !== "removido");
+    const latestUploads = new Map<string, (typeof visibleUploads)[number]>();
+
+    for (const upload of [...visibleUploads].sort((left, right) => right.criadoEm.getTime() - left.criadoEm.getTime())) {
+      if (!upload.motoristaId || !upload.basePagamentoId) {
+        continue;
+      }
+
+      if (baseId && upload.basePagamentoId !== baseId) {
+        continue;
+      }
+
+      if (selectedMotoristaIds.size > 0 && !selectedMotoristaIds.has(upload.motoristaId)) {
+        continue;
+      }
+
+      const key = `${upload.motoristaId}|${upload.basePagamentoId}`;
+      if (!latestUploads.has(key)) {
+        latestUploads.set(key, upload);
+      }
+    }
+
+    const receivedRows = period.pdfsRecebidos.filter((item) => {
+      if (baseId && item.basePagamentoId !== baseId) {
+        return false;
+      }
+
+      if (selectedMotoristaIds.size > 0 && item.motoristaId && !selectedMotoristaIds.has(item.motoristaId)) {
+        return false;
+      }
+
+      return true;
+    });
+
+    const archive = archiver("zip", {
+      zlib: { level: 9 }
+    });
+
+    const periodFolder = sanitizeArchiveSegment(period.nome);
+    const pendingRows: string[] = ["periodo,base,motorista,cpf,motivo"];
+
+    res.status(200);
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", `attachment; filename="${periodFolder}.zip"`);
+
+    archive.on("error", (error) => {
+      if (!res.headersSent) {
+        res.status(500).json({
+          message: "Falha ao gerar exportacao de notas fiscais.",
+          detail: error instanceof Error ? error.message : "Erro desconhecido"
+        });
+        return;
+      }
+
+      res.destroy(error as Error);
+    });
+
+    archive.pipe(res);
+
+    for (const upload of latestUploads.values()) {
+      const baseName = upload.basePagamento?.nome || "Base";
+      const motoristaName = upload.motorista?.nome || "Motorista";
+      const motoristaCpf = upload.motorista?.cpf || "";
+      const receipt =
+        receivedRows.find((item) => item.uploadPdfId && item.uploadPdfId === upload.id) ||
+        receivedRows.find(
+          (item) =>
+            item.motoristaId === upload.motoristaId &&
+            item.basePagamentoId === upload.basePagamentoId &&
+            item.status === "nota_fiscal_recebida"
+        ) ||
+        receivedRows.find(
+          (item) =>
+            item.motoristaId === upload.motoristaId &&
+            item.basePagamentoId === upload.basePagamentoId &&
+            (item.status === "nota_fiscal_em_analise" ||
+              item.status === "nota_fiscal_aprovada" ||
+              item.status === "nota_fiscal_rejeitada" ||
+              item.status === "processo_concluido")
+        ) ||
+        null;
+
+      if (!receipt) {
+        pendingRows.push(
+          [
+            escapeCsv(period.nome),
+            escapeCsv(baseName),
+            escapeCsv(motoristaName),
+            escapeCsv(motoristaCpf),
+            escapeCsv("Nota fiscal ainda nao enviada")
+          ].join(",")
+        );
+        continue;
+      }
+
+      if (!isNoteStatus(receipt.status)) {
+        pendingRows.push(
+          [
+            escapeCsv(period.nome),
+            escapeCsv(baseName),
+            escapeCsv(motoristaName),
+            escapeCsv(motoristaCpf),
+            escapeCsv("Nota fiscal ainda nao enviada")
+          ].join(",")
+        );
+        continue;
+      }
+
+      if (!receipt.caminhoArquivo) {
+        pendingRows.push(
+          [
+            escapeCsv(period.nome),
+            escapeCsv(baseName),
+            escapeCsv(motoristaName),
+            escapeCsv(motoristaCpf),
+            escapeCsv("Arquivo da nota fiscal nao encontrado no bucket")
+          ].join(",")
+        );
+        continue;
+      }
+
+      const file = await fetchObjectBuffer(receipt.caminhoArquivo).catch(() => null);
+      if (!file?.body) {
+        pendingRows.push(
+          [
+            escapeCsv(period.nome),
+            escapeCsv(baseName),
+            escapeCsv(motoristaName),
+            escapeCsv(motoristaCpf),
+            escapeCsv("Arquivo da nota fiscal nao encontrado no bucket")
+          ].join(",")
+        );
+        continue;
+      }
+
+      archive.append(file.body, {
+        name: buildExportPath(period.nome, baseName, motoristaName)
+      });
+    }
+
+    if (pendingRows.length > 1) {
+      archive.append(Buffer.from(pendingRows.join("\n"), "utf8"), {
+        name: `${periodFolder}/pendencias.csv`
+      });
+    }
+
+    await archive.finalize();
+  })().catch((error) => {
+    if (!res.headersSent) {
+      res.status(500).json({
+        message: "Falha ao exportar notas fiscais.",
+        detail: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+      return;
+    }
+
+    res.destroy(error instanceof Error ? error : new Error("Falha ao exportar notas fiscais."));
   });
 });
 

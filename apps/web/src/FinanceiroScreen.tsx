@@ -17,8 +17,10 @@ import {
   createPaymentPeriod,
   deletePaymentPeriod,
   fetchFinanceiroBases,
+  fetchFinanceiroNotaFiscalContent,
   fetchFinanceiroMotoristas,
   fetchFinanceiroSummary,
+  exportFinanceiroNotasFiscais,
   type FinanceiroBaseCard,
   type FinanceiroMotoristaRow,
   type FinanceiroSummary,
@@ -146,7 +148,7 @@ export function FinanceiroScreen({
   const [baseCards, setBaseCards] = useState<FinanceiroBaseCard[]>([]);
   const [motoristas, setMotoristas] = useState<FinanceiroMotoristaRow[]>([]);
   const [selectedPeriodId, setSelectedPeriodId] = useState("");
-  const [selectedBaseId, setSelectedBaseId] = useState("");
+  const [selectedBaseId, setSelectedBaseId] = useState("all");
   const [periodViewTab, setPeriodViewTab] = useState<"bases" | "motoristas">("bases");
   const [searchTerm, setSearchTerm] = useState("");
   const [cpfTerm, setCpfTerm] = useState("");
@@ -179,10 +181,13 @@ export function FinanceiroScreen({
       : bases.filter((base) => base.paymentType === selectedPeriod.paymentType);
   }, [bases, selectedPeriod]);
 
-  const selectedBase = useMemo(
-    () => allowedBases.find((base) => base.id === selectedBaseId) || null,
-    [allowedBases, selectedBaseId]
-  );
+  const selectedBase = useMemo(() => {
+    if (selectedBaseId === "all") {
+      return null;
+    }
+
+    return allowedBases.find((base) => base.id === selectedBaseId) || null;
+  }, [allowedBases, selectedBaseId]);
 
   const visibleMotoristas = useMemo(() => {
     return motoristas.filter((row) => {
@@ -210,7 +215,7 @@ export function FinanceiroScreen({
   };
 
   const loadMotoristas = async (periodId: string, baseId: string) => {
-    if (!periodId || !baseId) {
+    if (!periodId) {
       setMotoristas([]);
       return;
     }
@@ -240,7 +245,7 @@ export function FinanceiroScreen({
   useEffect(() => {
     if (!selectedPeriodId) {
       setBaseCards([]);
-      setSelectedBaseId("");
+      setSelectedBaseId("all");
       return;
     }
 
@@ -260,12 +265,12 @@ export function FinanceiroScreen({
 
   useEffect(() => {
     if (!allowedBases.length) {
-      setSelectedBaseId("");
+      setSelectedBaseId("all");
       return;
     }
 
-    if (!selectedBaseId || !allowedBases.some((base) => base.id === selectedBaseId)) {
-      setSelectedBaseId(allowedBases[0].id);
+    if (selectedBaseId !== "all" && !allowedBases.some((base) => base.id === selectedBaseId)) {
+      setSelectedBaseId("all");
     }
   }, [allowedBases, selectedBaseId]);
 
@@ -398,6 +403,53 @@ export function FinanceiroScreen({
     }
   };
 
+  const handleExportNotasFiscais = async () => {
+    if (!selectedPeriodId) {
+      return;
+    }
+
+    try {
+      setBusyMessage("Preparando exportacao das notas fiscais...");
+      const { blob, filename } = await exportFinanceiroNotasFiscais(
+        token,
+        selectedPeriodId,
+        selectedBaseId === "all" ? null : selectedBaseId
+      );
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename || `notas-fiscais-${selectedPeriodId}.zip`;
+      anchor.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Falha ao exportar notas fiscais.");
+    } finally {
+      setBusyMessage("");
+    }
+  };
+
+  const openNotaFiscal = async (row: FinanceiroMotoristaRow) => {
+    if (!row.notaFiscalDownloadUrl) {
+      setErrorMessage("Nota Fiscal ainda nao enviada.");
+      return;
+    }
+
+    try {
+      setBusyMessage("Abrindo Nota Fiscal...");
+      const { blob } = await fetchFinanceiroNotaFiscalContent(token, row.id);
+      const url = URL.createObjectURL(blob);
+      const popup = window.open(url, "_blank", "noopener,noreferrer");
+      if (!popup) {
+        window.location.href = url;
+      }
+      window.setTimeout(() => URL.revokeObjectURL(url), 3000);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Falha ao visualizar Nota Fiscal.");
+    } finally {
+      setBusyMessage("");
+    }
+  };
+
   if (!canAccess) {
     return (
       <div className="screen">
@@ -511,28 +563,6 @@ export function FinanceiroScreen({
             </div>
           </div>
 
-          <div className="finance-period-selector">
-            <label className="field finance-period-selector__field">
-              <span>Periodo selecionado</span>
-              <select
-                className="field__select"
-                value={selectedPeriodId}
-                onChange={(event) => setSelectedPeriodId(event.target.value)}
-              >
-                {visiblePeriods.map((period) => (
-                  <option key={period.id} value={period.id}>
-                    {period.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="finance-period-selector__summary">
-              <span className="status-pill">
-                {selectedPeriod ? formatStatusLabel(selectedPeriod.status) : "Sem periodo selecionado"}
-              </span>
-            </div>
-          </div>
-
           <div className="finance-period-list">
             {visiblePeriods.map((period) => {
               const isSelected = period.id === selectedPeriodId;
@@ -540,7 +570,11 @@ export function FinanceiroScreen({
                 <article
                   className={`finance-period-card ${isSelected ? "finance-period-card--active" : ""}`}
                   key={period.id}
-                  onClick={() => setSelectedPeriodId(period.id)}
+                  onClick={() => {
+                    setSelectedPeriodId(period.id);
+                    setSelectedBaseId("all");
+                    setPeriodViewTab("bases");
+                  }}
                 >
                   <div className="finance-period-card__top">
                     <div>
@@ -561,20 +595,30 @@ export function FinanceiroScreen({
         </article>
 
         <div className="finance-stack">
-          <div className="period-tabs finance-section-tabs">
+          <div className="finance-section-tabs">
+            <div className="period-tabs">
+              <button
+                className={`period-tab ${periodViewTab === "bases" ? "period-tab--active" : ""}`}
+                type="button"
+                onClick={() => setPeriodViewTab("bases")}
+              >
+                Periodo ativo
+              </button>
+              <button
+                className={`period-tab ${periodViewTab === "motoristas" ? "period-tab--active" : ""}`}
+                type="button"
+                onClick={() => setPeriodViewTab("motoristas")}
+              >
+                Motoristas do periodo
+              </button>
+            </div>
             <button
-              className={`period-tab ${periodViewTab === "bases" ? "period-tab--active" : ""}`}
+              className="ghost-button ghost-button--small finance-export-button"
               type="button"
-              onClick={() => setPeriodViewTab("bases")}
+              onClick={handleExportNotasFiscais}
+              disabled={!selectedPeriodId}
             >
-              Periodo ativo
-            </button>
-            <button
-              className={`period-tab ${periodViewTab === "motoristas" ? "period-tab--active" : ""}`}
-              type="button"
-              onClick={() => setPeriodViewTab("motoristas")}
-            >
-              Motoristas do periodo
+              Exportar Notas Fiscais
             </button>
           </div>
 
@@ -648,15 +692,15 @@ export function FinanceiroScreen({
               </div>
             </div>
 
-            {selectedBase ? (
+            {selectedBase || selectedBaseId === "all" ? (
               <div className="finance-period-hero finance-period-hero--compact">
                 <div>
                   <p className="eyebrow">Base selecionada</p>
-                  <h4>{selectedBase.name}</h4>
-                  <p>{selectedBase.paymentType.toUpperCase()}</p>
+                  <h4>{selectedBase ? selectedBase.name : "Todas as bases"}</h4>
+                  <p>{selectedBase ? selectedBase.paymentType.toUpperCase() : "PERIODO INTEIRO"}</p>
                 </div>
                 <div className="finance-period-hero__meta">
-                  <span>{selectedBase.motoristas} motoristas</span>
+                  <span>{selectedBase ? `${selectedBase.motoristas} motoristas` : `${visibleMotoristas.length} motoristas`}</span>
                   <small>Base ativa para consulta</small>
                 </div>
               </div>
@@ -688,12 +732,12 @@ export function FinanceiroScreen({
                   <option value="motorista_visualizou">Visualizado</option>
                   <option value="aguardando_envio_nota_fiscal">Aguardando NF</option>
                   <option value="nota_fiscal_recebida">NF recebida</option>
-                  <option value="nota_fiscal_em_analise">Em analise</option>
+                  <option value="nota_fiscal_em_analise">Em análise</option>
                   <option value="nota_fiscal_aprovada">Aprovada</option>
                   <option value="nota_fiscal_rejeitada">Rejeitada</option>
                   <option value="em_atendimento">Em atendimento</option>
                   <option value="chamado_aberto">Chamado aberto</option>
-                  <option value="processo_concluido">Concluido</option>
+                  <option value="processo_concluido">Concluído</option>
                 </select>
               </label>
               <label className="filter-select">
@@ -756,12 +800,15 @@ export function FinanceiroScreen({
                               Abrir
                               <Eye size={16} />
                             </button>
-                            {row.caminhoArquivo ? (
-                              <a className="ghost-button ghost-button--small" href={row.caminhoArquivo} target="_blank" rel="noreferrer">
-                                PDF
-                                <FilePdf size={16} />
-                              </a>
-                            ) : null}
+                            <button
+                              className="ghost-button ghost-button--small"
+                              type="button"
+                              onClick={() => void openNotaFiscal(row)}
+                              disabled={!row.notaFiscalDownloadUrl}
+                            >
+                              Visualizar Nota Fiscal
+                              <FilePdf size={16} />
+                            </button>
                           </div>
                         </td>
                       </tr>

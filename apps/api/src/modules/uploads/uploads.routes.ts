@@ -3,6 +3,7 @@ import { Router } from "express";
 import multer from "multer";
 import { requireAuth, requireModuleAccess } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
+import { notifyPdfOnline } from "../../lib/pdfonline-bridge.js";
 import {
   buildStorageObjectUrl,
   createStorageKey,
@@ -477,6 +478,42 @@ router.post("/", upload.array("files", 20), (req, res) => {
       }
     });
 
+    void Promise.all(
+      createdUploads.map((upload) =>
+        notifyPdfOnline(
+          "portal.upload.created",
+          {
+            id: upload.id,
+            uploadId: upload.id,
+            uploadPdfId: upload.id,
+            periodId,
+            periodoPagamentoId: periodId,
+            basePaymentId,
+            basePagamentoId: basePaymentId,
+            motoristaId: upload.motoristaId,
+            motoristaNome: upload.motoristaNome,
+            motoristaCpf: upload.motoristaCpf,
+            usuarioId: auth.userId,
+            nomeArquivo: upload.nomeArquivo,
+            nomeOriginal: upload.nomeOriginal,
+            caminhoArquivo: upload.caminhoArquivo,
+            storageKey: upload.storageKey,
+            versao: upload.versao,
+            status: "pendente",
+            tipoArquivo: upload.file.mimetype,
+            observacoes: `PDF anexado para ${upload.motoristaNome}`
+          },
+          {
+            userId: auth.userId,
+            periodId,
+            basePaymentId
+          }
+        ).catch((error) => {
+          console.warn("PDF Online bridge upload-created notify failed:", error instanceof Error ? error.message : error);
+        })
+      )
+    );
+
     res.status(201).json({
       message: "Upload concluido com sucesso."
     });
@@ -545,6 +582,36 @@ router.delete("/:id", (req, res) => {
           arquivo: upload.nomeOriginal
         }
       }
+    });
+
+    void notifyPdfOnline(
+      "portal.upload.removed",
+      {
+        id: upload.id,
+        uploadId: upload.id,
+        uploadPdfId: upload.id,
+        periodId: upload.periodoPagamentoId,
+        periodoPagamentoId: upload.periodoPagamentoId,
+        basePaymentId: upload.basePagamentoId,
+        basePagamentoId: upload.basePagamentoId,
+        motoristaId: upload.motoristaId,
+        usuarioId: upload.usuarioId,
+        nomeArquivo: upload.nomeArquivo,
+        nomeOriginal: upload.nomeOriginal,
+        caminhoArquivo: upload.caminhoArquivo,
+        storageKey: upload.caminhoArquivo,
+        status: "removido",
+        tipoArquivo: "application/pdf",
+        observacoes: `PDF removido para ${upload.nomeOriginal}`
+      },
+      {
+        userId: auth.userId,
+        uploadId: upload.id,
+        periodId: upload.periodoPagamentoId,
+        basePaymentId: upload.basePagamentoId
+      }
+    ).catch((error) => {
+      console.warn("PDF Online bridge upload-removed notify failed:", error instanceof Error ? error.message : error);
     });
 
     res.json({
@@ -664,6 +731,38 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
           novo: file.originalname
         }
       }
+    });
+
+    void notifyPdfOnline(
+      "portal.upload.replaced",
+      {
+        id: newUpload.id,
+        uploadId: newUpload.id,
+        uploadPdfId: newUpload.id,
+        periodId: newUpload.periodoPagamentoId,
+        periodoPagamentoId: newUpload.periodoPagamentoId,
+        basePaymentId: newUpload.basePagamentoId,
+        basePagamentoId: newUpload.basePagamentoId,
+        motoristaId: newUpload.motoristaId,
+        usuarioId: newUpload.usuarioId,
+        nomeArquivo: newUpload.nomeArquivo,
+        nomeOriginal: newUpload.nomeOriginal,
+        caminhoArquivo: newUpload.caminhoArquivo,
+        storageKey: newUpload.caminhoArquivo,
+        versao: newUpload.versao,
+        status: "pendente",
+        tipoArquivo: file.mimetype,
+        substituiUploadId: currentUpload.id,
+        observacoes: `PDF substituido para ${currentUpload.nomeOriginal}`
+      },
+      {
+        userId: auth.userId,
+        uploadId: newUpload.id,
+        periodId: newUpload.periodoPagamentoId,
+        basePaymentId: newUpload.basePagamentoId
+      }
+    ).catch((error) => {
+      console.warn("PDF Online bridge upload-replaced notify failed:", error instanceof Error ? error.message : error);
     });
 
     res.json({

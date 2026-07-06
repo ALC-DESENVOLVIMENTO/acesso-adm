@@ -2058,26 +2058,11 @@ button {
 }
 
 .finance-section-tabs {
-  margin-bottom: -2px;
-}
-
-.finance-period-selector {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 14px;
-  align-items: end;
-}
-
-.finance-period-selector__field {
-  margin: 0;
-}
-
-.finance-period-selector__summary {
-  display: grid;
-  gap: 6px;
-  justify-items: end;
-  text-align: right;
-  color: var(--muted);
+  margin-bottom: -2px;
 }
 
 .finance-period-list {
@@ -2203,6 +2188,14 @@ button {
   padding: 8px 0 10px;
   background: linear-gradient(180deg, rgba(244, 246, 250, 0.96), rgba(244, 246, 250, 0.82));
   backdrop-filter: blur(10px);
+}
+
+.finance-section-tabs .period-tabs {
+  flex: 1 1 auto;
+}
+
+.finance-export-button {
+  white-space: nowrap;
 }
 
 .finance-table .data-table {
