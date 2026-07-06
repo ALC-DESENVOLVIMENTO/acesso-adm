@@ -1518,12 +1518,7 @@ function App() {
                     <button
                       key={item.key}
                       className={`sidebar__item ${isActive ? "sidebar__item--active" : ""}`}
-                      onClick={() => {
-                        navigateToRoute(item.key);
-                        if (item.key === "users") {
-                          openUsersCreateModal();
-                        }
-                      }}
+                      onClick={() => navigateToRoute(item.key)}
                       type="button"
                     >
                   <Icon size={22} />
