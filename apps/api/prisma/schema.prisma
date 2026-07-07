@@ -21,6 +21,7 @@ enum PermissionOverrideType {
 
 enum UploadStatus {
   pendente
+  pendente_revisao_base
   processado
   erro
   substituido
@@ -236,6 +237,7 @@ model UploadPdf {
   nomeArquivo        String        @map("nome_arquivo") @db.VarChar(255)
   nomeOriginal       String        @map("nome_original") @db.VarChar(255)
   caminhoArquivo     String        @map("caminho_arquivo")
+  baseIdentificada   String?       @map("base_identificada") @db.VarChar(150)
   content            Bytes?        @map("content")
   versao             Int           @default(1)
   status             UploadStatus

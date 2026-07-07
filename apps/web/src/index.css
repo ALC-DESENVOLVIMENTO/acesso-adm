@@ -2373,6 +2373,49 @@ button {
   box-shadow: 0 12px 28px rgba(255, 95, 83, 0.28);
 }
 
+.duplicate-review-list {
+  display: grid;
+  gap: 12px;
+}
+
+.duplicate-review-card {
+  border-radius: 18px;
+  border: 1px solid rgba(31, 36, 48, 0.08);
+  background: rgba(244, 246, 250, 0.84);
+  padding: 16px 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.duplicate-review-card__main {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.duplicate-review-card__main strong {
+  display: block;
+  font-size: 1rem;
+}
+
+.duplicate-review-card__main span,
+.duplicate-review-card__main small,
+.duplicate-review-card__main p {
+  color: var(--muted);
+}
+
+.duplicate-review-card__main p {
+  margin: 6px 0 0;
+}
+
+.duplicate-review-card__meta {
+  text-align: right;
+  display: grid;
+  gap: 4px;
+}
+
 .finance-table .data-table {
   min-width: 1100px;
 }

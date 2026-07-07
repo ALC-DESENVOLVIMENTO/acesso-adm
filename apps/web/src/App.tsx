@@ -38,6 +38,7 @@ import {
   fetchAtendimentoMotorista,
   fetchPaymentBases,
   fetchPaymentPeriods,
+  fetchPeriodBaseReviews,
   fetchSession,
   fetchUploadHistory,
   fetchUploads,
@@ -49,6 +50,7 @@ import {
   updateMotoristaClassificacoes,
   updatePaymentPeriodStatus,
   updatePaymentBase,
+  reviewPeriodBaseUpload,
   createAtendimentoNota,
   updateAtendimentoNota,
   deleteAtendimentoNota,
@@ -69,6 +71,7 @@ import {
   type LoginResponse,
   type PaymentBase,
   type PaymentPeriod,
+  type PeriodBaseReviewItem,
   type UploadProgressState,
   type UploadRow,
   type UserPayload,
@@ -1228,6 +1231,7 @@ function App() {
       const response = await deletePaymentPeriod(token, periodId);
       setFlashMessage({ type: "success", text: response.message });
       await loadPeriodData();
+      await loadDuplicateReviews();
     } catch (error) {
       setFlashMessage({
         type: "error",
@@ -1254,7 +1258,7 @@ function App() {
     try {
       const response = await updatePaymentPeriodStatus(token, periodId, { status });
       setFlashMessage({ type: "success", text: response.message });
-      await Promise.all([loadPeriodData(), loadDashboardSummary(), loadUploadsData()]);
+      await Promise.all([loadPeriodData(), loadDashboardSummary(), loadUploadsData(), loadDuplicateReviews()]);
     } catch (error) {
       setFlashMessage({
         type: "error",
@@ -1262,6 +1266,34 @@ function App() {
       });
     } finally {
       setLoadingMessage("");
+    }
+  };
+
+  const handleReviewDuplicateUpload = async (
+    uploadId: string,
+    action: "aprovar" | "reprovar" | "redirecionar",
+    targetBaseId?: string
+  ) => {
+    if (!token) {
+      return;
+    }
+
+    setReviewingUploadId(uploadId);
+
+    try {
+      const response = await reviewPeriodBaseUpload(token, uploadId, {
+        action,
+        targetBaseId
+      });
+      setFlashMessage({ type: "success", text: response.message });
+      await Promise.all([loadPeriodData(), loadUploadsData(), loadDashboardSummary(), loadDuplicateReviews()]);
+    } catch (error) {
+      setFlashMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Falha ao revisar PDF."
+      });
+    } finally {
+      setReviewingUploadId(null);
     }
   };
 
@@ -1662,6 +1694,7 @@ function App() {
         ) : null}
         {!accessDenied && activeView === "periods" ? (
           <PeriodsScreen
+            token={token}
             currentUser={currentUser}
             bases={paymentBases}
             periods={paymentPeriods}
@@ -2327,6 +2360,7 @@ function DashboardScreen({
 }
 
 function PeriodsScreen({
+  token,
   currentUser,
   bases,
   periods,
@@ -2337,6 +2371,7 @@ function PeriodsScreen({
   onUpdatePeriodStatus,
   onDeletePeriod
 }: {
+  token: string;
   currentUser: SessionUser | null;
   bases: PaymentBase[];
   periods: PaymentPeriod[];
@@ -2364,6 +2399,8 @@ function PeriodsScreen({
   const [isCreatePeriodModalOpen, setIsCreatePeriodModalOpen] = useState(false);
   const [isBasePanelOpen, setIsBasePanelOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"active" | "finished">("active");
+  const [duplicateReviews, setDuplicateReviews] = useState<PeriodBaseReviewItem[]>([]);
+  const [reviewingUploadId, setReviewingUploadId] = useState<string | null>(null);
 
   const activeBases = useMemo(() => bases.filter((base) => base.active), [bases]);
 
@@ -2387,6 +2424,14 @@ function PeriodsScreen({
     [periods]
   );
 
+  const resolveBaseIdByName = (name: string) =>
+    bases.find((base) => base.name.toLowerCase().trim() === name.toLowerCase().trim())?.id || "";
+
+  const loadDuplicateReviews = async () => {
+    const data = await fetchPeriodBaseReviews(token);
+    setDuplicateReviews(data);
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const success = await onCreatePeriod(formValues);
@@ -2399,8 +2444,15 @@ function PeriodsScreen({
         endDate: "",
         paymentType: "semanal"
       });
+      await loadDuplicateReviews();
     }
   };
+
+  useEffect(() => {
+    void loadDuplicateReviews().catch(() => {
+      setDuplicateReviews([]);
+    });
+  }, [token]);
 
   if (!currentUser || (currentUser.level !== "N3" && currentUser.level !== "N4")) {
     return (
@@ -2481,6 +2533,75 @@ function PeriodsScreen({
             Gerenciar bases
             <ArrowRight size={16} />
           </button>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel__header panel__header--split">
+          <div>
+            <h3>Motoristas duplicados</h3>
+            <p>Itens que chegaram com base divergente e aguardam decisao de N3/N4.</p>
+          </div>
+          <span className="status-pill">{duplicateReviews.length} pendentes</span>
+        </div>
+
+        <div className="duplicate-review-list">
+          {duplicateReviews.length > 0 ? (
+            duplicateReviews.map((item) => {
+              const redirectBaseId = resolveBaseIdByName(item.baseRegistrada);
+              const canRedirect = Boolean(redirectBaseId);
+
+              return (
+                <article className="duplicate-review-card" key={item.id}>
+                  <div className="duplicate-review-card__main">
+                    <div>
+                      <strong>{item.motoristaNome}</strong>
+                      <span>{item.motoristaCpf}</span>
+                      <p>
+                        Base cadastrada: {item.baseRegistrada} | Base enviada: {item.baseEnviada}
+                      </p>
+                    </div>
+                    <div className="duplicate-review-card__meta">
+                      <span>{item.periodName}</span>
+                      <small>{new Date(item.uploadedAt).toLocaleString("pt-BR")}</small>
+                    </div>
+                  </div>
+
+                  <div className="table-actions">
+                    <button
+                      className="ghost-button ghost-button--small"
+                      type="button"
+                      disabled={reviewingUploadId === item.id}
+                      onClick={() => void handleReviewDuplicateUpload(item.id, "aprovar")}
+                    >
+                      Aprovar
+                    </button>
+                    <button
+                      className="ghost-button ghost-button--small ghost-button--danger"
+                      type="button"
+                      disabled={reviewingUploadId === item.id}
+                      onClick={() => void handleReviewDuplicateUpload(item.id, "reprovar")}
+                    >
+                      Reprovar
+                    </button>
+                    <button
+                      className="ghost-button ghost-button--small"
+                      type="button"
+                      disabled={reviewingUploadId === item.id || !canRedirect}
+                      onClick={() => void handleReviewDuplicateUpload(item.id, "redirecionar", redirectBaseId)}
+                    >
+                      Redirecionar
+                    </button>
+                  </div>
+                </article>
+              );
+            })
+          ) : (
+            <div className="crm-empty-screen">
+              <strong>Nenhum motorista duplicado pendente</strong>
+              <p>Quando houver divergencia de base, os itens aparecem aqui para revisao.</p>
+            </div>
+          )}
         </div>
       </section>
 

@@ -137,24 +137,6 @@ function normalizeFileIdentityOptions(body: Record<string, unknown>, fileName: s
   };
 }
 
-function formatRegistryMismatchMessage(options: {
-  motoristaNome: string;
-  expectedBase: string;
-  foundBase: string | null;
-}) {
-  const parts = [`O motorista ${options.motoristaNome}`];
-
-  if (options.foundBase) {
-    parts.push(`esta vinculado a ${options.foundBase}`);
-  } else {
-    parts.push("nao possui base identificada");
-  }
-
-  parts.push(`e nao a base selecionada ${options.expectedBase}.`);
-
-  return parts.join(" ");
-}
-
 async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseName: string, body: Record<string, unknown>) {
   const identity = normalizeFileIdentityOptions(body, file.originalname);
   const resolved = await resolveDriverRegistryByIdentity(identity);
@@ -190,16 +172,6 @@ async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseNam
   if (!match) {
     return {
       error: `Nao foi possivel resolver o motorista do arquivo ${file.originalname}.`
-    } as const;
-  }
-
-  if (normalizeText(match.base || "") !== normalizeText(selectedBaseName)) {
-    return {
-      error: formatRegistryMismatchMessage({
-        motoristaNome: match.nome,
-        expectedBase: selectedBaseName,
-        foundBase: match.base
-      })
     } as const;
   }
 
@@ -347,13 +319,6 @@ router.post("/", upload.array("files", 20), (req, res) => {
       return;
     }
 
-    if (!period.bases.some((item) => item.basePagamentoId === basePaymentId)) {
-      res.status(400).json({
-        message: "Base invalida para o periodo selecionado."
-      });
-      return;
-    }
-
     const selectedBase = period.bases.find((item) => item.basePagamentoId === basePaymentId)?.basePagamento;
 
     if (!selectedBase) {
@@ -416,7 +381,8 @@ router.post("/", upload.array("files", 20), (req, res) => {
           motoristaId,
           motoristaNome,
           motoristaCpf,
-          baseName
+          baseName,
+          baseMismatch: normalizeText(baseName || "") !== normalizeText(selectedBase.nome)
         };
       })
     );
@@ -435,6 +401,7 @@ router.post("/", upload.array("files", 20), (req, res) => {
       motoristaNome: string;
       motoristaCpf: string;
       baseName: string;
+      baseMismatch: boolean;
       file: Express.Multer.File;
       storageKey: string;
     }> = [];
@@ -445,8 +412,9 @@ router.post("/", upload.array("files", 20), (req, res) => {
           nomeArquivo: prepared.file.originalname,
           nomeOriginal: prepared.file.originalname,
           caminhoArquivo: prepared.storageKey,
+          baseIdentificada: prepared.baseName,
           versao: 1,
-          status: UploadStatus.pendente,
+          status: prepared.baseMismatch ? UploadStatus.pendente_revisao_base : UploadStatus.pendente,
           usuarioId: auth.userId,
           motoristaId: prepared.motoristaId,
           periodoPagamentoId: periodId,
@@ -482,38 +450,40 @@ router.post("/", upload.array("files", 20), (req, res) => {
 
     if (shouldBridgeUploadToPdfOnline) {
       void Promise.all(
-        createdUploads.map((upload) =>
-          notifyPdfOnline(
-            "portal.upload.created",
-            {
-              id: upload.id,
-              uploadId: upload.id,
-              uploadPdfId: upload.id,
-              periodId,
-              periodoPagamentoId: periodId,
-              basePaymentId,
-              basePagamentoId: basePaymentId,
-              motoristaId: upload.motoristaId,
-              motoristaNome: upload.motoristaNome,
-              motoristaCpf: upload.motoristaCpf,
-              usuarioId: auth.userId,
-              nomeArquivo: upload.nomeArquivo,
-              nomeOriginal: upload.nomeOriginal,
-              caminhoArquivo: upload.caminhoArquivo,
-              storageKey: upload.storageKey,
-              versao: upload.versao,
-              status: "pendente",
-              tipoArquivo: upload.file.mimetype,
-              observacoes: `PDF anexado para ${upload.motoristaNome}`
-            },
-            {
-              userId: auth.userId,
-              periodId,
-              basePaymentId
-            }
-          ).catch((error) => {
-            console.warn("PDF Online bridge upload-created notify failed:", error instanceof Error ? error.message : error);
-          })
+        createdUploads
+          .filter((upload) => upload.status !== UploadStatus.pendente_revisao_base)
+          .map((upload) =>
+            notifyPdfOnline(
+              "portal.upload.created",
+              {
+                id: upload.id,
+                uploadId: upload.id,
+                uploadPdfId: upload.id,
+                periodId,
+                periodoPagamentoId: periodId,
+                basePaymentId,
+                basePagamentoId: basePaymentId,
+                motoristaId: upload.motoristaId,
+                motoristaNome: upload.motoristaNome,
+                motoristaCpf: upload.motoristaCpf,
+                usuarioId: auth.userId,
+                nomeArquivo: upload.nomeArquivo,
+                nomeOriginal: upload.nomeOriginal,
+                caminhoArquivo: upload.caminhoArquivo,
+                storageKey: upload.storageKey,
+                versao: upload.versao,
+                status: "pendente",
+                tipoArquivo: upload.file.mimetype,
+                observacoes: `PDF anexado para ${upload.motoristaNome}`
+              },
+              {
+                userId: auth.userId,
+                periodId,
+                basePaymentId
+              }
+            ).catch((error) => {
+              console.warn("PDF Online bridge upload-created notify failed:", error instanceof Error ? error.message : error);
+            })
         )
       );
     }
@@ -674,7 +644,8 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
           select: {
             nome: true
           }
-        }
+        },
+        baseIdentificada: true
       }
     });
 
@@ -724,11 +695,12 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
           nomeOriginal: file.originalname,
           caminhoArquivo: key,
           versao: currentUpload.versao + 1,
-          status: UploadStatus.pendente,
+          status: currentUpload.status,
           usuarioId: auth.userId,
           motoristaId: currentUpload.motoristaId,
           periodoPagamentoId: currentUpload.periodoPagamentoId,
           basePagamentoId: currentUpload.basePagamentoId,
+          baseIdentificada: currentUpload.baseIdentificada,
           substituiUploadId: currentUpload.id
         }
       })

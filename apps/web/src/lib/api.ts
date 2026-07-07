@@ -103,6 +103,20 @@ export type PaymentPeriod = {
   createdBy?: string;
 };
 
+export type PeriodBaseReviewItem = {
+  id: string;
+  fileName: string;
+  motoristaNome: string;
+  motoristaCpf: string;
+  baseRegistrada: string;
+  baseEnviada: string;
+  periodId: string | null;
+  periodName: string;
+  periodStatus: string;
+  uploadedAt: string;
+  downloadUrl: string;
+};
+
 export type FinanceiroSummary = {
   activePeriods: number;
   bases: number;
@@ -484,6 +498,14 @@ export function fetchPaymentPeriods(token: string) {
   });
 }
 
+export function fetchPeriodBaseReviews(token: string) {
+  return request<PeriodBaseReviewItem[]>("/periods/review-queue", {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
 export function fetchPaymentBases(token: string) {
   return request<PaymentBase[]>("/periods/bases", {
     headers: {
@@ -623,6 +645,20 @@ export function updatePaymentPeriodStatus(
 export function deletePaymentPeriod(token: string, periodId: string) {
   return request<{ message: string }>(`/periods/${periodId}`, {
     method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function reviewPeriodBaseUpload(
+  token: string,
+  uploadId: string,
+  body: { action: "aprovar" | "reprovar" | "redirecionar"; targetBaseId?: string }
+) {
+  return request<{ message: string }>(`/periods/uploads/${uploadId}/review`, {
+    method: "PATCH",
+    body,
     headers: {
       Authorization: `Bearer ${token}`
     }

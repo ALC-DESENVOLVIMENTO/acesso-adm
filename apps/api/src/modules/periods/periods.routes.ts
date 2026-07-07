@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
+import { UploadStatus } from "@prisma/client";
 import { requireAdmin, requireAuth } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
+import { deleteObject } from "../../lib/storage.js";
 import { upsertDriverPdfReceivedFromUpload } from "../../lib/driver-pdf-received.js";
 import { notifyPdfOnline } from "../../lib/pdfonline-bridge.js";
 
@@ -58,6 +60,11 @@ const basePayloadSchema = z.object({
   name: z.string().min(3),
   paymentType: z.enum(["semanal", "quinzenal", "mensal"]),
   active: z.boolean().optional().default(true)
+});
+
+const duplicateReviewActionSchema = z.object({
+  action: z.enum(["aprovar", "reprovar", "redirecionar"]),
+  targetBaseId: z.string().uuid().optional()
 });
 
 function parseDateOnly(input: string) {
@@ -168,6 +175,39 @@ function serializePeriod(period: {
     bases: period.bases.map((item) => serializeBase(item.basePagamento)),
     uploadedTotal,
     uploadedByBase
+  };
+}
+
+function buildUploadBridgePayload(input: {
+  upload: {
+    id: string;
+    motoristaId: string | null;
+    nomeOriginal: string;
+    caminhoArquivo: string;
+    basePagamentoId: string | null;
+    periodoPagamentoId: string | null;
+    versao: number;
+  };
+  periodId: string;
+  basePaymentId: string;
+}) {
+  return {
+    id: input.upload.id,
+    uploadId: input.upload.id,
+    uploadPdfId: input.upload.id,
+    periodId: input.periodId,
+    periodoPagamentoId: input.periodId,
+    basePaymentId: input.basePaymentId,
+    basePagamentoId: input.basePaymentId,
+    motoristaId: input.upload.motoristaId,
+    nomeArquivo: input.upload.nomeOriginal,
+    nomeOriginal: input.upload.nomeOriginal,
+    caminhoArquivo: input.upload.caminhoArquivo,
+    storageKey: input.upload.caminhoArquivo,
+    versao: input.upload.versao,
+    status: "pendente",
+    tipoArquivo: "application/pdf",
+    observacoes: `PDF liberado no periodo ${input.periodId}`
   };
 }
 
@@ -694,7 +734,12 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
         approvedPeriod?.uploads.map((item) => item.substituiUploadId).filter((value): value is string => Boolean(value)) || []
       );
       const visibleUploads =
-        approvedPeriod?.uploads.filter((item) => !childReferences.has(item.id) && item.status !== "removido") || [];
+        approvedPeriod?.uploads.filter(
+          (item) =>
+            !childReferences.has(item.id) &&
+            item.status !== "removido" &&
+            item.status !== UploadStatus.pendente_revisao_base
+        ) || [];
       const latestVisibleUploads = new Map<string, (typeof visibleUploads)[number]>();
 
       for (const upload of [...visibleUploads].sort(
@@ -789,6 +834,253 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
   })().catch((error) => {
     res.status(500).json({
       message: "Falha ao alterar status do periodo.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
+
+router.get("/review-queue", requireAdmin, (req, res) => {
+  void (async () => {
+    const uploads = await prisma.uploadPdf.findMany({
+      where: {
+        status: UploadStatus.pendente_revisao_base
+      },
+      include: {
+        motorista: {
+          select: {
+            nome: true,
+            cpf: true,
+            empresaVinculada: true
+          }
+        },
+        periodoPagamento: {
+          select: {
+            id: true,
+            nome: true,
+            status: true
+          }
+        },
+        basePagamento: {
+          select: {
+            id: true,
+            nome: true
+          }
+        }
+      },
+      orderBy: {
+        criadoEm: "desc"
+      }
+    });
+
+    res.json(
+      uploads.map((upload) => ({
+        id: upload.id,
+        fileName: upload.nomeOriginal,
+        motoristaNome: upload.motorista?.nome || "Nao informado",
+        motoristaCpf: upload.motorista?.cpf || "Nao informado",
+        baseRegistrada: upload.baseIdentificada || upload.motorista?.empresaVinculada || "Nao informada",
+        baseEnviada: upload.basePagamento?.nome || "Nao informada",
+        periodId: upload.periodoPagamentoId,
+        periodName: upload.periodoPagamento?.nome || "Nao informado",
+        periodStatus: upload.periodoPagamento?.status || "disponivel",
+        uploadedAt: upload.criadoEm,
+        downloadUrl: upload.caminhoArquivo
+      }))
+    );
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao listar revisoes de base.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
+
+router.patch("/uploads/:uploadId/review", requireAdmin, (req, res) => {
+  void (async () => {
+    const parsed = duplicateReviewActionSchema.safeParse(req.body);
+    const auth = req.auth;
+    const uploadId = String(req.params.uploadId || "").trim();
+
+    if (!parsed.success || !auth) {
+      res.status(400).json({
+        message: "Dados invalidos para revisao do upload.",
+        issues: parsed.success ? undefined : parsed.error.flatten()
+      });
+      return;
+    }
+
+    const upload = await prisma.uploadPdf.findUnique({
+      where: {
+        id: uploadId
+      },
+      include: {
+        motorista: {
+          select: {
+            nome: true,
+            cpf: true,
+            empresaVinculada: true
+          }
+        },
+        periodoPagamento: {
+          select: {
+            id: true,
+            nome: true,
+            status: true
+          }
+        },
+        basePagamento: {
+          select: {
+            id: true,
+            nome: true
+          }
+        }
+      }
+    });
+
+    if (!upload) {
+      res.status(404).json({
+        message: "Upload nao encontrado."
+      });
+      return;
+    }
+
+    if (upload.status !== UploadStatus.pendente_revisao_base) {
+      res.status(400).json({
+        message: "Este upload nao esta em revisao de base."
+      });
+      return;
+    }
+
+    if (parsed.data.action === "reprovar") {
+      await prisma.uploadPdf.delete({
+        where: {
+          id: upload.id
+        }
+      });
+
+      void deleteObject(upload.caminhoArquivo).catch(() => null);
+
+      await prisma.logAuditoria.create({
+        data: {
+          usuarioId: auth.userId,
+          acao: "reprovar_pdf_base",
+          entidade: "uploads_pdf",
+          entidadeId: upload.id,
+          ipOrigem: req.ip,
+          userAgent: req.get("user-agent") || null,
+          detalhes: {
+            arquivo: upload.nomeOriginal,
+            motorista: upload.motorista?.nome || null,
+            baseEnviada: upload.basePagamento?.nome || null
+          }
+        }
+      });
+
+      res.json({
+        message: "Upload reprovado e removido com sucesso."
+      });
+      return;
+    }
+
+    const resolvedBaseId =
+      parsed.data.action === "redirecionar" ? parsed.data.targetBaseId || null : upload.basePagamentoId;
+
+    if (!resolvedBaseId) {
+      res.status(400).json({
+        message: "Selecione a base de destino para redirecionar o upload."
+      });
+      return;
+    }
+
+    const targetBase = await prisma.basePagamento.findUnique({
+      where: {
+        id: resolvedBaseId
+      }
+    });
+
+    if (!targetBase) {
+      res.status(404).json({
+        message: "Base de destino nao encontrada."
+      });
+      return;
+    }
+
+    const updated = await prisma.uploadPdf.update({
+      where: {
+        id: upload.id
+      },
+      data: {
+        basePagamentoId: targetBase.id,
+        baseIdentificada: targetBase.nome,
+        status: UploadStatus.pendente
+      }
+    });
+
+    await prisma.logAuditoria.create({
+      data: {
+        usuarioId: auth.userId,
+        acao: parsed.data.action === "aprovar" ? "aprovar_pdf_base" : "redirecionar_pdf_base",
+        entidade: "uploads_pdf",
+        entidadeId: updated.id,
+        ipOrigem: req.ip,
+        userAgent: req.get("user-agent") || null,
+        detalhes: {
+          arquivo: updated.nomeOriginal,
+          motorista: upload.motorista?.nome || null,
+          baseAnterior: upload.basePagamento?.nome || null,
+          baseDestino: targetBase.nome
+        }
+      }
+    });
+
+    if (upload.periodoPagamento?.status === "aprovado") {
+      await upsertDriverPdfReceivedFromUpload({
+        uploadPdfId: updated.id,
+        motoristaId: updated.motoristaId || upload.motoristaId || "",
+        periodId: updated.periodoPagamentoId || upload.periodoPagamentoId || "",
+        basePaymentId: targetBase.id,
+        fileName: updated.nomeOriginal,
+        storageKey: updated.caminhoArquivo,
+        createdByUserId: auth.userId
+      });
+
+      void notifyPdfOnline(
+        "portal.upload.created",
+        {
+          ...buildUploadBridgePayload({
+            upload: {
+              id: updated.id,
+              motoristaId: updated.motoristaId,
+              nomeOriginal: updated.nomeOriginal,
+              caminhoArquivo: updated.caminhoArquivo,
+              basePagamentoId: updated.basePagamentoId,
+              periodoPagamentoId: updated.periodoPagamentoId,
+              versao: updated.versao
+            },
+            periodId: upload.periodoPagamentoId || "",
+            basePaymentId: targetBase.id
+          }),
+          motoristaNome: upload.motorista?.nome || "Motorista",
+          motoristaCpf: upload.motorista?.cpf || "",
+          usuarioId: auth.userId,
+          tipoArquivo: "application/pdf"
+        },
+        {
+          userId: auth.userId,
+          periodId: upload.periodoPagamentoId || undefined,
+          basePaymentId: targetBase.id
+        }
+      ).catch((error) => {
+        console.warn("PDF Online bridge review notify failed:", error instanceof Error ? error.message : error);
+      });
+    }
+
+    res.json({
+      message: parsed.data.action === "aprovar" ? "Upload aprovado com sucesso." : "Upload redirecionado com sucesso."
+    });
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao revisar upload.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });
