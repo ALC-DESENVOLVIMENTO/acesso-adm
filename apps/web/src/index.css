@@ -2427,6 +2427,33 @@ button {
   gap: 4px;
 }
 
+.duplicate-review-card .table-actions {
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.duplicate-review-card .ghost-button--small {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(31, 36, 48, 0.12);
+  color: #22304a;
+  font-weight: 700;
+  box-shadow: 0 6px 18px rgba(31, 36, 48, 0.08);
+}
+
+.duplicate-review-card .ghost-button--small:hover {
+  background: #fff;
+  border-color: rgba(255, 95, 83, 0.25);
+  box-shadow: 0 10px 22px rgba(255, 95, 83, 0.12);
+}
+
+.duplicate-review-card .ghost-button--danger {
+  color: #ff5f53;
+  border-color: rgba(255, 95, 83, 0.2);
+}
+
 .finance-table .data-table {
   min-width: 1100px;
 }
