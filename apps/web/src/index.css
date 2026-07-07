@@ -2005,15 +2005,41 @@ button {
 .admin-form--motorista-edit .field textarea {
   width: 100%;
   box-sizing: border-box;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfbff 100%);
+  color: #1f2430;
+  border: 1.5px solid rgba(255, 111, 97, 0.44);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 8px 22px rgba(25, 31, 45, 0.05);
 }
 
 .admin-form--motorista-edit .field input,
 .admin-form--motorista-edit .field select {
   min-height: 50px;
+  padding-inline: 16px;
+}
+
+.admin-form--motorista-edit .field input::placeholder,
+.admin-form--motorista-edit .field textarea::placeholder {
+  color: rgba(63, 72, 90, 0.55);
+}
+
+.admin-form--motorista-edit .field input:focus,
+.admin-form--motorista-edit .field select:focus,
+.admin-form--motorista-edit .field textarea:focus {
+  border-color: rgba(255, 104, 89, 0.86);
+  box-shadow:
+    0 0 0 4px rgba(255, 104, 89, 0.12),
+    0 10px 24px rgba(25, 31, 45, 0.07);
 }
 
 .admin-form--motorista-edit .field--full {
   grid-column: 1 / -1;
+}
+
+.admin-form--motorista-edit .field span {
+  color: #4a5368;
+  font-weight: 700;
 }
 
 .modal-overlay {
