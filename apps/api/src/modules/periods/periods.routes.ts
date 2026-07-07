@@ -6,7 +6,7 @@ import { prisma } from "../../lib/prisma.js";
 import { deleteObject } from "../../lib/storage.js";
 import { upsertDriverPdfReceivedFromUpload } from "../../lib/driver-pdf-received.js";
 import { notifyPdfOnline } from "../../lib/pdfonline-bridge.js";
-import { normalizeText } from "../../lib/driver-registry.js";
+import { normalizeText, resolveDriverRegistryByIdentity } from "../../lib/driver-registry.js";
 
 const router = Router();
 
@@ -126,6 +126,40 @@ async function getDuplicateReviewQueue(periodId?: string | null) {
   });
 
   const reviewedIds = new Set(reviewActions.map((item) => item.entidadeId).filter((value): value is string => Boolean(value)));
+  const registryBaseCache = new Map<
+    string,
+    {
+      base: string | null;
+      company: string | null;
+    }
+  >();
+
+  const getRegistryBase = async (cpf: string, name: string) => {
+    const cacheKey = `${cpf}|${name}`;
+    const cached = registryBaseCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const registry = await resolveDriverRegistryByIdentity({
+      cpf,
+      name
+    });
+
+    const resolved =
+      registry && "ambiguous" in registry
+        ? {
+            base: null,
+            company: null
+          }
+        : {
+            base: registry?.base || null,
+            company: registry?.raw ? String((registry.raw as Record<string, unknown>)["empresa_vinculada"] || "") || null : null
+          };
+
+    registryBaseCache.set(cacheKey, resolved);
+    return resolved;
+  };
 
   const grouped = new Map<
     string,
@@ -151,14 +185,16 @@ async function getDuplicateReviewQueue(periodId?: string | null) {
   })) {
     const motoristaCpf = upload.motorista?.cpf || "Nao informado";
     const motoristaNome = upload.motorista?.nome || "Nao informado";
-    const baseRegistrada = upload.motorista?.empresaVinculada || "Nao informada";
+    const registryBase = await getRegistryBase(motoristaCpf, motoristaNome);
+    const baseRegistrada = registryBase.base || upload.motorista?.empresaVinculada || "Nao informada";
+    const baseAfiliada = registryBase.company || upload.motorista?.empresaVinculada || "Nao informada";
     const groupKey = `${motoristaCpf}|${motoristaNome}|${baseRegistrada}`;
     const entry = grouped.get(groupKey) || {
       id: groupKey,
       motoristaNome,
       motoristaCpf,
       baseRegistrada,
-      baseAfiliada: baseRegistrada,
+      baseAfiliada,
       cases: []
     };
 
