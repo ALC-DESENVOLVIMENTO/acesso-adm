@@ -6,6 +6,7 @@ import { prisma } from "../../lib/prisma.js";
 import { deleteObject } from "../../lib/storage.js";
 import { upsertDriverPdfReceivedFromUpload } from "../../lib/driver-pdf-received.js";
 import { notifyPdfOnline } from "../../lib/pdfonline-bridge.js";
+import { normalizeText } from "../../lib/driver-registry.js";
 
 const router = Router();
 
@@ -737,8 +738,7 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
         approvedPeriod?.uploads.filter(
           (item) =>
             !childReferences.has(item.id) &&
-            item.status !== "removido" &&
-            item.status !== UploadStatus.pendente_revisao_base
+            item.status === UploadStatus.pendente
         ) || [];
       const latestVisibleUploads = new Map<string, (typeof visibleUploads)[number]>();
 
@@ -843,7 +843,9 @@ router.get("/review-queue", requireAdmin, (req, res) => {
   void (async () => {
     const uploads = await prisma.uploadPdf.findMany({
       where: {
-        status: UploadStatus.pendente_revisao_base
+        status: {
+          in: [UploadStatus.pendente, UploadStatus.pendente_revisao_base]
+        }
       },
       include: {
         motorista: {
@@ -872,20 +874,46 @@ router.get("/review-queue", requireAdmin, (req, res) => {
       }
     });
 
+    const reviewActions = await prisma.logAuditoria.findMany({
+      where: {
+        entidade: "uploads_pdf",
+        entidadeId: { in: uploads.map((upload) => upload.id) },
+        acao: {
+          in: ["aprovar_pdf_base", "redirecionar_pdf_base", "reprovar_pdf_base"]
+        }
+      },
+      select: {
+        entidadeId: true
+      }
+    });
+
+    const reviewedIds = new Set(reviewActions.map((item) => item.entidadeId).filter((value): value is string => Boolean(value)));
+
     res.json(
-      uploads.map((upload) => ({
-        id: upload.id,
-        fileName: upload.nomeOriginal,
-        motoristaNome: upload.motorista?.nome || "Nao informado",
-        motoristaCpf: upload.motorista?.cpf || "Nao informado",
-        baseRegistrada: upload.baseIdentificada || upload.motorista?.empresaVinculada || "Nao informada",
-        baseEnviada: upload.basePagamento?.nome || "Nao informada",
-        periodId: upload.periodoPagamentoId,
-        periodName: upload.periodoPagamento?.nome || "Nao informado",
-        periodStatus: upload.periodoPagamento?.status || "disponivel",
-        uploadedAt: upload.criadoEm,
-        downloadUrl: upload.caminhoArquivo
-      }))
+      uploads
+        .filter((upload) => {
+          if (reviewedIds.has(upload.id)) {
+            return false;
+          }
+
+          const baseRegistrada = normalizeText(upload.motorista?.empresaVinculada || "");
+          const baseEnviada = normalizeText(upload.basePagamento?.nome || "");
+
+          return baseRegistrada !== baseEnviada;
+        })
+        .map((upload) => ({
+          id: upload.id,
+          fileName: upload.nomeOriginal,
+          motoristaNome: upload.motorista?.nome || "Nao informado",
+          motoristaCpf: upload.motorista?.cpf || "Nao informado",
+          baseRegistrada: upload.motorista?.empresaVinculada || "Nao informada",
+          baseEnviada: upload.basePagamento?.nome || "Nao informada",
+          periodId: upload.periodoPagamentoId,
+          periodName: upload.periodoPagamento?.nome || "Nao informado",
+          periodStatus: upload.periodoPagamento?.status || "disponivel",
+          uploadedAt: upload.criadoEm,
+          downloadUrl: upload.caminhoArquivo
+        }))
     );
   })().catch((error) => {
     res.status(500).json({
@@ -1012,7 +1040,7 @@ router.patch("/uploads/:uploadId/review", requireAdmin, (req, res) => {
       data: {
         basePagamentoId: targetBase.id,
         baseIdentificada: targetBase.nome,
-        status: UploadStatus.pendente
+        status: UploadStatus.processado
       }
     });
 

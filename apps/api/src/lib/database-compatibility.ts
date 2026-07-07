@@ -17,6 +17,12 @@ const REQUIRED_UPLOAD_TABLE_COLUMNS: CompatibilityColumn[] = [
     comment: "Adicionar coluna content em uploads_pdf"
   },
   {
+    table: "uploads_pdf",
+    column: "base_identificada",
+    typeSql: "VARCHAR(150)",
+    comment: "Adicionar coluna base_identificada em uploads_pdf"
+  },
+  {
     table: "driver_pdf_received",
     column: "content",
     typeSql: "BYTEA",

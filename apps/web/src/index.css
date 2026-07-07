@@ -1074,6 +1074,14 @@ button {
   border: 1px solid rgba(255, 95, 83, 0.1);
 }
 
+.period-launch-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .period-launch-card strong {
   display: block;
   margin-bottom: 4px;
@@ -2376,6 +2384,9 @@ button {
 .duplicate-review-list {
   display: grid;
   gap: 12px;
+  max-height: min(65vh, 700px);
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .duplicate-review-card {

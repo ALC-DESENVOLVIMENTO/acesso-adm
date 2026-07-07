@@ -2398,6 +2398,7 @@ function PeriodsScreen({
   });
   const [isCreatePeriodModalOpen, setIsCreatePeriodModalOpen] = useState(false);
   const [isBasePanelOpen, setIsBasePanelOpen] = useState(false);
+  const [isDuplicateReviewModalOpen, setIsDuplicateReviewModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"active" | "finished">("active");
   const [duplicateReviews, setDuplicateReviews] = useState<PeriodBaseReviewItem[]>([]);
   const [reviewingUploadId, setReviewingUploadId] = useState<string | null>(null);
@@ -2432,6 +2433,15 @@ function PeriodsScreen({
     setDuplicateReviews(data);
   };
 
+  const openDuplicateReviewModal = async () => {
+    setIsDuplicateReviewModalOpen(true);
+    try {
+      await loadDuplicateReviews();
+    } catch {
+      setDuplicateReviews([]);
+    }
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const success = await onCreatePeriod(formValues);
@@ -2447,12 +2457,6 @@ function PeriodsScreen({
       await loadDuplicateReviews();
     }
   };
-
-  useEffect(() => {
-    void loadDuplicateReviews().catch(() => {
-      setDuplicateReviews([]);
-    });
-  }, [token]);
 
   if (!currentUser || (currentUser.level !== "N3" && currentUser.level !== "N4")) {
     return (
@@ -2529,79 +2533,16 @@ function PeriodsScreen({
             <strong>Bases cadastradas</strong>
             <p>Edite nome, tipo e status das bases sem sair do modulo de periodos.</p>
           </div>
-          <button className="ghost-button" type="button" onClick={() => setIsBasePanelOpen(true)}>
-            Gerenciar bases
-            <ArrowRight size={16} />
-          </button>
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="panel__header panel__header--split">
-          <div>
-            <h3>Motoristas duplicados</h3>
-            <p>Itens que chegaram com base divergente e aguardam decisao de N3/N4.</p>
+          <div className="period-launch-card__actions">
+            <button className="ghost-button" type="button" onClick={() => setIsBasePanelOpen(true)}>
+              Gerenciar bases
+              <ArrowRight size={16} />
+            </button>
+            <button className="ghost-button" type="button" onClick={() => void openDuplicateReviewModal()}>
+              Motoristas duplicados
+              <ArrowRight size={16} />
+            </button>
           </div>
-          <span className="status-pill">{duplicateReviews.length} pendentes</span>
-        </div>
-
-        <div className="duplicate-review-list">
-          {duplicateReviews.length > 0 ? (
-            duplicateReviews.map((item) => {
-              const redirectBaseId = resolveBaseIdByName(item.baseRegistrada);
-              const canRedirect = Boolean(redirectBaseId);
-
-              return (
-                <article className="duplicate-review-card" key={item.id}>
-                  <div className="duplicate-review-card__main">
-                    <div>
-                      <strong>{item.motoristaNome}</strong>
-                      <span>{item.motoristaCpf}</span>
-                      <p>
-                        Base cadastrada: {item.baseRegistrada} | Base enviada: {item.baseEnviada}
-                      </p>
-                    </div>
-                    <div className="duplicate-review-card__meta">
-                      <span>{item.periodName}</span>
-                      <small>{new Date(item.uploadedAt).toLocaleString("pt-BR")}</small>
-                    </div>
-                  </div>
-
-                  <div className="table-actions">
-                    <button
-                      className="ghost-button ghost-button--small"
-                      type="button"
-                      disabled={reviewingUploadId === item.id}
-                      onClick={() => void handleReviewDuplicateUpload(item.id, "aprovar")}
-                    >
-                      Aprovar
-                    </button>
-                    <button
-                      className="ghost-button ghost-button--small ghost-button--danger"
-                      type="button"
-                      disabled={reviewingUploadId === item.id}
-                      onClick={() => void handleReviewDuplicateUpload(item.id, "reprovar")}
-                    >
-                      Reprovar
-                    </button>
-                    <button
-                      className="ghost-button ghost-button--small"
-                      type="button"
-                      disabled={reviewingUploadId === item.id || !canRedirect}
-                      onClick={() => void handleReviewDuplicateUpload(item.id, "redirecionar", redirectBaseId)}
-                    >
-                      Redirecionar
-                    </button>
-                  </div>
-                </article>
-              );
-            })
-          ) : (
-            <div className="crm-empty-screen">
-              <strong>Nenhum motorista duplicado pendente</strong>
-              <p>Quando houver divergencia de base, os itens aparecem aqui para revisao.</p>
-            </div>
-          )}
         </div>
       </section>
 
@@ -2778,6 +2719,92 @@ function PeriodsScreen({
               <button className="ghost-button" type="button" onClick={() => setIsBasePanelOpen(false)}>
                 Fechar painel
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isDuplicateReviewModalOpen ? (
+        <div className="modal-overlay" onClick={() => setIsDuplicateReviewModalOpen(false)}>
+          <div
+            className="modal-card modal-card--confirm modal-card--periods modal-card--bases"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="duplicate-review-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-card__header">
+              <div>
+                <p className="eyebrow">Motoristas duplicados</p>
+                <h3 id="duplicate-review-title">Revisao de base dos uploads</h3>
+                <p>Confira os arquivos com base divergente e decida com N3/N4.</p>
+              </div>
+              <button
+                className="ghost-button ghost-button--small"
+                type="button"
+                onClick={() => setIsDuplicateReviewModalOpen(false)}
+              >
+                Fechar
+              </button>
+            </div>
+
+            <div className="duplicate-review-list">
+              {duplicateReviews.length > 0 ? (
+                duplicateReviews.map((item) => {
+                  const redirectBaseId = resolveBaseIdByName(item.baseRegistrada);
+                  const canRedirect = Boolean(redirectBaseId);
+
+                  return (
+                    <article className="duplicate-review-card" key={item.id}>
+                      <div className="duplicate-review-card__main">
+                        <div>
+                          <strong>{item.motoristaNome}</strong>
+                          <span>{item.motoristaCpf}</span>
+                          <p>
+                            Base cadastrada: {item.baseRegistrada} | Base enviada: {item.baseEnviada}
+                          </p>
+                        </div>
+                        <div className="duplicate-review-card__meta">
+                          <span>{item.periodName}</span>
+                          <small>{new Date(item.uploadedAt).toLocaleString("pt-BR")}</small>
+                        </div>
+                      </div>
+
+                      <div className="table-actions">
+                        <button
+                          className="ghost-button ghost-button--small"
+                          type="button"
+                          disabled={reviewingUploadId === item.id}
+                          onClick={() => void handleReviewDuplicateUpload(item.id, "aprovar")}
+                        >
+                          Aprovar
+                        </button>
+                        <button
+                          className="ghost-button ghost-button--small ghost-button--danger"
+                          type="button"
+                          disabled={reviewingUploadId === item.id}
+                          onClick={() => void handleReviewDuplicateUpload(item.id, "reprovar")}
+                        >
+                          Reprovar
+                        </button>
+                        <button
+                          className="ghost-button ghost-button--small"
+                          type="button"
+                          disabled={reviewingUploadId === item.id || !canRedirect}
+                          onClick={() => void handleReviewDuplicateUpload(item.id, "redirecionar", redirectBaseId)}
+                        >
+                          Redirecionar
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })
+              ) : (
+                <div className="crm-empty-screen">
+                  <strong>Nenhum motorista duplicado pendente</strong>
+                  <p>Quando houver divergencia de base, os itens aparecem aqui para revisao.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
