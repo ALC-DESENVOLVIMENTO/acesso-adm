@@ -2828,7 +2828,7 @@ function PeriodsScreen({
                           <strong>{item.motoristaNome}</strong>
                           <span>{item.motoristaCpf}</span>
                           <p>
-                            Base cadastrada: {item.baseRegistrada} | Base enviada: {item.baseEnviada}
+                            Base cadastrada: {item.baseAfiliada || item.baseRegistrada} | Base enviada: {item.baseEnviada}
                           </p>
                         </div>
                         <div className="duplicate-review-card__meta">

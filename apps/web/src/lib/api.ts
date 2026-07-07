@@ -109,6 +109,7 @@ export type PeriodBaseReviewItem = {
   motoristaNome: string;
   motoristaCpf: string;
   baseRegistrada: string;
+  baseAfiliada?: string;
   baseEnviada: string;
   periodId: string | null;
   periodName: string;

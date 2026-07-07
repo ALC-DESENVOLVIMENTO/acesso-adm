@@ -133,6 +133,7 @@ async function getDuplicateReviewQueue(periodId?: string | null) {
       motoristaNome: upload.motorista?.nome || "Nao informado",
       motoristaCpf: upload.motorista?.cpf || "Nao informado",
       baseRegistrada: upload.motorista?.empresaVinculada || "Nao informada",
+      baseAfiliada: upload.motorista?.empresaVinculada || "Nao informada",
       baseEnviada: upload.basePagamento?.nome || "Nao informada",
       periodId: upload.periodoPagamentoId,
       periodName: upload.periodoPagamento?.nome || "Nao informado",
