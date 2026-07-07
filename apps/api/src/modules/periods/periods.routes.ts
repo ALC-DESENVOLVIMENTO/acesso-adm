@@ -170,27 +170,43 @@ async function getDuplicateReviewQueue(periodId?: string | null) {
     }
   >();
 
-  for (const upload of uploads.filter((upload) => {
+  const preparedUploads = await Promise.all(
+    uploads.map(async (upload) => {
+      const motoristaCpf = upload.motorista?.cpf || "Nao informado";
+      const motoristaNome = upload.motorista?.nome || "Nao informado";
+      const registryBase = await getRegistryBase(motoristaCpf, motoristaNome);
+
+      return {
+        upload,
+        motoristaCpf,
+        motoristaNome,
+        registryBase: registryBase.base
+      };
+    })
+  );
+
+  for (const prepared of preparedUploads) {
+    const { upload, motoristaCpf, motoristaNome, registryBase } = prepared;
+
     if (reviewedIds.has(upload.id)) {
-      return false;
+      continue;
     }
 
-    const baseRegistrada = normalizeText(upload.motorista?.empresaVinculada || "");
+    const baseRegistrada = normalizeText(registryBase || "");
     const baseEnviada = normalizeText(upload.basePagamento?.nome || "");
 
-    return baseRegistrada !== baseEnviada;
-  })) {
-    const motoristaCpf = upload.motorista?.cpf || "Nao informado";
-    const motoristaNome = upload.motorista?.nome || "Nao informado";
-    const registryBase = await getRegistryBase(motoristaCpf, motoristaNome);
-    const baseRegistrada = registryBase.base || "Nao informada";
-    const groupKey = `${motoristaCpf}|${motoristaNome}|${baseRegistrada}`;
+    if (!baseRegistrada || baseRegistrada === baseEnviada) {
+      continue;
+    }
+
+    const baseCadastrada = registryBase || "Nao informada";
+    const groupKey = `${motoristaCpf}|${motoristaNome}|${baseCadastrada}`;
     const entry = grouped.get(groupKey) || {
       id: groupKey,
       motoristaNome,
       motoristaCpf,
-      baseRegistrada,
-      baseCadastrada: baseRegistrada,
+      baseRegistrada: baseCadastrada,
+      baseCadastrada,
       cases: []
     };
 

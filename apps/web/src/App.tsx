@@ -2859,7 +2859,7 @@ function PeriodsScreen({
                                   {activeBases
                                     .filter(
                                       (base) =>
-                                        base.name.toLowerCase().trim() !== (item.baseAfiliada || item.baseRegistrada).toLowerCase().trim()
+                                        base.name.toLowerCase().trim() !== (item.baseCadastrada || item.baseRegistrada).toLowerCase().trim()
                                     )
                                     .map((base) => (
                                       <option key={base.id} value={base.id}>
