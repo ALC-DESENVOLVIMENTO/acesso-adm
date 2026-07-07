@@ -1704,6 +1704,7 @@ function App() {
             onToggleBaseActive={handleToggleBaseActive}
             onUpdatePeriodStatus={handleUpdatePeriodStatus}
             onDeletePeriod={requestDeletePeriod}
+            onReviewDuplicateUpload={handleReviewDuplicateUpload}
           />
         ) : null}
         {!accessDenied && activeView === "financeiro" ? (
@@ -2369,7 +2370,8 @@ function PeriodsScreen({
   onOpenBaseEditor,
   onToggleBaseActive,
   onUpdatePeriodStatus,
-  onDeletePeriod
+  onDeletePeriod,
+  onReviewDuplicateUpload
 }: {
   token: string;
   currentUser: SessionUser | null;
@@ -2389,6 +2391,11 @@ function PeriodsScreen({
     status: "disponivel" | "aguardando_aprovacao" | "aprovado"
   ) => Promise<void> | void;
   onDeletePeriod: (period: PaymentPeriod) => void;
+  onReviewDuplicateUpload: (
+    uploadId: string,
+    action: "aprovar" | "reprovar" | "redirecionar",
+    targetBaseId?: string
+  ) => Promise<void> | void;
 }) {
   const [formValues, setFormValues] = useState({
     name: "",
@@ -2797,7 +2804,7 @@ function PeriodsScreen({
                           className="ghost-button ghost-button--small"
                           type="button"
                           disabled={reviewingUploadId === item.id}
-                          onClick={() => void handleReviewDuplicateUpload(item.id, "aprovar")}
+                          onClick={() => void onReviewDuplicateUpload(item.id, "aprovar")}
                         >
                           Aprovar
                         </button>
@@ -2805,7 +2812,7 @@ function PeriodsScreen({
                           className="ghost-button ghost-button--small ghost-button--danger"
                           type="button"
                           disabled={reviewingUploadId === item.id}
-                          onClick={() => void handleReviewDuplicateUpload(item.id, "reprovar")}
+                          onClick={() => void onReviewDuplicateUpload(item.id, "reprovar")}
                         >
                           Reprovar
                         </button>
@@ -2813,7 +2820,7 @@ function PeriodsScreen({
                           className="ghost-button ghost-button--small"
                           type="button"
                           disabled={reviewingUploadId === item.id || !canRedirect}
-                          onClick={() => void handleReviewDuplicateUpload(item.id, "redirecionar", redirectBaseId)}
+                          onClick={() => void onReviewDuplicateUpload(item.id, "redirecionar", redirectBaseId)}
                         >
                           Redirecionar
                         </button>
