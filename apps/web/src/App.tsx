@@ -1232,7 +1232,6 @@ function App() {
       const response = await deletePaymentPeriod(token, periodId);
       setFlashMessage({ type: "success", text: response.message });
       await loadPeriodData();
-      await loadDuplicateReviews();
     } catch (error) {
       setFlashMessage({
         type: "error",
@@ -1259,7 +1258,7 @@ function App() {
     try {
       const response = await updatePaymentPeriodStatus(token, periodId, { status });
       setFlashMessage({ type: "success", text: response.message });
-      await Promise.all([loadPeriodData(), loadDashboardSummary(), loadUploadsData(), loadDuplicateReviews()]);
+      await Promise.all([loadPeriodData(), loadDashboardSummary(), loadUploadsData()]);
     } catch (error) {
       setFlashMessage({
         type: "error",
@@ -1287,7 +1286,7 @@ function App() {
         targetBaseId
       });
       setFlashMessage({ type: "success", text: response.message });
-      await Promise.all([loadPeriodData(), loadUploadsData(), loadDashboardSummary(), loadDuplicateReviews()]);
+      await Promise.all([loadPeriodData(), loadUploadsData(), loadDashboardSummary()]);
     } catch (error) {
       setFlashMessage({
         type: "error",
