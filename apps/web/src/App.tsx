@@ -328,6 +328,7 @@ function App() {
   const [deleteUploadTarget, setDeleteUploadTarget] = useState<UploadRow | null>(null);
   const [deletePeriodTarget, setDeletePeriodTarget] = useState<PaymentPeriod | null>(null);
   const [financeMotoristaTarget, setFinanceMotoristaTarget] = useState<string | null>(null);
+  const [reviewingUploadId, setReviewingUploadId] = useState<string | null>(null);
   const [accessDenied, setAccessDenied] = useState<AccessDeniedState>(null);
   const [profilePhotoBroken, setProfilePhotoBroken] = useState(false);
   const [loginPreviewIndex, setLoginPreviewIndex] = useState(0);
@@ -1705,6 +1706,7 @@ function App() {
             onUpdatePeriodStatus={handleUpdatePeriodStatus}
             onDeletePeriod={requestDeletePeriod}
             onReviewDuplicateUpload={handleReviewDuplicateUpload}
+            reviewingUploadId={reviewingUploadId}
           />
         ) : null}
         {!accessDenied && activeView === "financeiro" ? (
@@ -2371,7 +2373,8 @@ function PeriodsScreen({
   onToggleBaseActive,
   onUpdatePeriodStatus,
   onDeletePeriod,
-  onReviewDuplicateUpload
+  onReviewDuplicateUpload,
+  reviewingUploadId
 }: {
   token: string;
   currentUser: SessionUser | null;
@@ -2396,6 +2399,7 @@ function PeriodsScreen({
     action: "aprovar" | "reprovar" | "redirecionar",
     targetBaseId?: string
   ) => Promise<void> | void;
+  reviewingUploadId: string | null;
 }) {
   const [formValues, setFormValues] = useState({
     name: "",
@@ -2410,7 +2414,6 @@ function PeriodsScreen({
   const [duplicateReviewPeriodName, setDuplicateReviewPeriodName] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"active" | "finished">("active");
   const [duplicateReviews, setDuplicateReviews] = useState<PeriodBaseReviewItem[]>([]);
-  const [reviewingUploadId, setReviewingUploadId] = useState<string | null>(null);
   const [duplicateRedirectTargets, setDuplicateRedirectTargets] = useState<Record<string, string>>({});
 
   const activeBases = useMemo(() => bases.filter((base) => base.active), [bases]);
