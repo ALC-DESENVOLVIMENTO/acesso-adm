@@ -110,12 +110,16 @@ export type PeriodBaseReviewItem = {
   motoristaCpf: string;
   baseRegistrada: string;
   baseAfiliada?: string;
-  baseEnviada: string;
-  periodId: string | null;
-  periodName: string;
-  periodStatus: string;
-  uploadedAt: string;
-  downloadUrl: string;
+  cases: {
+    id: string;
+    fileName: string;
+    baseEnviada: string;
+    periodId: string | null;
+    periodName: string;
+    periodStatus: string;
+    uploadedAt: string;
+    downloadUrl: string;
+  }[];
 };
 
 export type FinanceiroSummary = {

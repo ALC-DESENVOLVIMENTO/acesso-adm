@@ -68,6 +68,17 @@ const duplicateReviewActionSchema = z.object({
   targetBaseId: z.string().uuid().optional()
 });
 
+type DuplicateReviewCase = {
+  id: string;
+  fileName: string;
+  baseEnviada: string;
+  periodId: string | null;
+  periodName: string;
+  periodStatus: string;
+  uploadedAt: Date;
+  downloadUrl: string;
+};
+
 async function getDuplicateReviewQueue(periodId?: string | null) {
   const uploads = await prisma.uploadPdf.findMany({
     where: {
@@ -116,31 +127,63 @@ async function getDuplicateReviewQueue(periodId?: string | null) {
 
   const reviewedIds = new Set(reviewActions.map((item) => item.entidadeId).filter((value): value is string => Boolean(value)));
 
-  return uploads
-    .filter((upload) => {
-      if (reviewedIds.has(upload.id)) {
-        return false;
-      }
+  const grouped = new Map<
+    string,
+    {
+      id: string;
+      motoristaNome: string;
+      motoristaCpf: string;
+      baseRegistrada: string;
+      baseAfiliada: string;
+      cases: DuplicateReviewCase[];
+    }
+  >();
 
-      const baseRegistrada = normalizeText(upload.motorista?.empresaVinculada || "");
-      const baseEnviada = normalizeText(upload.basePagamento?.nome || "");
+  for (const upload of uploads.filter((upload) => {
+    if (reviewedIds.has(upload.id)) {
+      return false;
+    }
 
-      return baseRegistrada !== baseEnviada;
-    })
-    .map((upload) => ({
+    const baseRegistrada = normalizeText(upload.motorista?.empresaVinculada || "");
+    const baseEnviada = normalizeText(upload.basePagamento?.nome || "");
+
+    return baseRegistrada !== baseEnviada;
+  })) {
+    const motoristaCpf = upload.motorista?.cpf || "Nao informado";
+    const motoristaNome = upload.motorista?.nome || "Nao informado";
+    const baseRegistrada = upload.motorista?.empresaVinculada || "Nao informada";
+    const groupKey = `${motoristaCpf}|${motoristaNome}|${baseRegistrada}`;
+    const entry = grouped.get(groupKey) || {
+      id: groupKey,
+      motoristaNome,
+      motoristaCpf,
+      baseRegistrada,
+      baseAfiliada: baseRegistrada,
+      cases: []
+    };
+
+    entry.cases.push({
       id: upload.id,
       fileName: upload.nomeOriginal,
-      motoristaNome: upload.motorista?.nome || "Nao informado",
-      motoristaCpf: upload.motorista?.cpf || "Nao informado",
-      baseRegistrada: upload.motorista?.empresaVinculada || "Nao informada",
-      baseAfiliada: upload.motorista?.empresaVinculada || "Nao informada",
       baseEnviada: upload.basePagamento?.nome || "Nao informada",
       periodId: upload.periodoPagamentoId,
       periodName: upload.periodoPagamento?.nome || "Nao informado",
       periodStatus: upload.periodoPagamento?.status || "disponivel",
       uploadedAt: upload.criadoEm,
       downloadUrl: upload.caminhoArquivo
-    }));
+    });
+
+    grouped.set(groupKey, entry);
+  }
+
+  return Array.from(grouped.values()).map((item) => ({
+    id: item.id,
+    motoristaNome: item.motoristaNome,
+    motoristaCpf: item.motoristaCpf,
+    baseRegistrada: item.baseRegistrada,
+    baseAfiliada: item.baseAfiliada,
+    cases: item.cases.sort((left, right) => right.uploadedAt.getTime() - left.uploadedAt.getTime())
+  }));
 }
 
 function parseDateOnly(input: string) {

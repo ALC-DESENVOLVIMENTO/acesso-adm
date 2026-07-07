@@ -2818,8 +2818,7 @@ function PeriodsScreen({
             <div className="duplicate-review-list">
               {duplicateReviews.length > 0 ? (
                 duplicateReviews.map((item) => {
-                  const selectedRedirectBaseId = duplicateRedirectTargets[item.id] || "";
-                  const canRedirect = Boolean(selectedRedirectBaseId);
+                  const cases = item.cases || [];
 
                   return (
                     <article className="duplicate-review-card" key={item.id}>
@@ -2828,66 +2827,79 @@ function PeriodsScreen({
                           <strong>{item.motoristaNome}</strong>
                           <span>{item.motoristaCpf}</span>
                           <p>
-                            Base cadastrada: {item.baseAfiliada || item.baseRegistrada} | Base enviada: {item.baseEnviada}
+                            Base cadastrada: {item.baseAfiliada || item.baseRegistrada}
                           </p>
                         </div>
-                        <div className="duplicate-review-card__meta">
-                          <span>{item.periodName}</span>
-                          <small>{new Date(item.uploadedAt).toLocaleString("pt-BR")}</small>
-                        </div>
                       </div>
 
-                      <div className="duplicate-review-card__redirect">
-                        <label htmlFor={`redirect-base-${item.id}`}>Base de destino</label>
-                        <select
-                          id={`redirect-base-${item.id}`}
-                          value={selectedRedirectBaseId}
-                          onChange={(event) =>
-                            setDuplicateRedirectTargets((current) => ({
-                              ...current,
-                              [item.id]: event.target.value
-                            }))
-                          }
-                          >
-                            <option value="">Selecione a base para redirecionar</option>
-                            {activeBases
-                            .filter(
-                              (base) =>
-                                base.name.toLowerCase().trim() !== item.baseRegistrada.toLowerCase().trim()
-                            )
-                            .map((base) => (
-                              <option key={base.id} value={base.id}>
-                                {base.name} ({base.paymentType})
-                              </option>
-                            ))}
-                        </select>
-                      </div>
+                      <div className="duplicate-review-group">
+                        {cases.map((duplicateCase) => {
+                          const selectedRedirectBaseId = duplicateRedirectTargets[duplicateCase.id] || "";
+                          const canRedirect = Boolean(selectedRedirectBaseId);
 
-                      <div className="table-actions">
-                        <button
-                          className="ghost-button ghost-button--small"
-                          type="button"
-                          disabled={reviewingUploadId === item.id}
-                          onClick={() => void onReviewDuplicateUpload(item.id, "aprovar")}
-                        >
-                          Aprovar
-                        </button>
-                        <button
-                          className="ghost-button ghost-button--small ghost-button--danger"
-                          type="button"
-                          disabled={reviewingUploadId === item.id}
-                          onClick={() => void onReviewDuplicateUpload(item.id, "reprovar")}
-                        >
-                          Reprovar
-                        </button>
-                        <button
-                          className="ghost-button ghost-button--small"
-                          type="button"
-                          disabled={reviewingUploadId === item.id || !canRedirect}
-                          onClick={() => void onReviewDuplicateUpload(item.id, "redirecionar", selectedRedirectBaseId)}
-                        >
-                          Redirecionar
-                        </button>
+                          return (
+                            <div className="duplicate-review-case" key={duplicateCase.id}>
+                              <div className="duplicate-review-case__summary">
+                                <strong>{duplicateCase.baseEnviada}</strong>
+                                <span>{duplicateCase.periodName}</span>
+                                <small>{new Date(duplicateCase.uploadedAt).toLocaleString("pt-BR")}</small>
+                              </div>
+
+                              <div className="duplicate-review-card__redirect">
+                                <label htmlFor={`redirect-base-${duplicateCase.id}`}>Base de destino</label>
+                                <select
+                                  id={`redirect-base-${duplicateCase.id}`}
+                                  value={selectedRedirectBaseId}
+                                  onChange={(event) =>
+                                    setDuplicateRedirectTargets((current) => ({
+                                      ...current,
+                                      [duplicateCase.id]: event.target.value
+                                    }))
+                                  }
+                                >
+                                  <option value="">Selecione a base para redirecionar</option>
+                                  {activeBases
+                                    .filter(
+                                      (base) =>
+                                        base.name.toLowerCase().trim() !== (item.baseAfiliada || item.baseRegistrada).toLowerCase().trim()
+                                    )
+                                    .map((base) => (
+                                      <option key={base.id} value={base.id}>
+                                        {base.name} ({base.paymentType})
+                                      </option>
+                                    ))}
+                                </select>
+                              </div>
+
+                              <div className="table-actions">
+                                <button
+                                  className="ghost-button ghost-button--small"
+                                  type="button"
+                                  disabled={reviewingUploadId === duplicateCase.id}
+                                  onClick={() => void onReviewDuplicateUpload(duplicateCase.id, "aprovar")}
+                                >
+                                  Aprovar
+                                </button>
+                                <button
+                                  className="ghost-button ghost-button--small ghost-button--danger"
+                                  type="button"
+                                  disabled={reviewingUploadId === duplicateCase.id}
+                                  onClick={() => void onReviewDuplicateUpload(duplicateCase.id, "reprovar")}
+                                >
+                                  Reprovar
+                                </button>
+                                <button
+                                  className="ghost-button ghost-button--small"
+                                  type="button"
+                                  disabled={reviewingUploadId === duplicateCase.id || !canRedirect}
+                                  onClick={() => void onReviewDuplicateUpload(duplicateCase.id, "redirecionar", selectedRedirectBaseId)}
+                                >
+                                  Redirecionar
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </article>
                   );
