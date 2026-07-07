@@ -427,6 +427,7 @@ router.post("/", upload.array("files", 20), (req, res) => {
         motoristaNome: prepared.motoristaNome,
         motoristaCpf: prepared.motoristaCpf,
         baseName: prepared.baseName,
+        baseMismatch: prepared.baseMismatch,
         file: prepared.file,
         storageKey: prepared.storageKey
       });
@@ -644,8 +645,7 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
           select: {
             nome: true
           }
-        },
-        baseIdentificada: true
+        }
       }
     });
 
