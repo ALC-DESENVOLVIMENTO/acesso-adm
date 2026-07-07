@@ -672,7 +672,7 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
         base: upload.basePagamento.nome,
         periodoPagamento: upload.periodoPagamento.nome,
         pdfEnviadoEm: toIso(pdfSentAt),
-        pdfVisualizadoEm: toIso(receipt?.visualizadoEm),
+        pdfVisualizadoEm: toIso(receipt?.visualizadoEm || (receipt?.status === "motorista_visualizou" ? receipt.uploadEm : null)),
         notaFiscalEnviadaEm: toIso(noteSentAt),
         notaFiscalRecebidaEm: toIso(
           receipt?.aprovadoEm ||

@@ -449,6 +449,26 @@ export function FinanceiroScreen({
     }
   };
 
+  const openDriverPdf = async (row: FinanceiroMotoristaRow) => {
+    if (!row.caminhoArquivo) {
+      setErrorMessage("PDF do motorista ainda nao enviado.");
+      return;
+    }
+
+    try {
+      setBusyMessage("Abrindo PDF do motorista...");
+      const popup = window.open(row.caminhoArquivo, "_blank", "noopener,noreferrer");
+
+      if (!popup) {
+        window.location.href = row.caminhoArquivo;
+      }
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Falha ao visualizar PDF do motorista.");
+    } finally {
+      setBusyMessage("");
+    }
+  };
+
   if (!canAccess) {
     return (
       <div className="screen">
@@ -799,18 +819,27 @@ export function FinanceiroScreen({
                               Abrir
                               <Eye size={16} />
                             </button>
-                            <button
-                              className="ghost-button ghost-button--small"
-                              type="button"
-                              onClick={() => void openNotaFiscal(row)}
-                              disabled={!row.notaFiscalDownloadUrl}
-                            >
-                              Visualizar Nota Fiscal
-                              <FilePdf size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
+                          <button
+                            className="ghost-button ghost-button--small"
+                            type="button"
+                            onClick={() => void openNotaFiscal(row)}
+                            disabled={!row.notaFiscalDownloadUrl}
+                          >
+                            Visualizar Nota Fiscal
+                            <FilePdf size={16} />
+                          </button>
+                          <button
+                            className="ghost-button ghost-button--small"
+                            type="button"
+                            onClick={() => void openDriverPdf(row)}
+                            disabled={!row.caminhoArquivo}
+                          >
+                            Abrir PDF
+                            <FilePdf size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
                     ))
                   ) : (
                     <tr>
