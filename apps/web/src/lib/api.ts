@@ -109,7 +109,7 @@ export type PeriodBaseReviewItem = {
   motoristaNome: string;
   motoristaCpf: string;
   baseRegistrada: string;
-  baseAfiliada?: string;
+  baseCadastrada?: string;
   cases: {
     id: string;
     fileName: string;

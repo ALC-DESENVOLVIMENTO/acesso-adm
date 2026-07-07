@@ -2826,9 +2826,7 @@ function PeriodsScreen({
                         <div>
                           <strong>{item.motoristaNome}</strong>
                           <span>{item.motoristaCpf}</span>
-                          <p>
-                            Base cadastrada: {item.baseAfiliada || item.baseRegistrada}
-                          </p>
+                          <p>Base cadastrada: {item.baseCadastrada || item.baseRegistrada}</p>
                         </div>
                       </div>
 
@@ -2840,7 +2838,7 @@ function PeriodsScreen({
                           return (
                             <div className="duplicate-review-case" key={duplicateCase.id}>
                               <div className="duplicate-review-case__summary">
-                                <strong>{duplicateCase.baseEnviada}</strong>
+                                <strong>Base enviada: {duplicateCase.baseEnviada}</strong>
                                 <span>{duplicateCase.periodName}</span>
                                 <small>{new Date(duplicateCase.uploadedAt).toLocaleString("pt-BR")}</small>
                               </div>

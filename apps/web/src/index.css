@@ -2393,9 +2393,9 @@ button {
   border-radius: 18px;
   border: 1px solid rgba(31, 36, 48, 0.08);
   background: rgba(244, 246, 250, 0.84);
-  padding: 16px 18px;
+  padding: 18px 20px;
   display: grid;
-  gap: 14px;
+  gap: 16px;
 }
 
 .duplicate-review-card__main {
@@ -2419,12 +2419,41 @@ button {
 
 .duplicate-review-card__main p {
   margin: 6px 0 0;
+  line-height: 1.45;
 }
 
 .duplicate-review-card__meta {
   text-align: right;
   display: grid;
   gap: 4px;
+}
+
+.duplicate-review-group {
+  display: grid;
+  gap: 12px;
+}
+
+.duplicate-review-case {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(31, 36, 48, 0.06);
+}
+
+.duplicate-review-case__summary {
+  display: grid;
+  gap: 4px;
+}
+
+.duplicate-review-case__summary strong {
+  font-size: 0.98rem;
+}
+
+.duplicate-review-case__summary span,
+.duplicate-review-case__summary small {
+  color: var(--muted);
 }
 
 .duplicate-review-card__redirect {

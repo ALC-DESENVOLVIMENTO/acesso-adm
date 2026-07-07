@@ -130,7 +130,6 @@ async function getDuplicateReviewQueue(periodId?: string | null) {
     string,
     {
       base: string | null;
-      company: string | null;
     }
   >();
 
@@ -149,12 +148,10 @@ async function getDuplicateReviewQueue(periodId?: string | null) {
     const resolved =
       registry && "ambiguous" in registry
         ? {
-            base: null,
-            company: null
+            base: null
           }
         : {
-            base: registry?.base || null,
-            company: registry?.raw ? String((registry.raw as Record<string, unknown>)["empresa_vinculada"] || "") || null : null
+            base: registry?.base || null
           };
 
     registryBaseCache.set(cacheKey, resolved);
@@ -168,7 +165,7 @@ async function getDuplicateReviewQueue(periodId?: string | null) {
       motoristaNome: string;
       motoristaCpf: string;
       baseRegistrada: string;
-      baseAfiliada: string;
+      baseCadastrada: string;
       cases: DuplicateReviewCase[];
     }
   >();
@@ -186,15 +183,14 @@ async function getDuplicateReviewQueue(periodId?: string | null) {
     const motoristaCpf = upload.motorista?.cpf || "Nao informado";
     const motoristaNome = upload.motorista?.nome || "Nao informado";
     const registryBase = await getRegistryBase(motoristaCpf, motoristaNome);
-    const baseRegistrada = registryBase.base || upload.motorista?.empresaVinculada || "Nao informada";
-    const baseAfiliada = registryBase.company || upload.motorista?.empresaVinculada || "Nao informada";
+    const baseRegistrada = registryBase.base || "Nao informada";
     const groupKey = `${motoristaCpf}|${motoristaNome}|${baseRegistrada}`;
     const entry = grouped.get(groupKey) || {
       id: groupKey,
       motoristaNome,
       motoristaCpf,
       baseRegistrada,
-      baseAfiliada,
+      baseCadastrada: baseRegistrada,
       cases: []
     };
 
@@ -217,7 +213,7 @@ async function getDuplicateReviewQueue(periodId?: string | null) {
     motoristaNome: item.motoristaNome,
     motoristaCpf: item.motoristaCpf,
     baseRegistrada: item.baseRegistrada,
-    baseAfiliada: item.baseAfiliada,
+    baseCadastrada: item.baseCadastrada,
     cases: item.cases.sort((left, right) => right.uploadedAt.getTime() - left.uploadedAt.getTime())
   }));
 }
