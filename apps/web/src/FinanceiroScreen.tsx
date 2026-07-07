@@ -167,8 +167,7 @@ export function FinanceiroScreen({
   );
 
   const visiblePeriods = useMemo(() => {
-    const activePeriods = periods.filter((period) => period.status !== "aprovado");
-    return activePeriods.length > 0 ? activePeriods : periods;
+    return periods.filter((period) => period.status === "aprovado");
   }, [periods]);
 
   const allowedBases = useMemo(() => {
