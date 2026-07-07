@@ -460,7 +460,7 @@ export function FinanceiroScreen({
       const popup = window.open(row.caminhoArquivo, "_blank", "noopener,noreferrer");
 
       if (!popup) {
-        window.location.href = row.caminhoArquivo;
+        setErrorMessage("O navegador bloqueou a abertura do PDF em nova aba. Libere pop-ups para continuar.");
       }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Falha ao visualizar PDF do motorista.");
