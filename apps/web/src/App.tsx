@@ -2399,6 +2399,8 @@ function PeriodsScreen({
   const [isCreatePeriodModalOpen, setIsCreatePeriodModalOpen] = useState(false);
   const [isBasePanelOpen, setIsBasePanelOpen] = useState(false);
   const [isDuplicateReviewModalOpen, setIsDuplicateReviewModalOpen] = useState(false);
+  const [duplicateReviewPeriodId, setDuplicateReviewPeriodId] = useState<string | null>(null);
+  const [duplicateReviewPeriodName, setDuplicateReviewPeriodName] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"active" | "finished">("active");
   const [duplicateReviews, setDuplicateReviews] = useState<PeriodBaseReviewItem[]>([]);
   const [reviewingUploadId, setReviewingUploadId] = useState<string | null>(null);
@@ -2428,15 +2430,17 @@ function PeriodsScreen({
   const resolveBaseIdByName = (name: string) =>
     bases.find((base) => base.name.toLowerCase().trim() === name.toLowerCase().trim())?.id || "";
 
-  const loadDuplicateReviews = async () => {
-    const data = await fetchPeriodBaseReviews(token);
+  const loadDuplicateReviews = async (periodId?: string | null) => {
+    const data = await fetchPeriodBaseReviews(token, periodId || null);
     setDuplicateReviews(data);
   };
 
-  const openDuplicateReviewModal = async () => {
+  const openDuplicateReviewModal = async (periodId?: string | null, periodName?: string | null) => {
+    setDuplicateReviewPeriodId(periodId || null);
+    setDuplicateReviewPeriodName(periodName || null);
     setIsDuplicateReviewModalOpen(true);
     try {
-      await loadDuplicateReviews();
+      await loadDuplicateReviews(periodId || null);
     } catch {
       setDuplicateReviews([]);
     }
@@ -2538,10 +2542,6 @@ function PeriodsScreen({
               Gerenciar bases
               <ArrowRight size={16} />
             </button>
-            <button className="ghost-button" type="button" onClick={() => void openDuplicateReviewModal()}>
-              Motoristas duplicados
-              <ArrowRight size={16} />
-            </button>
           </div>
         </div>
       </section>
@@ -2619,6 +2619,13 @@ function PeriodsScreen({
                   >
                     Excluir
                     <TrashSimple size={16} />
+                  </button>
+                  <button
+                    className="ghost-button ghost-button--small"
+                    type="button"
+                    onClick={() => void openDuplicateReviewModal(period.id, period.name)}
+                  >
+                    Motoristas duplicados
                   </button>
                   <button
                     className="ghost-button ghost-button--small"
@@ -2725,7 +2732,14 @@ function PeriodsScreen({
       ) : null}
 
       {isDuplicateReviewModalOpen ? (
-        <div className="modal-overlay" onClick={() => setIsDuplicateReviewModalOpen(false)}>
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            setIsDuplicateReviewModalOpen(false);
+            setDuplicateReviewPeriodId(null);
+            setDuplicateReviewPeriodName(null);
+          }}
+        >
           <div
             className="modal-card modal-card--confirm modal-card--periods modal-card--bases"
             role="dialog"
@@ -2737,12 +2751,20 @@ function PeriodsScreen({
               <div>
                 <p className="eyebrow">Motoristas duplicados</p>
                 <h3 id="duplicate-review-title">Revisao de base dos uploads</h3>
-                <p>Confira os arquivos com base divergente e decida com N3/N4.</p>
+                <p>
+                  {duplicateReviewPeriodName
+                    ? `Periodo selecionado: ${duplicateReviewPeriodName}`
+                    : "Confira os arquivos com base divergente e decida com N3/N4."}
+                </p>
               </div>
               <button
                 className="ghost-button ghost-button--small"
                 type="button"
-                onClick={() => setIsDuplicateReviewModalOpen(false)}
+                onClick={() => {
+                  setIsDuplicateReviewModalOpen(false);
+                  setDuplicateReviewPeriodId(null);
+                  setDuplicateReviewPeriodName(null);
+                }}
               >
                 Fechar
               </button>

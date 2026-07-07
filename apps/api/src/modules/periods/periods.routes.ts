@@ -841,11 +841,14 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
 
 router.get("/review-queue", requireAdmin, (req, res) => {
   void (async () => {
+    const periodId = String(req.query.periodId || "").trim() || null;
+
     const uploads = await prisma.uploadPdf.findMany({
       where: {
         status: {
           in: [UploadStatus.pendente, UploadStatus.pendente_revisao_base]
-        }
+        },
+        ...(periodId ? { periodoPagamentoId: periodId } : {})
       },
       include: {
         motorista: {

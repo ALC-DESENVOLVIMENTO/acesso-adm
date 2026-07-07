@@ -498,8 +498,10 @@ export function fetchPaymentPeriods(token: string) {
   });
 }
 
-export function fetchPeriodBaseReviews(token: string) {
-  return request<PeriodBaseReviewItem[]>("/periods/review-queue", {
+export function fetchPeriodBaseReviews(token: string, periodId?: string | null) {
+  const suffix = periodId ? `?periodId=${encodeURIComponent(periodId)}` : "";
+
+  return request<PeriodBaseReviewItem[]>(`/periods/review-queue${suffix}`, {
     headers: {
       Authorization: `Bearer ${token}`
     }
