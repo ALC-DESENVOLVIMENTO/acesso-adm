@@ -413,7 +413,7 @@ router.post("/", upload.array("files", 20), (req, res) => {
           nomeOriginal: prepared.file.originalname,
           caminhoArquivo: prepared.storageKey,
           versao: 1,
-          status: prepared.baseMismatch ? UploadStatus.pendente_revisao_base : UploadStatus.pendente,
+          status: UploadStatus.pendente,
           usuarioId: auth.userId,
           motoristaId: prepared.motoristaId,
           periodoPagamentoId: periodId,
@@ -451,7 +451,7 @@ router.post("/", upload.array("files", 20), (req, res) => {
     if (shouldBridgeUploadToPdfOnline) {
       void Promise.all(
         createdUploads
-          .filter((upload) => upload.status !== UploadStatus.pendente_revisao_base)
+          .filter((upload) => upload.status === UploadStatus.pendente)
           .map((upload) =>
             notifyPdfOnline(
               "portal.upload.created",

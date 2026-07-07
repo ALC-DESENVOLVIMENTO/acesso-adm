@@ -21,7 +21,6 @@ enum PermissionOverrideType {
 
 enum UploadStatus {
   pendente
-  pendente_revisao_base
   processado
   erro
   substituido

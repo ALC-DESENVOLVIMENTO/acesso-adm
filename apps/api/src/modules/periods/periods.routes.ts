@@ -845,9 +845,7 @@ router.get("/review-queue", requireAdmin, (req, res) => {
 
     const uploads = await prisma.uploadPdf.findMany({
       where: {
-        status: {
-          in: [UploadStatus.pendente, UploadStatus.pendente_revisao_base]
-        },
+        status: UploadStatus.pendente,
         ...(periodId ? { periodoPagamentoId: periodId } : {})
       },
       include: {
@@ -971,13 +969,6 @@ router.patch("/uploads/:uploadId/review", requireAdmin, (req, res) => {
     if (!upload) {
       res.status(404).json({
         message: "Upload nao encontrado."
-      });
-      return;
-    }
-
-    if (upload.status !== UploadStatus.pendente_revisao_base) {
-      res.status(400).json({
-        message: "Este upload nao esta em revisao de base."
       });
       return;
     }
