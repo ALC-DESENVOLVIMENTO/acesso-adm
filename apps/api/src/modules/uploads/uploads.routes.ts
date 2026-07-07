@@ -412,7 +412,6 @@ router.post("/", upload.array("files", 20), (req, res) => {
           nomeArquivo: prepared.file.originalname,
           nomeOriginal: prepared.file.originalname,
           caminhoArquivo: prepared.storageKey,
-          baseIdentificada: prepared.baseName,
           versao: 1,
           status: prepared.baseMismatch ? UploadStatus.pendente_revisao_base : UploadStatus.pendente,
           usuarioId: auth.userId,
@@ -700,7 +699,6 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
           motoristaId: currentUpload.motoristaId,
           periodoPagamentoId: currentUpload.periodoPagamentoId,
           basePagamentoId: currentUpload.basePagamentoId,
-          baseIdentificada: currentUpload.baseIdentificada,
           substituiUploadId: currentUpload.id
         }
       })

@@ -1042,7 +1042,6 @@ router.patch("/uploads/:uploadId/review", requireAdmin, (req, res) => {
       },
       data: {
         basePagamentoId: targetBase.id,
-        baseIdentificada: targetBase.nome,
         status: UploadStatus.processado
       }
     });
