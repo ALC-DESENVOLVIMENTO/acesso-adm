@@ -2361,6 +2361,16 @@ button {
 
 .finance-export-button {
   white-space: nowrap;
+  background: linear-gradient(135deg, #ff7b6f, #ff5f53);
+  color: #fff;
+  border: 1px solid rgba(255, 95, 83, 0.28);
+  font-weight: 700;
+  box-shadow: 0 10px 26px rgba(255, 95, 83, 0.22);
+}
+
+.finance-export-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(255, 95, 83, 0.28);
 }
 
 .finance-table .data-table {

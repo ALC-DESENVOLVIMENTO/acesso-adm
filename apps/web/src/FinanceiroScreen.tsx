@@ -451,7 +451,6 @@ export function FinanceiroScreen({
 
   const openDriverPdf = async (row: FinanceiroMotoristaRow) => {
     if (!row.caminhoArquivo) {
-      setErrorMessage("PDF do motorista ainda nao enviado.");
       return;
     }
 
@@ -460,10 +459,10 @@ export function FinanceiroScreen({
       const popup = window.open(row.caminhoArquivo, "_blank", "noopener,noreferrer");
 
       if (!popup) {
-        setErrorMessage("O navegador bloqueou a abertura do PDF em nova aba. Libere pop-ups para continuar.");
+        return;
       }
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Falha ao visualizar PDF do motorista.");
+      void error;
     } finally {
       setBusyMessage("");
     }
@@ -693,7 +692,7 @@ export function FinanceiroScreen({
                       setPeriodViewTab("motoristas");
                     }}
                   >
-                    Abrir
+                    Perfil
                   </button>
                 </article>
               ))}
@@ -719,7 +718,7 @@ export function FinanceiroScreen({
                   <p>{selectedBase ? selectedBase.paymentType.toUpperCase() : "PERIODO INTEIRO"}</p>
                 </div>
                 <div className="finance-period-hero__meta">
-                  <span>{selectedBase ? `${selectedBase.motoristas} motoristas` : `${visibleMotoristas.length} motoristas`}</span>
+                  <span>{(selectedBase?.motoristas ?? visibleMotoristas.length) || 0} motoristas</span>
                   <small>Base ativa para consulta</small>
                 </div>
               </div>
