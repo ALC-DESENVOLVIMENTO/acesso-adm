@@ -1849,16 +1849,34 @@ button {
 }
 
 .checkbox-chip {
+  background: #f5f6fb;
   border: 1px solid rgba(31, 36, 48, 0.08);
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease;
   min-height: 56px;
   padding-inline: 16px;
   border-radius: 18px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
 }
 
 .checkbox-chip--active {
-  background: rgba(255, 95, 83, 0.12);
-  border-color: rgba(255, 95, 83, 0.18);
-  color: #c94c41;
+  background: linear-gradient(120deg, #ffe4df, #ffc8bc);
+  border-color: #c94c41;
+  color: #8f2a1f;
+  font-weight: 700;
+  box-shadow: 0 6px 14px rgba(201, 76, 65, 0.25);
+}
+
+.checkbox-chip:hover:not(.checkbox-chip--active) {
+  border-color: rgba(255, 95, 83, 0.45);
+  color: #b43a30;
+}
+
+.checkbox-chip:focus-visible {
+  outline: 3px solid rgba(201, 76, 65, 0.35);
+  outline-offset: 2px;
 }
 
 .crm-inline-form,
