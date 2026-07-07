@@ -2411,6 +2411,7 @@ function PeriodsScreen({
   const [activeTab, setActiveTab] = useState<"active" | "finished">("active");
   const [duplicateReviews, setDuplicateReviews] = useState<PeriodBaseReviewItem[]>([]);
   const [reviewingUploadId, setReviewingUploadId] = useState<string | null>(null);
+  const [duplicateRedirectTargets, setDuplicateRedirectTargets] = useState<Record<string, string>>({});
 
   const activeBases = useMemo(() => bases.filter((base) => base.active), [bases]);
 
@@ -2434,9 +2435,6 @@ function PeriodsScreen({
     [periods]
   );
 
-  const resolveBaseIdByName = (name: string) =>
-    bases.find((base) => base.name.toLowerCase().trim() === name.toLowerCase().trim())?.id || "";
-
   const loadDuplicateReviews = async (periodId?: string | null) => {
     const data = await fetchPeriodBaseReviews(token, periodId || null);
     setDuplicateReviews(data);
@@ -2445,6 +2443,7 @@ function PeriodsScreen({
   const openDuplicateReviewModal = async (periodId?: string | null, periodName?: string | null) => {
     setDuplicateReviewPeriodId(periodId || null);
     setDuplicateReviewPeriodName(periodName || null);
+    setDuplicateRedirectTargets({});
     setIsDuplicateReviewModalOpen(true);
     try {
       await loadDuplicateReviews(periodId || null);
@@ -2780,8 +2779,8 @@ function PeriodsScreen({
             <div className="duplicate-review-list">
               {duplicateReviews.length > 0 ? (
                 duplicateReviews.map((item) => {
-                  const redirectBaseId = resolveBaseIdByName(item.baseRegistrada);
-                  const canRedirect = Boolean(redirectBaseId);
+                  const selectedRedirectBaseId = duplicateRedirectTargets[item.id] || "";
+                  const canRedirect = Boolean(selectedRedirectBaseId);
 
                   return (
                     <article className="duplicate-review-card" key={item.id}>
@@ -2797,6 +2796,32 @@ function PeriodsScreen({
                           <span>{item.periodName}</span>
                           <small>{new Date(item.uploadedAt).toLocaleString("pt-BR")}</small>
                         </div>
+                      </div>
+
+                      <div className="duplicate-review-card__redirect">
+                        <label htmlFor={`redirect-base-${item.id}`}>Base de destino</label>
+                        <select
+                          id={`redirect-base-${item.id}`}
+                          value={selectedRedirectBaseId}
+                          onChange={(event) =>
+                            setDuplicateRedirectTargets((current) => ({
+                              ...current,
+                              [item.id]: event.target.value
+                            }))
+                          }
+                          >
+                            <option value="">Selecione a base para redirecionar</option>
+                            {activeBases
+                            .filter(
+                              (base) =>
+                                base.name.toLowerCase().trim() !== item.baseRegistrada.toLowerCase().trim()
+                            )
+                            .map((base) => (
+                              <option key={base.id} value={base.id}>
+                                {base.name} ({base.paymentType})
+                              </option>
+                            ))}
+                        </select>
                       </div>
 
                       <div className="table-actions">
@@ -2820,7 +2845,7 @@ function PeriodsScreen({
                           className="ghost-button ghost-button--small"
                           type="button"
                           disabled={reviewingUploadId === item.id || !canRedirect}
-                          onClick={() => void onReviewDuplicateUpload(item.id, "redirecionar", redirectBaseId)}
+                          onClick={() => void onReviewDuplicateUpload(item.id, "redirecionar", selectedRedirectBaseId)}
                         >
                           Redirecionar
                         </button>

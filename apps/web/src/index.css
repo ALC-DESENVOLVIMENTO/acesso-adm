@@ -2427,6 +2427,33 @@ button {
   gap: 4px;
 }
 
+.duplicate-review-card__redirect {
+  display: grid;
+  gap: 8px;
+}
+
+.duplicate-review-card__redirect label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.duplicate-review-card__redirect select {
+  min-height: 46px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 95, 83, 0.22);
+  background: rgba(255, 255, 255, 0.98);
+  color: var(--text);
+  padding: 0 14px;
+  box-shadow: 0 8px 22px rgba(31, 36, 48, 0.06);
+  outline: none;
+}
+
+.duplicate-review-card__redirect select:focus {
+  border-color: rgba(255, 95, 83, 0.5);
+  box-shadow: 0 0 0 3px rgba(255, 95, 83, 0.12);
+}
+
 .duplicate-review-card .table-actions {
   gap: 10px;
   flex-wrap: wrap;
