@@ -68,6 +68,80 @@ const duplicateReviewActionSchema = z.object({
   targetBaseId: z.string().uuid().optional()
 });
 
+async function getDuplicateReviewQueue(periodId?: string | null) {
+  const uploads = await prisma.uploadPdf.findMany({
+    where: {
+      status: UploadStatus.pendente,
+      ...(periodId ? { periodoPagamentoId: periodId } : {})
+    },
+    include: {
+      motorista: {
+        select: {
+          nome: true,
+          cpf: true,
+          empresaVinculada: true
+        }
+      },
+      periodoPagamento: {
+        select: {
+          id: true,
+          nome: true,
+          status: true
+        }
+      },
+      basePagamento: {
+        select: {
+          id: true,
+          nome: true
+        }
+      }
+    },
+    orderBy: {
+      criadoEm: "desc"
+    }
+  });
+
+  const reviewActions = await prisma.logAuditoria.findMany({
+    where: {
+      entidade: "uploads_pdf",
+      entidadeId: { in: uploads.map((upload) => upload.id) },
+      acao: {
+        in: ["aprovar_pdf_base", "redirecionar_pdf_base", "reprovar_pdf_base"]
+      }
+    },
+    select: {
+      entidadeId: true
+    }
+  });
+
+  const reviewedIds = new Set(reviewActions.map((item) => item.entidadeId).filter((value): value is string => Boolean(value)));
+
+  return uploads
+    .filter((upload) => {
+      if (reviewedIds.has(upload.id)) {
+        return false;
+      }
+
+      const baseRegistrada = normalizeText(upload.motorista?.empresaVinculada || "");
+      const baseEnviada = normalizeText(upload.basePagamento?.nome || "");
+
+      return baseRegistrada !== baseEnviada;
+    })
+    .map((upload) => ({
+      id: upload.id,
+      fileName: upload.nomeOriginal,
+      motoristaNome: upload.motorista?.nome || "Nao informado",
+      motoristaCpf: upload.motorista?.cpf || "Nao informado",
+      baseRegistrada: upload.motorista?.empresaVinculada || "Nao informada",
+      baseEnviada: upload.basePagamento?.nome || "Nao informada",
+      periodId: upload.periodoPagamentoId,
+      periodName: upload.periodoPagamento?.nome || "Nao informado",
+      periodStatus: upload.periodoPagamento?.status || "disponivel",
+      uploadedAt: upload.criadoEm,
+      downloadUrl: upload.caminhoArquivo
+    }));
+}
+
 function parseDateOnly(input: string) {
   const [yearText, monthText, dayText] = input.split("-");
 
@@ -682,6 +756,19 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
       return;
     }
 
+    if (parsed.data.status === "aprovado") {
+      const duplicateReviews = await getDuplicateReviewQueue(String(req.params.id));
+
+      if (duplicateReviews.length > 0) {
+        res.status(409).json({
+          message: "Existem motoristas duplicados pendentes de analise. Aprove, reprove ou redirecione antes de aprovar o periodo.",
+          pendingCount: duplicateReviews.length,
+          duplicates: duplicateReviews
+        });
+        return;
+      }
+    }
+
     const updated = await prisma.periodoPagamento.update({
       where: {
         id: String(req.params.id)
@@ -842,80 +929,7 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
 router.get("/review-queue", requireAdmin, (req, res) => {
   void (async () => {
     const periodId = String(req.query.periodId || "").trim() || null;
-
-    const uploads = await prisma.uploadPdf.findMany({
-      where: {
-        status: UploadStatus.pendente,
-        ...(periodId ? { periodoPagamentoId: periodId } : {})
-      },
-      include: {
-        motorista: {
-          select: {
-            nome: true,
-            cpf: true,
-            empresaVinculada: true
-          }
-        },
-        periodoPagamento: {
-          select: {
-            id: true,
-            nome: true,
-            status: true
-          }
-        },
-        basePagamento: {
-          select: {
-            id: true,
-            nome: true
-          }
-        }
-      },
-      orderBy: {
-        criadoEm: "desc"
-      }
-    });
-
-    const reviewActions = await prisma.logAuditoria.findMany({
-      where: {
-        entidade: "uploads_pdf",
-        entidadeId: { in: uploads.map((upload) => upload.id) },
-        acao: {
-          in: ["aprovar_pdf_base", "redirecionar_pdf_base", "reprovar_pdf_base"]
-        }
-      },
-      select: {
-        entidadeId: true
-      }
-    });
-
-    const reviewedIds = new Set(reviewActions.map((item) => item.entidadeId).filter((value): value is string => Boolean(value)));
-
-    res.json(
-      uploads
-        .filter((upload) => {
-          if (reviewedIds.has(upload.id)) {
-            return false;
-          }
-
-          const baseRegistrada = normalizeText(upload.motorista?.empresaVinculada || "");
-          const baseEnviada = normalizeText(upload.basePagamento?.nome || "");
-
-          return baseRegistrada !== baseEnviada;
-        })
-        .map((upload) => ({
-          id: upload.id,
-          fileName: upload.nomeOriginal,
-          motoristaNome: upload.motorista?.nome || "Nao informado",
-          motoristaCpf: upload.motorista?.cpf || "Nao informado",
-          baseRegistrada: upload.motorista?.empresaVinculada || "Nao informada",
-          baseEnviada: upload.basePagamento?.nome || "Nao informada",
-          periodId: upload.periodoPagamentoId,
-          periodName: upload.periodoPagamento?.nome || "Nao informado",
-          periodStatus: upload.periodoPagamento?.status || "disponivel",
-          uploadedAt: upload.criadoEm,
-          downloadUrl: upload.caminhoArquivo
-        }))
-    );
+    res.json(await getDuplicateReviewQueue(periodId));
   })().catch((error) => {
     res.status(500).json({
       message: "Falha ao listar revisoes de base.",

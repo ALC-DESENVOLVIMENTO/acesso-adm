@@ -329,6 +329,7 @@ function App() {
   const [deletePeriodTarget, setDeletePeriodTarget] = useState<PaymentPeriod | null>(null);
   const [financeMotoristaTarget, setFinanceMotoristaTarget] = useState<string | null>(null);
   const [reviewingUploadId, setReviewingUploadId] = useState<string | null>(null);
+  const [periodApprovalBlockedMessage, setPeriodApprovalBlockedMessage] = useState<string | null>(null);
   const [accessDenied, setAccessDenied] = useState<AccessDeniedState>(null);
   const [profilePhotoBroken, setProfilePhotoBroken] = useState(false);
   const [loginPreviewIndex, setLoginPreviewIndex] = useState(0);
@@ -1260,9 +1261,15 @@ function App() {
       setFlashMessage({ type: "success", text: response.message });
       await Promise.all([loadPeriodData(), loadDashboardSummary(), loadUploadsData()]);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Falha ao atualizar status do periodo.";
+
+      if (status === "aprovado" && /duplicados|analise/i.test(errorMessage)) {
+        setPeriodApprovalBlockedMessage(errorMessage);
+      }
+
       setFlashMessage({
         type: "error",
-        text: error instanceof Error ? error.message : "Falha ao atualizar status do periodo."
+        text: errorMessage
       });
     } finally {
       setLoadingMessage("");
@@ -1707,6 +1714,36 @@ function App() {
             onReviewDuplicateUpload={handleReviewDuplicateUpload}
             reviewingUploadId={reviewingUploadId}
           />
+        ) : null}
+        {periodApprovalBlockedMessage ? (
+          <div className="modal-overlay" onClick={() => setPeriodApprovalBlockedMessage(null)}>
+            <div
+              className="modal-card modal-card--confirm modal-card--periods modal-card--bases"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="period-approval-blocked-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="modal-card__header">
+                <div>
+                  <p className="eyebrow">Aprovacao bloqueada</p>
+                  <h3 id="period-approval-blocked-title">Existem motoristas duplicados pendentes</h3>
+                  <p>{periodApprovalBlockedMessage}</p>
+                </div>
+                <button
+                  className="ghost-button ghost-button--small"
+                  type="button"
+                  onClick={() => setPeriodApprovalBlockedMessage(null)}
+                >
+                  Fechar
+                </button>
+              </div>
+              <div className="crm-empty-screen">
+                <strong>Antes de aprovar o periodo, conclua a revisao dos motoristas duplicados.</strong>
+                <p>Voce precisa aprovar, reprovar ou redirecionar os itens pendentes para liberar o periodo.</p>
+              </div>
+            </div>
+          </div>
         ) : null}
         {!accessDenied && activeView === "financeiro" ? (
           <FinanceiroScreen
