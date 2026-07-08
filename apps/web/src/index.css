@@ -510,6 +510,27 @@ button {
   grid-template-columns: 110px 1fr;
 }
 
+.shell-mobile-toggle {
+  display: none;
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 35;
+  width: 48px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(31, 36, 48, 0.1);
+  box-shadow: 0 12px 28px rgba(23, 31, 56, 0.12);
+  color: var(--text);
+}
+
+.shell-mobile-backdrop {
+  display: none;
+}
+
 .sidebar {
   position: sticky;
   top: 0;
@@ -2686,19 +2707,40 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .shell-mobile-toggle {
+    display: inline-flex;
+  }
+
+  .shell-mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 18;
+    background: rgba(16, 20, 30, 0.34);
+    backdrop-filter: blur(3px);
+  }
+
   .sidebar {
     position: fixed;
-    inset: auto auto 20px 20px;
-    height: auto;
-    width: calc(100% - 40px);
+    top: 0;
+    left: 0;
+    bottom: 0;
+    height: 100vh;
+    width: min(82vw, 320px);
     max-width: 320px;
     z-index: 20;
-    border-radius: 28px;
+    border-radius: 0 28px 28px 0;
     box-shadow: var(--shadow);
+    transform: translateX(-105%);
+    transition: transform 0.24s ease;
+  }
+
+  .shell-page--sidebar-open .sidebar {
+    transform: translateX(0);
   }
 
   .shell-content {
-    padding-top: 110px;
+    padding-top: 86px;
   }
 
   .stats-grid,
@@ -2728,7 +2770,11 @@ button {
   .auth-panel,
   .first-access-page,
   .shell-content {
-    padding: 20px;
+    padding: 16px;
+  }
+
+  .shell-content {
+    padding-top: 76px;
   }
 
   .auth-card,
@@ -2743,6 +2789,22 @@ button {
   .topbar {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .topbar {
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 24px;
+  }
+
+  .topbar__actions {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .topbar__brand img {
+    width: 180px;
   }
 
   .crm-driver__hero,
@@ -2792,5 +2854,42 @@ button {
 
   .auth-brand__logo {
     width: 112px;
+  }
+
+  .shell-mobile-toggle {
+    top: 12px;
+    left: 12px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .sidebar {
+    width: min(88vw, 320px);
+  }
+
+  .modal-overlay {
+    padding: 12px;
+  }
+
+  .modal-card {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 22px;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 12px 10px;
+  }
+
+  .table-actions {
+    flex-wrap: wrap;
+  }
+
+  .quick-actions-editor,
+  .user-form--modal .user-modules-field .checkbox-grid,
+  .modal-card--create .checkbox-grid,
+  .admin-form.period-form {
+    grid-template-columns: 1fr;
   }
 }

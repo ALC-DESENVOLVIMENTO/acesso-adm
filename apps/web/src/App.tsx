@@ -18,6 +18,7 @@
   LockSimple,
   MagnifyingGlass,
   PencilSimple,
+  List,
   SignOut,
   TrashSimple,
   UserCirclePlus,
@@ -309,6 +310,7 @@ function App() {
   const [profileActionError, setProfileActionError] = useState("");
   const [profileActionLoading, setProfileActionLoading] = useState(false);
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [quickActions, setQuickActions] = useState<RouteView[]>([]);
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary>(initialSummary);
   const [users, setUsers] = useState<UserSummary[]>([]);
@@ -445,6 +447,7 @@ function App() {
     setProfilePhotoBroken(false);
     setReviewingUploadId(null);
     setPeriodApprovalBlockedMessage(null);
+    setSidebarOpen(false);
     clearLoadedState();
     setActiveView("dashboard");
     setView("login");
@@ -459,6 +462,7 @@ function App() {
   const navigateToRoute = (route: RouteView) => {
     setAccessDenied(null);
     setActiveView(route);
+    setSidebarOpen(false);
     window.history.pushState({}, "", getRoutePath(route));
   };
 
@@ -1570,7 +1574,17 @@ function App() {
   }
 
   return (
-    <main className="shell-page">
+    <main className={`shell-page ${sidebarOpen ? "shell-page--sidebar-open" : ""}`}>
+      <button
+        className="shell-mobile-toggle"
+        type="button"
+        aria-label={sidebarOpen ? "Fechar menu" : "Abrir menu"}
+        aria-expanded={sidebarOpen}
+        onClick={() => setSidebarOpen((current) => !current)}
+      >
+        <List size={22} />
+      </button>
+      {sidebarOpen ? <div className="shell-mobile-backdrop" onClick={() => setSidebarOpen(false)} /> : null}
       <aside className="sidebar">
         <div>
           <nav className="sidebar__nav">
