@@ -1,5 +1,15 @@
 const API_BASE_URL = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
 
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 export type LoginResponse = {
   token: string;
   firstAccess: boolean;
@@ -254,6 +264,26 @@ export type AtendimentoDetail = {
     observacoesGerais: string | null;
     classificacoes: AtendimentoClassificacao[];
   };
+  historicoPagamentos: Array<{
+    id: string;
+    periodoPagamentoId: string | null;
+    periodoPagamento: string | null;
+    basePagamentoId: string | null;
+    basePagamento: string | null;
+    dataPagamento: string | null;
+    valorPagamento: string | null;
+    statusProcesso: string;
+    pdfStatus: string;
+    pdfEnviadoEm: string | null;
+    pdfVisualizadoEm: string | null;
+    notaFiscalStatus: string;
+    notaFiscalEnviadaEm: string | null;
+    notaFiscalRecebidaEm: string | null;
+    pago: boolean;
+    atualizadoEm: string | null;
+    pdfDownloadUrl: string | null;
+    notaFiscalDownloadUrl: string | null;
+  }>;
   pdfs: AtendimentoPdf[];
   atendimentos: Array<{
     id: string;
@@ -338,7 +368,7 @@ async function request<T>(path: string, options?: RequestInit & { body?: JsonBod
   const payload = (await response.json().catch(() => null)) as { message?: string } | null;
 
   if (!response.ok) {
-    throw new Error(payload?.message || "Falha na comunicacao com a API.");
+    throw new ApiError(payload?.message || "Falha na comunicacao com a API.", response.status);
   }
 
   return payload as T;
@@ -353,7 +383,7 @@ async function requestFormData<T>(path: string, options: RequestInit & { body: F
   const payload = (await response.json().catch(() => null)) as { message?: string } | null;
 
   if (!response.ok) {
-    throw new Error(payload?.message || "Falha na comunicacao com a API.");
+    throw new ApiError(payload?.message || "Falha na comunicacao com a API.", response.status);
   }
 
   return payload as T;
@@ -392,11 +422,11 @@ async function requestUpload<T>(params: {
         return;
       }
 
-      reject(new Error(payload?.message || "Falha no upload."));
+      reject(new ApiError(payload?.message || "Falha no upload.", xhr.status));
     };
 
     xhr.onerror = () => {
-      reject(new Error("Falha de rede durante o upload."));
+      reject(new ApiError("Falha de rede durante o upload.", xhr.status || 0));
     };
 
     if (params.fields) {
@@ -428,7 +458,7 @@ async function requestBlob(path: string, token: string) {
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(payload?.message || "Falha na comunicacao com a API.");
+    throw new ApiError(payload?.message || "Falha na comunicacao com a API.", response.status);
   }
 
   const contentDisposition = response.headers.get("content-disposition") || "";

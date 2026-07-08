@@ -68,6 +68,20 @@ const DRIVER_REGISTRY_FAVORED_PHONE_CANDIDATES = [
   "beneficiary_phone"
 ];
 const DRIVER_REGISTRY_VALIDITY_CANDIDATES = ["validade_gr", "validade", "gr_validade", "gr_expiracao"];
+const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  pdf_aprovado: "PDF aprovado",
+  pdf_aguardando_envio: "PDF aguardando envio ao motorista",
+  pdf_enviado_ao_motorista: "PDF enviado ao motorista",
+  motorista_visualizou: "PDF visualizado",
+  aguardando_envio_nota_fiscal: "Aguardando envio da Nota Fiscal",
+  nota_fiscal_recebida: "Nota Fiscal recebida",
+  nota_fiscal_em_analise: "Nota Fiscal em análise",
+  nota_fiscal_aprovada: "Nota Fiscal aprovada",
+  nota_fiscal_rejeitada: "Nota Fiscal recusada",
+  em_atendimento: "Em atendimento",
+  chamado_aberto: "Chamado aberto",
+  processo_concluido: "Processo concluído"
+};
 
 type DriverRegistryMetadata = {
   schema: string;
@@ -176,6 +190,23 @@ function getDateOnlyValue(row: DriverRegistryRawRow, candidates: string[]) {
   }
 
   return null;
+}
+
+function toIso(value: Date | string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = value instanceof Date ? value : new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
+}
+
+function formatPaymentStatusLabel(value: string | null | undefined) {
+  if (!value) {
+    return "Sem status";
+  }
+
+  return PAYMENT_STATUS_LABELS[value] || value;
 }
 
 function getColumn(metadata: DriverRegistryMetadata, candidates: string[]) {
@@ -791,6 +822,96 @@ async function loadMotoristaDetail(motoristaId: string) {
 
   const registryRow = await fetchDriverRegistryByCpfDigits(motorista.cpf);
   const registryData = registryRow ? driverRegistryAsAtendimentoPayload(registryRow) : null;
+  const paymentReceipts = await prisma.driverPdfReceived.findMany({
+    where: {
+      motoristaId: motorista.id
+    },
+    select: {
+      id: true,
+      uploadPdfId: true,
+      motoristaId: true,
+      periodoPagamentoId: true,
+      basePagamentoId: true,
+      status: true,
+      uploadEm: true,
+      enviadoAoMotoristaEm: true,
+      visualizadoEm: true,
+      aprovadoEm: true,
+      rejeitadoEm: true,
+      caminhoArquivo: true,
+      nomeArquivo: true
+    },
+    orderBy: {
+      uploadEm: "desc"
+    }
+  });
+
+  const paymentHistory = motorista.uploads.flatMap((upload) => {
+    const receipt =
+      paymentReceipts.find((item) => item.uploadPdfId && item.uploadPdfId === upload.id) ||
+      paymentReceipts.find(
+        (item) =>
+          item.motoristaId === motorista.id &&
+          item.periodoPagamentoId === upload.periodoPagamentoId &&
+          item.basePagamentoId === upload.basePagamentoId
+      ) ||
+      null;
+    const period = upload.periodoPagamento || null;
+    const base = upload.basePagamento || null;
+    const pdfSentAt = receipt?.enviadoAoMotoristaEm || upload.criadoEm;
+    const pdfViewedAt = receipt?.visualizadoEm || null;
+    const noteSentAt = receipt?.uploadEm || null;
+    const noteReceivedAt = receipt?.aprovadoEm || receipt?.rejeitadoEm || null;
+    const noteStatus = receipt?.status || "aguardando_envio_nota_fiscal";
+    const pdfStatus =
+      upload.status === "processado"
+        ? "pdf_enviado_ao_motorista"
+        : upload.status === "substituido"
+          ? "pdf_aprovado"
+          : upload.status === "removido"
+            ? "pdf_aguardando_envio"
+            : "pdf_aguardando_envio";
+    const processoStatus =
+      noteStatus === "nota_fiscal_aprovada"
+        ? "processo_concluido"
+        : noteStatus === "nota_fiscal_em_analise"
+          ? "nota_fiscal_em_analise"
+        : noteStatus === "nota_fiscal_rejeitada"
+            ? "nota_fiscal_rejeitada"
+            : noteStatus === "nota_fiscal_recebida"
+              ? "nota_fiscal_recebida"
+              : noteSentAt
+                ? "aguardando_envio_nota_fiscal"
+                : pdfViewedAt
+                  ? "motorista_visualizou"
+                  : pdfSentAt
+                    ? "pdf_enviado_ao_motorista"
+                    : "pdf_aguardando_envio";
+    const paid = noteStatus === "nota_fiscal_aprovada" || noteStatus === "processo_concluido";
+
+    return [
+      {
+        id: receipt?.id || upload.id,
+        periodoPagamentoId: upload.periodoPagamentoId || receipt?.periodoPagamentoId || null,
+        periodoPagamento: period?.nome || null,
+        basePagamentoId: upload.basePagamentoId || receipt?.basePagamentoId || null,
+        basePagamento: base?.nome || null,
+        dataPagamento: null,
+        valorPagamento: null,
+        statusProcesso: formatPaymentStatusLabel(processoStatus),
+        pdfStatus: formatPaymentStatusLabel(pdfStatus),
+        pdfEnviadoEm: toIso(pdfSentAt),
+        pdfVisualizadoEm: toIso(pdfViewedAt),
+        notaFiscalStatus: formatPaymentStatusLabel(noteStatus),
+        notaFiscalEnviadaEm: toIso(noteSentAt),
+        notaFiscalRecebidaEm: toIso(noteReceivedAt),
+        pago: paid,
+        atualizadoEm: toIso(noteReceivedAt || pdfViewedAt || pdfSentAt || receipt?.uploadEm || upload.criadoEm),
+        pdfDownloadUrl: upload.caminhoArquivo ? buildStorageObjectUrl(upload.caminhoArquivo) : null,
+        notaFiscalDownloadUrl: receipt?.caminhoArquivo ? buildStorageObjectUrl(receipt.caminhoArquivo) : null
+      }
+    ];
+  });
 
   return {
     motorista: {
@@ -822,6 +943,7 @@ async function loadMotoristaDetail(motoristaId: string) {
         active: item.classificacao.ativa
       }))
     },
+    historicoPagamentos: paymentHistory,
     pdfs: motorista.uploads.map((upload) => ({
       id: upload.id,
       nomeDocumento: upload.nomeOriginal,

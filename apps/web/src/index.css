@@ -1927,6 +1927,104 @@ button {
   padding-right: 4px;
 }
 
+.crm-payment-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.search-field--compact {
+  max-width: 520px;
+}
+
+.crm-payment-list {
+  display: grid;
+  gap: 12px;
+}
+
+.crm-payment-card {
+  border-radius: 18px;
+  padding: 16px 18px;
+  background: rgba(244, 246, 250, 0.82);
+  border: 1px solid rgba(31, 36, 48, 0.05);
+  display: grid;
+  gap: 14px;
+}
+
+.crm-payment-card__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.crm-payment-card__header strong {
+  display: block;
+  font-size: 1rem;
+}
+
+.crm-payment-card__header span {
+  color: var(--muted);
+}
+
+.crm-payment-card__badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.crm-payment-card__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 14px;
+}
+
+.crm-payment-card__grid div {
+  display: grid;
+  gap: 4px;
+}
+
+.crm-payment-card__grid strong,
+.crm-payment-card__grid span {
+  display: block;
+}
+
+.crm-payment-card__grid span {
+  color: var(--muted);
+}
+
+.crm-payment-card__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 960px) {
+  .crm-payment-card__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .crm-payment-card__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .crm-payment-toolbar {
+    align-items: stretch;
+  }
+
+  .search-field--compact {
+    max-width: none;
+    width: 100%;
+  }
+}
+
 .crm-list__item,
 .crm-ticket {
   border-radius: 20px;

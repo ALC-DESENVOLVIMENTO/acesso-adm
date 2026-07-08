@@ -77,6 +77,7 @@ import {
   type UserPayload,
   type UserSummary
 } from "./lib/api";
+import { ApiError } from "./lib/api";
 import { FinanceiroScreen } from "./FinanceiroScreen";
 
 type AccessLevel = "N1" | "N2" | "N3" | "N4";
@@ -416,6 +417,45 @@ function App() {
     setPeriodDataLoaded(false);
   };
 
+  const clearSessionAndGoLogin = () => {
+    localStorage.removeItem("portal-admin-session");
+    setCurrentUser(null);
+    setToken("");
+    setUsers([]);
+    setUploads([]);
+    setPaymentPeriods([]);
+    setPaymentBases([]);
+    setDashboardSummary(initialSummary);
+    setLoginError("");
+    setPasswordError("");
+    setProfileActionError("");
+    setProfileActionLoading(false);
+    setProfileMenuOpen(false);
+    setProfileModalMode(null);
+    setLoadingMessage("");
+    setFlashMessage(null);
+    setUploadProgress(null);
+    setUploadHistory(null);
+    setCreateUserSignal(0);
+    setDeleteUserTarget(null);
+    setDeleteUploadTarget(null);
+    setDeletePeriodTarget(null);
+    setFinanceMotoristaTarget(null);
+    setAccessDenied(null);
+    setProfilePhotoBroken(false);
+    setReviewingUploadId(null);
+    setPeriodApprovalBlockedMessage(null);
+    clearLoadedState();
+    setActiveView("dashboard");
+    setView("login");
+    window.history.replaceState({}, "", "/login");
+  };
+
+  const isSessionExpiredError = (error: unknown) =>
+    error instanceof ApiError &&
+    (error.status === 401 ||
+      /sessao invalida|sessao nao informada|invalid or expired/i.test(error.message));
+
   const navigateToRoute = (route: RouteView) => {
     setAccessDenied(null);
     setActiveView(route);
@@ -497,36 +537,13 @@ function App() {
         setView(safeRoute);
         window.history.replaceState({}, "", getRoutePath(safeRoute));
         requestedRouteRef.current = null;
-      } catch {
-        localStorage.removeItem("portal-admin-session");
-        setCurrentUser(null);
-        setToken("");
-        setUsers([]);
-        setUploads([]);
-        setPaymentPeriods([]);
-        setPaymentBases([]);
-        setDashboardSummary(initialSummary);
-        setLoginError("");
-        setPasswordError("");
-        setProfileActionError("");
-        setProfileActionLoading(false);
-        setProfileMenuOpen(false);
-        setProfileModalMode(null);
-        setLoadingMessage("");
-        setFlashMessage(null);
-        setUploadProgress(null);
-        setUploadHistory(null);
-        setCreateUserSignal(0);
-        setDeleteUserTarget(null);
-        setDeleteUploadTarget(null);
-        setDeletePeriodTarget(null);
-        setFinanceMotoristaTarget(null);
-        setAccessDenied(null);
-        setProfilePhotoBroken(false);
-        clearLoadedState();
-        setActiveView("dashboard");
-        setView("login");
-        window.history.replaceState({}, "", "/login");
+      } catch (error) {
+        if (isSessionExpiredError(error)) {
+          clearSessionAndGoLogin();
+          return;
+        }
+
+        clearSessionAndGoLogin();
       }
     })();
   }, []);
@@ -635,6 +652,11 @@ function App() {
         setFlashMessage(null);
       } catch (error) {
         if (cancelled) {
+          return;
+        }
+
+        if (isSessionExpiredError(error)) {
+          clearSessionAndGoLogin();
           return;
         }
 
@@ -3789,6 +3811,7 @@ function AtendimentoScreen({
     { key: "classificacoes", label: "Classificacoes" },
     { key: "notas", label: "Notas internas" },
     { key: "pdfs", label: "Historico de PDFs" },
+    { key: "pagamentos", label: "Historico de Pagamentos" },
     { key: "historico", label: "Historico de Atendimento" },
     { key: "chamados", label: "Chamados" }
   ] as const;
@@ -3804,6 +3827,7 @@ function AtendimentoScreen({
   const [statusFilter, setStatusFilter] = useState<AtendimentoDetail["chamados"][number]["status"] | "todos">(
     "todos"
   );
+  const [paymentHistoryQuery, setPaymentHistoryQuery] = useState("");
   const [loading, setLoading] = useState("");
   const [noteContent, setNoteContent] = useState("");
   const [editingNote, setEditingNote] = useState<{ id: string; content: string } | null>(null);
@@ -3825,6 +3849,38 @@ function AtendimentoScreen({
 
     return detail.chamados.filter((ticket) => statusFilter === "todos" || ticket.status === statusFilter);
   }, [detail, statusFilter]);
+
+  const filteredPaymentHistory = useMemo(() => {
+    if (!detail) {
+      return [];
+    }
+
+    const query = paymentHistoryQuery.trim().toLowerCase();
+
+    if (!query) {
+      return detail.historicoPagamentos;
+    }
+
+    return detail.historicoPagamentos.filter((item) => {
+      const haystack = [
+        item.periodoPagamento,
+        item.basePagamento,
+        item.statusProcesso,
+        item.pdfStatus,
+        item.notaFiscalStatus,
+        item.pago ? "pago" : "em aberto",
+        item.pdfEnviadoEm,
+        item.pdfVisualizadoEm,
+        item.notaFiscalEnviadaEm,
+        item.notaFiscalRecebidaEm
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [detail, paymentHistoryQuery]);
 
   const selectedMotoristaBase = detail?.motorista.base || detail?.motorista.empresaVinculada || "Base nao informada";
 
@@ -3938,6 +3994,7 @@ function AtendimentoScreen({
       setMotoristaEditOpen(false);
       setMotoristaEditForm(null);
       setActiveDetailTab("dados");
+      setPaymentHistoryQuery("");
       return;
     }
 
@@ -3955,6 +4012,7 @@ function AtendimentoScreen({
     setNewTicketOpen(false);
     setEditingNote(null);
     setMotoristaEditOpen(false);
+    setPaymentHistoryQuery("");
   }, [selectedMotoristaId]);
 
   const refreshDetail = async (motoristaId = selectedMotoristaId) => {
@@ -4478,6 +4536,86 @@ function AtendimentoScreen({
                       ))
                     ) : (
                       <div className="crm-empty">Nenhum PDF vinculado a este motorista.</div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+              {activeDetailTab === 'pagamentos' ? (
+                <div className="crm-tab-panel-content">
+                  <div className="crm-tab-panel__header">
+                    <div>
+                      <strong>Historico de Pagamentos</strong>
+                      <p>Periodo, PDF, nota fiscal e situacao completa do processo.</p>
+                    </div>
+                  </div>
+
+                  <div className="crm-payment-toolbar">
+                    <label className="search-field search-field--compact">
+                      <MagnifyingGlass size={18} />
+                      <input
+                        placeholder="Buscar por periodo, base, status ou data"
+                        value={paymentHistoryQuery}
+                        onChange={(event) => setPaymentHistoryQuery(event.target.value)}
+                      />
+                    </label>
+                    <div className="quick-meta">
+                      <span className="quick-meta__chip">{filteredPaymentHistory.length} itens</span>
+                    </div>
+                  </div>
+
+                  <div className="crm-payment-list">
+                    {filteredPaymentHistory.length > 0 ? (
+                      filteredPaymentHistory.map((item) => (
+                        <article className="crm-payment-card" key={item.id}>
+                          <div className="crm-payment-card__header">
+                            <div>
+                              <strong>{item.periodoPagamento || "Periodo nao informado"}</strong>
+                              <span>{item.basePagamento || "Base nao informada"}</span>
+                            </div>
+                            <div className="crm-payment-card__badges">
+                              <span className="status-pill">{item.statusProcesso}</span>
+                              <span className="status-pill">{item.pdfStatus}</span>
+                              <span className="status-pill">{item.notaFiscalStatus}</span>
+                              <span className={`status-pill ${item.pago ? "status-pill--active" : ""}`}>
+                                {item.pago ? "Pago" : "Em aberto"}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="crm-payment-card__grid">
+                            <div><strong>PDF enviado</strong><span>{item.pdfEnviadoEm ? new Date(item.pdfEnviadoEm).toLocaleString("pt-BR") : "Nao informado"}</span></div>
+                            <div><strong>PDF visualizado</strong><span>{item.pdfVisualizadoEm ? new Date(item.pdfVisualizadoEm).toLocaleString("pt-BR") : "Nao informado"}</span></div>
+                            <div><strong>NF enviada</strong><span>{item.notaFiscalEnviadaEm ? new Date(item.notaFiscalEnviadaEm).toLocaleString("pt-BR") : "Nao informado"}</span></div>
+                            <div><strong>NF recebida</strong><span>{item.notaFiscalRecebidaEm ? new Date(item.notaFiscalRecebidaEm).toLocaleString("pt-BR") : "Nao informado"}</span></div>
+                            <div><strong>Data de pagamento</strong><span>{item.dataPagamento ? new Date(item.dataPagamento).toLocaleString("pt-BR") : "Nao informado"}</span></div>
+                            <div><strong>Valor</strong><span>{item.valorPagamento || "Nao informado"}</span></div>
+                          </div>
+
+                          <div className="crm-payment-card__actions">
+                            {item.pdfDownloadUrl ? (
+                              <button
+                                className="ghost-button ghost-button--small"
+                                type="button"
+                                onClick={() => window.open(item.pdfDownloadUrl || "", "_blank", "noopener,noreferrer")}
+                              >
+                                Abrir PDF
+                              </button>
+                            ) : null}
+                            {item.notaFiscalDownloadUrl ? (
+                              <button
+                                className="ghost-button ghost-button--small"
+                                type="button"
+                                onClick={() => window.open(item.notaFiscalDownloadUrl || "", "_blank", "noopener,noreferrer")}
+                              >
+                                Abrir NF
+                              </button>
+                            ) : null}
+                          </div>
+                        </article>
+                      ))
+                    ) : (
+                      <div className="crm-empty">Nenhum historico de pagamento disponivel para este motorista.</div>
                     )}
                   </div>
                 </div>
