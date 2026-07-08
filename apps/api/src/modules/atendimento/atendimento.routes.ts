@@ -2,7 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import { requireAdmin, requireAuth, requireModuleAccess } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
-import { buildStorageObjectUrl, createStorageKey, uploadObject } from "../../lib/storage.js";
+import { buildStorageObjectUrl, createStorageKey, fetchObjectBuffer, uploadObject } from "../../lib/storage.js";
 
 const router = Router();
 
@@ -207,6 +207,45 @@ function formatPaymentStatusLabel(value: string | null | undefined) {
   }
 
   return PAYMENT_STATUS_LABELS[value] || value;
+}
+
+async function extractTotalGeralValue(storageKey: string | null | undefined) {
+  if (!storageKey) {
+    return null;
+  }
+
+  const remoteObject = await fetchObjectBuffer(storageKey).catch(() => null);
+  if (!remoteObject?.body) {
+    return null;
+  }
+
+  try {
+    const pdfParseModule = await import("pdf-parse");
+    const pdfParse = (pdfParseModule as unknown as { default?: (buffer: Buffer) => Promise<{ text: string }> })
+      .default ?? (pdfParseModule as unknown as (buffer: Buffer) => Promise<{ text: string }>);
+    const parsed = await pdfParse(Buffer.from(remoteObject.body));
+    const text = String(parsed.text || "");
+    const normalizedText = text.replace(/\s+/g, " ");
+    const match =
+      /Total Geral\s*[:\-]?\s*R?\$?\s*([\d.]+,\d{2})/i.exec(normalizedText) ||
+      /Total\s*Geral\s*[:\-]?\s*([\d.]+,\d{2})/i.exec(normalizedText);
+
+    return match?.[1] ? `R$ ${match[1]}` : null;
+  } catch {
+    return null;
+  }
+}
+
+const noteStatuses = new Set([
+  "nota_fiscal_recebida",
+  "nota_fiscal_em_analise",
+  "nota_fiscal_aprovada",
+  "nota_fiscal_rejeitada",
+  "processo_concluido"
+]);
+
+function isNoteStatus(status: string | null | undefined) {
+  return Boolean(status && noteStatuses.has(status));
 }
 
 function getColumn(metadata: DriverRegistryMetadata, candidates: string[]) {
@@ -846,72 +885,76 @@ async function loadMotoristaDetail(motoristaId: string) {
     }
   });
 
-  const paymentHistory = motorista.uploads.flatMap((upload) => {
-    const receipt =
-      paymentReceipts.find((item) => item.uploadPdfId && item.uploadPdfId === upload.id) ||
-      paymentReceipts.find(
-        (item) =>
-          item.motoristaId === motorista.id &&
-          item.periodoPagamentoId === upload.periodoPagamentoId &&
-          item.basePagamentoId === upload.basePagamentoId
-      ) ||
-      null;
-    const period = upload.periodoPagamento || null;
-    const base = upload.basePagamento || null;
-    const pdfSentAt = receipt?.enviadoAoMotoristaEm || upload.criadoEm;
-    const pdfViewedAt = receipt?.visualizadoEm || null;
-    const noteSentAt = receipt?.uploadEm || null;
-    const noteReceivedAt = receipt?.aprovadoEm || receipt?.rejeitadoEm || null;
-    const noteStatus = receipt?.status || "aguardando_envio_nota_fiscal";
-    const pdfStatus =
-      upload.status === "processado"
-        ? "pdf_enviado_ao_motorista"
-        : upload.status === "substituido"
-          ? "pdf_aprovado"
-          : upload.status === "removido"
-            ? "pdf_aguardando_envio"
-            : "pdf_aguardando_envio";
-    const processoStatus =
-      noteStatus === "nota_fiscal_aprovada"
-        ? "processo_concluido"
-        : noteStatus === "nota_fiscal_em_analise"
-          ? "nota_fiscal_em_analise"
-        : noteStatus === "nota_fiscal_rejeitada"
-            ? "nota_fiscal_rejeitada"
-            : noteStatus === "nota_fiscal_recebida"
-              ? "nota_fiscal_recebida"
-              : noteSentAt
-                ? "aguardando_envio_nota_fiscal"
-                : pdfViewedAt
-                  ? "motorista_visualizou"
-                  : pdfSentAt
-                    ? "pdf_enviado_ao_motorista"
-                    : "pdf_aguardando_envio";
-    const paid = noteStatus === "nota_fiscal_aprovada" || noteStatus === "processo_concluido";
+  const paymentHistoryByKey = new Map<string, (typeof motorista.uploads)[number]>();
+  for (const upload of motorista.uploads
+    .slice()
+    .sort((left, right) => right.criadoEm.getTime() - left.criadoEm.getTime())) {
+    if (!upload.periodoPagamentoId || !upload.basePagamentoId) {
+      continue;
+    }
 
-    return [
-      {
+    const key = `${upload.periodoPagamentoId}|${upload.basePagamentoId}`;
+    if (!paymentHistoryByKey.has(key)) {
+      paymentHistoryByKey.set(key, upload);
+    }
+  }
+
+  const paymentHistory = await Promise.all(
+    Array.from(paymentHistoryByKey.values()).map(async (upload) => {
+      const receipt =
+        paymentReceipts.find((item) => item.uploadPdfId && item.uploadPdfId === upload.id) ||
+        paymentReceipts.find(
+          (item) =>
+            item.motoristaId === motorista.id &&
+            item.periodoPagamentoId === upload.periodoPagamentoId &&
+            item.basePagamentoId === upload.basePagamentoId
+        ) ||
+        null;
+      const period = upload.periodoPagamento || null;
+      const base = upload.basePagamento || null;
+      const pdfSentAt = receipt?.enviadoAoMotoristaEm || upload.criadoEm;
+      const pdfViewedAt = receipt?.visualizadoEm || null;
+      const noteSentAt = isNoteStatus(receipt?.status) ? receipt?.uploadEm || null : null;
+      const noteReceivedAt = isNoteStatus(receipt?.status) ? receipt?.aprovadoEm || receipt?.rejeitadoEm || null : null;
+      const noteStatus = isNoteStatus(receipt?.status) ? receipt!.status : "aguardando_envio_nota_fiscal";
+      const currentStatus =
+        isNoteStatus(receipt?.status) && receipt?.status === "nota_fiscal_aprovada"
+          ? "processo_concluido"
+          : isNoteStatus(receipt?.status)
+            ? receipt?.status || "aguardando_envio_nota_fiscal"
+            : pdfViewedAt
+              ? "motorista_visualizou"
+              : pdfSentAt
+                ? "pdf_enviado_ao_motorista"
+                : "pdf_aguardando_envio";
+      const paid = currentStatus === "processo_concluido";
+      const valorPagamento = await extractTotalGeralValue(upload.caminhoArquivo);
+
+      return {
         id: receipt?.id || upload.id,
         periodoPagamentoId: upload.periodoPagamentoId || receipt?.periodoPagamentoId || null,
         periodoPagamento: period?.nome || null,
         basePagamentoId: upload.basePagamentoId || receipt?.basePagamentoId || null,
         basePagamento: base?.nome || null,
         dataPagamento: null,
-        valorPagamento: null,
-        statusProcesso: formatPaymentStatusLabel(processoStatus),
-        pdfStatus: formatPaymentStatusLabel(pdfStatus),
+        valorPagamento,
+        statusProcesso: formatPaymentStatusLabel(currentStatus),
+        pdfStatus: formatPaymentStatusLabel(currentStatus),
         pdfEnviadoEm: toIso(pdfSentAt),
         pdfVisualizadoEm: toIso(pdfViewedAt),
         notaFiscalStatus: formatPaymentStatusLabel(noteStatus),
-        notaFiscalEnviadaEm: toIso(noteSentAt),
-        notaFiscalRecebidaEm: toIso(noteReceivedAt),
+        notaFiscalEnviadaEm: noteSentAt ? toIso(noteSentAt) : null,
+        notaFiscalRecebidaEm: noteReceivedAt ? toIso(noteReceivedAt) : null,
         pago: paid,
         atualizadoEm: toIso(noteReceivedAt || pdfViewedAt || pdfSentAt || receipt?.uploadEm || upload.criadoEm),
         pdfDownloadUrl: upload.caminhoArquivo ? buildStorageObjectUrl(upload.caminhoArquivo) : null,
-        notaFiscalDownloadUrl: receipt?.caminhoArquivo ? buildStorageObjectUrl(receipt.caminhoArquivo) : null
-      }
-    ];
-  });
+        notaFiscalDownloadUrl:
+          isNoteStatus(receipt?.status) && receipt?.id
+            ? `/api/financeiro/driver-pdfs/${receipt.id}/content`
+            : null
+      };
+    })
+  );
 
   return {
     motorista: {

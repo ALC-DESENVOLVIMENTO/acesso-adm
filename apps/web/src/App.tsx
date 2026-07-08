@@ -4574,9 +4574,7 @@ function AtendimentoScreen({
                               <span>{item.basePagamento || "Base nao informada"}</span>
                             </div>
                             <div className="crm-payment-card__badges">
-                              <span className="status-pill">{item.statusProcesso}</span>
-                              <span className="status-pill">{item.pdfStatus}</span>
-                              <span className="status-pill">{item.notaFiscalStatus}</span>
+                              <span className="status-pill">{item.pago ? "Pago" : item.statusProcesso}</span>
                               <span className={`status-pill ${item.pago ? "status-pill--active" : ""}`}>
                                 {item.pago ? "Pago" : "Em aberto"}
                               </span>
