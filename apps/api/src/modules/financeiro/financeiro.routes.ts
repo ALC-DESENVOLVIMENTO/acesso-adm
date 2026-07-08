@@ -204,6 +204,16 @@ function pickLatestReceived(
   );
 }
 
+function collectNoteLinkedUploadIds(receivedRows: ReceivedRecord[]) {
+  const noteUploadIds = new Set<string>();
+  for (const item of receivedRows) {
+    if (isNoteStatus(item.status) && item.uploadPdfId) {
+      noteUploadIds.add(item.uploadPdfId);
+    }
+  }
+  return noteUploadIds;
+}
+
 function dedupeLatestUploadsByMotorista<T extends { id: string; motoristaId: string | null; criadoEm: Date; substituiUploadId: string | null; status?: string }>(
   uploads: T[]
 ) {
@@ -622,11 +632,15 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
         nomeArquivo: true
       }
     });
+    const noteUploadIds = collectNoteLinkedUploadIds(receivedRows);
 
     const latestUploads = new Map<string, (typeof uploads)[number]>();
 
     for (const upload of uploads.sort((left, right) => right.criadoEm.getTime() - left.criadoEm.getTime())) {
       if (!upload.motoristaId || !upload.basePagamentoId) {
+        continue;
+      }
+      if (noteUploadIds.has(upload.id)) {
         continue;
       }
 
@@ -879,10 +893,18 @@ router.get("/periods/:periodId/export", (req, res) => {
     }
 
     const visibleUploads = period.uploads.filter((upload) => upload.status !== "removido");
+    const noteLinkedUploadIds = new Set<string>(
+      period.pdfsRecebidos
+        .filter((item) => isNoteStatus(item.status) && Boolean(item.uploadPdfId))
+        .map((item) => item.uploadPdfId!)
+    );
     const latestUploads = new Map<string, (typeof visibleUploads)[number]>();
 
     for (const upload of [...visibleUploads].sort((left, right) => right.criadoEm.getTime() - left.criadoEm.getTime())) {
       if (!upload.motoristaId || !upload.basePagamentoId) {
+        continue;
+      }
+      if (noteLinkedUploadIds.has(upload.id)) {
         continue;
       }
 

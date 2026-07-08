@@ -884,12 +884,17 @@ async function loadMotoristaDetail(motoristaId: string) {
       uploadEm: "desc"
     }
   });
+  const noteUploadIds = new Set<string>(
+    paymentReceipts
+      .filter((item) => isNoteStatus(item.status) && Boolean(item.uploadPdfId))
+      .map((item) => item.uploadPdfId!)
+  );
 
   const paymentHistoryByKey = new Map<string, (typeof motorista.uploads)[number]>();
   for (const upload of motorista.uploads
     .slice()
     .sort((left, right) => right.criadoEm.getTime() - left.criadoEm.getTime())) {
-    if (!upload.periodoPagamentoId || !upload.basePagamentoId) {
+    if (!upload.periodoPagamentoId || !upload.basePagamentoId || noteUploadIds.has(upload.id)) {
       continue;
     }
 
