@@ -9,7 +9,7 @@
   "theme_color": "#ff5f53",
   "icons": [
     {
-      "src": "/alc-logotipo-dark.png",
+      "src": "/favicon-alc.png",
       "sizes": "any",
       "type": "image/png",
       "purpose": "any maskable"
