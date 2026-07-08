@@ -751,7 +751,7 @@ router.get("/driver-pdfs/:receivedId/content", (req, res) => {
       return;
     }
 
-    const content = await loadDriverPdfReceivedContent(received.id, received.uploadPdfId || null);
+    const content = await loadDriverPdfReceivedContent(received.id);
 
     if (!content) {
       res.status(404).json({

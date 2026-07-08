@@ -2174,17 +2174,17 @@ function DashboardScreen({
     {
       label: "PDFs Enviados",
       value: String(summary.pdfsSent),
-      detail: `${summary.processedPdfs} processados`,
+      detail: `${summary.processedPdfs} finalizados`,
       icon: FilePdf
     },
     {
-      label: "Usuarios Cadastrados",
+      label: "Usuarios Ativos",
       value: String(summary.usersCount),
-      detail: "Base ativa do portal",
+      detail: "Base operacional do portal",
       icon: UsersThree
     },
     {
-      label: "PDFs Pendentes",
+      label: "Pendencias",
       value: String(summary.pendingPdfs),
       detail: "Aguardando processamento",
       icon: Eye

@@ -92,17 +92,17 @@ function formatStatusLabel(value: string) {
     disponivel: "Aberto",
     aguardando_aprovacao: "Encerrado",
     aprovado: "Processado",
-    pdf_aguardando_envio: "PDF aguardando envio ao motorista",
+    pdf_aguardando_envio: "PDF aguardando envio",
     pdf_enviado_ao_motorista: "PDF enviado ao motorista",
     motorista_visualizou: "Motorista visualizou o PDF",
-    aguardando_envio_nota_fiscal: "Aguardando envio da Nota Fiscal",
+    aguardando_envio_nota_fiscal: "Aguardando NF",
     nota_fiscal_recebida: "Nota Fiscal recebida",
-    nota_fiscal_em_analise: "Nota Fiscal em análise",
+    nota_fiscal_em_analise: "Nota Fiscal em analise",
     nota_fiscal_aprovada: "Nota Fiscal aprovada",
     nota_fiscal_rejeitada: "Nota Fiscal rejeitada",
-    em_atendimento: "Em atendimento via Chat",
+    em_atendimento: "Em atendimento",
     chamado_aberto: "Chamado aberto",
-    processo_concluido: "Processo concluído"
+    processo_concluido: "Processo concluido"
   };
 
   return labels[value] || value;
@@ -437,10 +437,11 @@ export function FinanceiroScreen({
       setBusyMessage("Abrindo Nota Fiscal...");
       const { blob } = await fetchFinanceiroNotaFiscalContent(token, row.id);
       const url = URL.createObjectURL(blob);
-      const popup = window.open(url, "_blank", "noopener,noreferrer");
-      if (!popup) {
-        window.location.href = url;
-      }
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.target = "_blank";
+      anchor.rel = "noopener noreferrer";
+      anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 3000);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Falha ao visualizar Nota Fiscal.");
@@ -456,11 +457,11 @@ export function FinanceiroScreen({
 
     try {
       setBusyMessage("Abrindo PDF do motorista...");
-      const popup = window.open(row.caminhoArquivo, "_blank", "noopener,noreferrer");
-
-      if (!popup) {
-        return;
-      }
+      const anchor = document.createElement("a");
+      anchor.href = row.caminhoArquivo;
+      anchor.target = "_blank";
+      anchor.rel = "noopener noreferrer";
+      anchor.click();
     } catch (error) {
       void error;
     } finally {
@@ -818,26 +819,26 @@ export function FinanceiroScreen({
                               Abrir
                               <Eye size={16} />
                             </button>
-                          <button
-                            className="ghost-button ghost-button--small"
-                            type="button"
-                            onClick={() => void openNotaFiscal(row)}
-                            disabled={!row.notaFiscalDownloadUrl}
-                          >
-                            Visualizar Nota Fiscal
-                            <FilePdf size={16} />
-                          </button>
-                          <button
-                            className="ghost-button ghost-button--small"
-                            type="button"
-                            onClick={() => void openDriverPdf(row)}
-                            disabled={!row.caminhoArquivo}
-                          >
-                            Abrir PDF
-                            <FilePdf size={16} />
-                          </button>
-                        </div>
-                      </td>
+                            <button
+                              className="ghost-button ghost-button--small"
+                              type="button"
+                              onClick={() => void openNotaFiscal(row)}
+                              disabled={!row.notaFiscalDownloadUrl}
+                            >
+                              Visualizar Nota Fiscal
+                              <FilePdf size={16} />
+                            </button>
+                            <button
+                              className="ghost-button ghost-button--small"
+                              type="button"
+                              onClick={() => void openDriverPdf(row)}
+                              disabled={!row.caminhoArquivo}
+                            >
+                              Abrir PDF
+                              <FilePdf size={16} />
+                            </button>
+                          </div>
+                        </td>
                     </tr>
                     ))
                   ) : (
@@ -982,3 +983,4 @@ export function FinanceiroScreen({
     </div>
   );
 }
+
