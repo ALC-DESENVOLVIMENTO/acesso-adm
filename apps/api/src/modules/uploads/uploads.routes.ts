@@ -80,9 +80,6 @@ function serializeUpload(upload: UploadHistoryItem) {
 async function getUploadHistory(uploadId: string) {
   const uploads = await prisma.uploadPdf.findMany({
     where: {
-      documentType: {
-        not: DocumentTypeCode.nota_fiscal
-      },
       status: {
         not: UploadStatus.removido
       }
@@ -109,13 +106,14 @@ async function getUploadHistory(uploadId: string) {
     }
   });
 
-  const target = uploads.find((item) => item.id === uploadId);
+  const paymentUploads = uploads.filter((item) => item.documentType !== DocumentTypeCode.nota_fiscal);
+  const target = paymentUploads.find((item) => item.id === uploadId);
 
   if (!target) {
     return null;
   }
 
-  const byId = new Map(uploads.map((item) => [item.id, item]));
+  const byId = new Map(paymentUploads.map((item) => [item.id, item]));
   let cursor: UploadHistoryItem | undefined = target;
   let rootId = target.id;
 
@@ -130,7 +128,7 @@ async function getUploadHistory(uploadId: string) {
     cursor = parent;
   }
 
-  return uploads
+  return paymentUploads
     .filter((item) => {
       let current: UploadHistoryItem | undefined = item;
 
@@ -220,9 +218,6 @@ router.get("/", (_req, res) => {
   void (async () => {
     const uploads = await prisma.uploadPdf.findMany({
       where: {
-        documentType: {
-          not: DocumentTypeCode.nota_fiscal
-        },
         status: {
           not: UploadStatus.removido
         }
@@ -251,7 +246,12 @@ router.get("/", (_req, res) => {
         .filter((value): value is string => Boolean(value))
     );
 
-    res.json(uploads.filter((item) => !childReferences.has(item.id) && isPaymentMirrorUpload(item)).map(serializeUpload));
+    res.json(
+      uploads
+        .filter((item) => item.documentType !== DocumentTypeCode.nota_fiscal)
+        .filter((item) => !childReferences.has(item.id) && isPaymentMirrorUpload(item))
+        .map(serializeUpload)
+    );
   })().catch((error) => {
     res.status(500).json({
       message: "Falha ao listar uploads.",
