@@ -1,4 +1,5 @@
-import { DocumentTypeCode, UploadStatus } from "@prisma/client";
+import { DocumentTypeCode, Prisma, UploadStatus } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 import { Router } from "express";
 import multer from "multer";
 import { requireAuth, requireModuleAccess } from "../../middlewares/auth.middleware.js";
@@ -412,50 +413,34 @@ router.post("/", upload.array("files", 20), (req, res) => {
       })
     );
 
-    const createdUploads: Array<{
-      id: string;
-      nomeArquivo: string;
-      nomeOriginal: string;
-      caminhoArquivo: string;
-      versao: number;
-      status: UploadStatus;
-      usuarioId: string;
-      motoristaId: string | null;
-      periodoPagamentoId: string | null;
-      basePagamentoId: string | null;
-      motoristaNome: string;
-      motoristaCpf: string;
-      baseName: string;
-      baseMismatch: boolean;
-      file: Express.Multer.File;
-      storageKey: string;
-    }> = [];
-
     for (const prepared of preparedFiles) {
-      const createdUpload = await prisma.uploadPdf.create({
-        data: {
-          nomeArquivo: prepared.file.originalname,
-          nomeOriginal: prepared.file.originalname,
-          caminhoArquivo: prepared.storageKey,
-          documentType: DocumentTypeCode.espelho,
-          versao: 1,
-          status: UploadStatus.pendente,
-          usuarioId: auth.userId,
-          motoristaId: prepared.motoristaId,
-          periodoPagamentoId: periodId,
-          basePagamentoId: basePaymentId
-        }
-      });
-
-      createdUploads.push({
-        ...createdUpload,
-        motoristaNome: prepared.motoristaNome,
-        motoristaCpf: prepared.motoristaCpf,
-        baseName: prepared.baseName,
-        baseMismatch: prepared.baseMismatch,
-        file: prepared.file,
-        storageKey: prepared.storageKey
-      });
+      await prisma.$executeRaw(Prisma.sql`
+        insert into "uploads_pdf" (
+          "id",
+          "nome_arquivo",
+          "nome_original",
+          "caminho_arquivo",
+          "document_type",
+          "versao",
+          "status",
+          "usuario_id",
+          "motorista_id",
+          "periodo_pagamento_id",
+          "base_pagamento_id"
+        ) values (
+          cast(${randomUUID()} as uuid),
+          ${prepared.file.originalname},
+          ${prepared.file.originalname},
+          ${prepared.storageKey},
+          ${DocumentTypeCode.espelho},
+          ${1},
+          ${UploadStatus.pendente},
+          cast(${auth.userId} as uuid),
+          cast(${prepared.motoristaId} as uuid),
+          cast(${periodId} as uuid),
+          cast(${basePaymentId} as uuid)
+        )
+      `);
     }
 
     await prisma.logAuditoria.create({
@@ -663,21 +648,35 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
           status: UploadStatus.substituido
         }
       }),
-      prisma.uploadPdf.create({
-        data: {
-          nomeArquivo: file.originalname,
-          nomeOriginal: file.originalname,
-          caminhoArquivo: key,
-          documentType: DocumentTypeCode.espelho,
-          versao: currentUpload.versao + 1,
-          status: currentUpload.status,
-          usuarioId: auth.userId,
-          motoristaId: currentUpload.motoristaId,
-          periodoPagamentoId: currentUpload.periodoPagamentoId,
-          basePagamentoId: currentUpload.basePagamentoId,
-          substituiUploadId: currentUpload.id
-        }
-      })
+      prisma.$executeRaw(Prisma.sql`
+        insert into "uploads_pdf" (
+          "id",
+          "nome_arquivo",
+          "nome_original",
+          "caminho_arquivo",
+          "document_type",
+          "versao",
+          "status",
+          "usuario_id",
+          "motorista_id",
+          "periodo_pagamento_id",
+          "base_pagamento_id",
+          "substitui_upload_id"
+        ) values (
+          cast(${randomUUID()} as uuid),
+          ${file.originalname},
+          ${file.originalname},
+          ${key},
+          ${DocumentTypeCode.espelho},
+          ${currentUpload.versao + 1},
+          ${currentUpload.status},
+          cast(${auth.userId} as uuid),
+          cast(${currentUpload.motoristaId} as uuid),
+          cast(${currentUpload.periodoPagamentoId} as uuid),
+          cast(${currentUpload.basePagamentoId} as uuid),
+          cast(${currentUpload.id} as uuid)
+        )
+      `)
     ]);
 
     void deleteObject(currentUpload.caminhoArquivo);
