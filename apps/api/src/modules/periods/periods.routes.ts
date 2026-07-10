@@ -293,7 +293,6 @@ function serializePeriod(period: {
     id: string;
     motoristaId: string | null;
     basePagamentoId: string | null;
-    documentType?: string | null;
     criadoEm: Date;
     status: string;
     substituiUploadId: string | null;

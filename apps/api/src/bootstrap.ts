@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ensureDriverRegistryColumns } from "./lib/driver-registry-schema.js";
 import { ensureDatabaseCompatibilityColumns } from "./lib/database-compatibility.js";
-import { reconcileDocumentTypeReferences, reconcileStorageReferences } from "./lib/storage-migration.js";
+import { reconcileStorageReferences } from "./lib/storage-migration.js";
 import { resolveDatabaseUrlWithSchema } from "./lib/database-url.js";
 
 function runCommand(command: string, args: string[], cwd: string) {
@@ -48,7 +48,6 @@ async function main() {
   await runCommand("npx", ["prisma", "db", "push"], apiRoot);
   await ensureDriverRegistryColumns();
   await reconcileStorageReferences();
-  await reconcileDocumentTypeReferences();
   await runCommand("npm", ["run", "db:seed"], apiRoot);
 }
 

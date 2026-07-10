@@ -437,11 +437,7 @@ export function FinanceiroScreen({
       setBusyMessage("Abrindo Nota Fiscal...");
       const { blob } = await fetchFinanceiroNotaFiscalContent(token, row.id);
       const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.target = "_blank";
-      anchor.rel = "noopener noreferrer";
-      anchor.click();
+      window.open(url, "_blank", "noopener,noreferrer");
       window.setTimeout(() => URL.revokeObjectURL(url), 3000);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Falha ao visualizar Nota Fiscal.");
@@ -457,11 +453,7 @@ export function FinanceiroScreen({
 
     try {
       setBusyMessage("Abrindo PDF do motorista...");
-      const anchor = document.createElement("a");
-      anchor.href = row.caminhoArquivo;
-      anchor.target = "_blank";
-      anchor.rel = "noopener noreferrer";
-      anchor.click();
+      window.open(row.caminhoArquivo, "_blank", "noopener,noreferrer");
     } catch (error) {
       void error;
     } finally {

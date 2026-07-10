@@ -859,7 +859,7 @@ async function loadMotoristaDetail(motoristaId: string) {
     return null;
   }
 
-  const registryRow = await fetchDriverRegistryByCpfDigits(motorista.cpf);
+  const registryRow = await fetchDriverRegistryByCpfDigits(motorista.cpf).catch(() => null);
   const registryData = registryRow ? driverRegistryAsAtendimentoPayload(registryRow) : null;
   const paymentReceipts = await prisma.driverPdfReceived.findMany({
     where: {
@@ -884,17 +884,11 @@ async function loadMotoristaDetail(motoristaId: string) {
       uploadEm: "desc"
     }
   });
-  const noteUploadIds = new Set<string>(
-    paymentReceipts
-      .filter((item) => isNoteStatus(item.status) && Boolean(item.uploadPdfId))
-      .map((item) => item.uploadPdfId!)
-  );
-
   const paymentHistoryByKey = new Map<string, (typeof motorista.uploads)[number]>();
   for (const upload of motorista.uploads
     .slice()
     .sort((left, right) => right.criadoEm.getTime() - left.criadoEm.getTime())) {
-    if (!upload.periodoPagamentoId || !upload.basePagamentoId || noteUploadIds.has(upload.id)) {
+    if (!upload.periodoPagamentoId || !upload.basePagamentoId) {
       continue;
     }
 
@@ -907,7 +901,19 @@ async function loadMotoristaDetail(motoristaId: string) {
   const paymentHistory = await Promise.all(
     Array.from(paymentHistoryByKey.values()).map(async (upload) => {
       const receipt =
-        paymentReceipts.find((item) => item.uploadPdfId && item.uploadPdfId === upload.id) ||
+        paymentReceipts.find((item) => item.uploadPdfId && item.uploadPdfId === upload.id && isNoteStatus(item.status)) ||
+        paymentReceipts.find(
+          (item) =>
+            item.uploadPdfId &&
+            item.uploadPdfId === upload.id
+        ) ||
+        paymentReceipts.find(
+          (item) =>
+            item.motoristaId === motorista.id &&
+            item.periodoPagamentoId === upload.periodoPagamentoId &&
+            item.basePagamentoId === upload.basePagamentoId &&
+            isNoteStatus(item.status)
+        ) ||
         paymentReceipts.find(
           (item) =>
             item.motoristaId === motorista.id &&
@@ -933,7 +939,7 @@ async function loadMotoristaDetail(motoristaId: string) {
                 ? "pdf_enviado_ao_motorista"
                 : "pdf_aguardando_envio";
       const paid = currentStatus === "processo_concluido";
-      const valorPagamento = await extractTotalGeralValue(upload.caminhoArquivo);
+      const valorPagamento = await extractTotalGeralValue(upload.caminhoArquivo).catch(() => null);
 
       return {
         id: receipt?.id || upload.id,
