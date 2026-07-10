@@ -123,7 +123,7 @@ type SummaryUploadRecord = {
   motoristaId: string | null;
   periodoPagamentoId: string | null;
   basePagamentoId: string | null;
-  documentType: string | null;
+  documentType?: string | null;
   nomeOriginal: string;
   caminhoArquivo: string;
   criadoEm: Date;
@@ -292,8 +292,7 @@ async function syncApprovedDriverPdfReceipts(
           basePaymentId: upload.basePagamentoId as string,
           fileName: upload.nomeOriginal,
           storageKey: upload.caminhoArquivo,
-          createdByUserId: upload.usuarioId,
-          documentType: DocumentTypeCode.espelho
+          createdByUserId: upload.usuarioId
         })
       )
     );
@@ -394,7 +393,6 @@ router.get("/summary", (_req, res) => {
           motoristaId: true,
           periodoPagamentoId: true,
           basePagamentoId: true,
-          documentType: true,
           nomeOriginal: true,
           caminhoArquivo: true,
           criadoEm: true,
@@ -409,8 +407,7 @@ router.get("/summary", (_req, res) => {
     const receivedRows = await prisma.driverPdfReceived.findMany({
       select: {
         motoristaId: true,
-        status: true,
-        documentType: true
+        status: true
       }
     });
 
@@ -478,7 +475,6 @@ router.get("/periods/:periodId/bases", (req, res) => {
             basePagamentoId: true,
             criadoEm: true,
             status: true,
-            documentType: true,
             substituiUploadId: true
           }
         },
@@ -493,7 +489,6 @@ router.get("/periods/:periodId/bases", (req, res) => {
             uploadEm: true,
             enviadoAoMotoristaEm: true,
             visualizadoEm: true,
-            documentType: true,
             caminhoArquivo: true,
             nomeArquivo: true
           }
@@ -688,7 +683,6 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
         motoristaId: true,
         periodoPagamentoId: true,
         basePagamentoId: true,
-        documentType: true,
         status: true,
         uploadEm: true,
         enviadoAoMotoristaEm: true,
@@ -919,7 +913,6 @@ router.get("/periods/:periodId/export", (req, res) => {
             id: true,
             motoristaId: true,
             basePagamentoId: true,
-            documentType: true,
             nomeOriginal: true,
             caminhoArquivo: true,
             criadoEm: true,
@@ -944,7 +937,6 @@ router.get("/periods/:periodId/export", (req, res) => {
             uploadPdfId: true,
             motoristaId: true,
             basePagamentoId: true,
-            documentType: true,
             status: true,
             uploadEm: true,
             caminhoArquivo: true,

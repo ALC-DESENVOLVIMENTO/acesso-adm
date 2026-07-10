@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { DocumentTypeCode, UploadStatus } from "@prisma/client";
+import { UploadStatus } from "@prisma/client";
 import { requireAdmin, requireAuth } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
 import { deleteObject } from "../../lib/storage.js";
@@ -90,7 +90,6 @@ async function getDuplicateReviewQueue(periodId?: string | null) {
       nomeOriginal: true,
       criadoEm: true,
       status: true,
-      documentType: true,
       motoristaId: true,
       periodoPagamentoId: true,
       basePagamentoId: true,
@@ -201,10 +200,6 @@ async function getDuplicateReviewQueue(periodId?: string | null) {
       continue;
     }
 
-    if (upload.documentType === DocumentTypeCode.nota_fiscal) {
-      continue;
-    }
-
     const baseRegistrada = normalizeText(registryBase || "");
     const baseEnviada = normalizeText(upload.basePagamento?.nome || "");
 
@@ -311,10 +306,7 @@ function serializePeriod(period: {
   );
 
   const visibleUploads = period.uploads.filter(
-    (item) =>
-      !childReferences.has(item.id) &&
-      item.status !== "removido" &&
-      item.documentType !== DocumentTypeCode.nota_fiscal
+    (item) => !childReferences.has(item.id) && item.status !== "removido"
   );
   const uploadedByBase: Record<string, number> = {};
   const uploadedByBaseMotorists = new Map<string, Set<string>>();
@@ -391,7 +383,6 @@ function buildUploadBridgePayload(input: {
     versao: input.upload.versao,
     status: "pendente",
     tipoArquivo: "application/pdf",
-    documentType: DocumentTypeCode.espelho,
     observacoes: `PDF liberado no periodo ${input.periodId}`
   };
 }
@@ -608,7 +599,6 @@ router.get("/", (_req, res) => {
             basePagamentoId: true,
             criadoEm: true,
             status: true,
-            documentType: true,
             substituiUploadId: true
           }
         }
@@ -683,7 +673,6 @@ router.post("/", requireAdmin, (req, res) => {
             basePagamentoId: true,
             criadoEm: true,
             status: true,
-            documentType: true,
             substituiUploadId: true
           }
         }
@@ -924,7 +913,6 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
               basePagamentoId: true,
               criadoEm: true,
               status: true,
-              documentType: true,
               substituiUploadId: true
             }
           }
@@ -938,8 +926,7 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
         approvedPeriod?.uploads.filter(
           (item) =>
             !childReferences.has(item.id) &&
-            item.status === UploadStatus.pendente &&
-            item.documentType !== DocumentTypeCode.nota_fiscal
+            item.status === UploadStatus.pendente
         ) || [];
       const latestVisibleUploads = new Map<string, (typeof visibleUploads)[number]>();
 
@@ -968,8 +955,7 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
               basePaymentId: item.basePagamentoId,
               fileName: item.nomeOriginal,
               storageKey: item.caminhoArquivo,
-              createdByUserId: auth.userId,
-              documentType: DocumentTypeCode.espelho
+              createdByUserId: auth.userId
             })
           )
       );
@@ -996,7 +982,6 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
                 status: "pendente",
                 tipoArquivo: "application/pdf",
                 versao: 1,
-                documentType: DocumentTypeCode.espelho,
                 observacoes: `PDF liberado no periodo ${approvedPeriod?.nome || updated.id}`
               },
               {
@@ -1192,8 +1177,7 @@ router.patch("/uploads/:uploadId/review", requireAdmin, (req, res) => {
         basePaymentId: targetBase.id,
         fileName: updated.nomeOriginal,
         storageKey: updated.caminhoArquivo,
-        createdByUserId: auth.userId,
-        documentType: DocumentTypeCode.espelho
+        createdByUserId: auth.userId
       });
 
       void notifyPdfOnline(
