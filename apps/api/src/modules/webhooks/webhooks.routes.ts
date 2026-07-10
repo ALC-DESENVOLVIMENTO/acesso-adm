@@ -2,6 +2,7 @@ import { Router, type Request } from "express";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { markDriverPdfReceivedRejected } from "../../lib/driver-pdf-received.js";
+import { DocumentTypeCode } from "@prisma/client";
 
 const router = Router();
 
@@ -107,7 +108,8 @@ router.post("/access-adm", (req, res) => {
       motivoRejeicao: readString(data.motivoRejeicao || data.reason || data.motivo || data.message) || null,
       observacoes: readString(data.observacoes || data.observation || data.notes) || null,
       rejectedById: readString(data.rejectedById) || null,
-      rejectedAt: readString(data.rejectedAt) ? new Date(readString(data.rejectedAt)) : null
+      rejectedAt: readString(data.rejectedAt) ? new Date(readString(data.rejectedAt)) : null,
+      documentType: DocumentTypeCode.nota_fiscal
     });
 
     await prisma.logAuditoria.create({

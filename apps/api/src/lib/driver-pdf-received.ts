@@ -1,4 +1,4 @@
-import { DriverPdfReceivedStatus } from "@prisma/client";
+import { DocumentTypeCode, DriverPdfReceivedStatus } from "@prisma/client";
 import { prisma } from "./prisma.js";
 
 export type DriverPdfReceivedUploadInput = {
@@ -10,6 +10,7 @@ export type DriverPdfReceivedUploadInput = {
   storageKey: string;
   mimeType?: string | null;
   createdByUserId?: string | null;
+  documentType?: DocumentTypeCode | null;
 };
 
 export type DriverPdfReceivedRejectionInput = {
@@ -24,6 +25,7 @@ export type DriverPdfReceivedRejectionInput = {
   observacoes?: string | null;
   rejectedById?: string | null;
   rejectedAt?: Date | null;
+  documentType?: DocumentTypeCode | null;
 };
 
 function buildReceivedWhere(input: {
@@ -31,10 +33,12 @@ function buildReceivedWhere(input: {
   motoristaId?: string | null;
   periodId?: string | null;
   basePaymentId?: string | null;
+  documentType?: DocumentTypeCode | null;
 }) {
   if (input.uploadPdfId) {
     return {
-      uploadPdfId: input.uploadPdfId
+      uploadPdfId: input.uploadPdfId,
+      ...(input.documentType ? { documentType: input.documentType } : {})
     };
   }
 
@@ -42,7 +46,8 @@ function buildReceivedWhere(input: {
     return {
       motoristaId: input.motoristaId,
       periodoPagamentoId: input.periodId,
-      basePagamentoId: input.basePaymentId
+      basePagamentoId: input.basePaymentId,
+      ...(input.documentType ? { documentType: input.documentType } : {})
     };
   }
 
@@ -55,7 +60,13 @@ export async function upsertDriverPdfReceivedFromUpload(
 ) {
   const now = new Date();
   const existing = await prisma.driverPdfReceived.findFirst({
-    where: {
+    where: buildReceivedWhere({
+      uploadPdfId: input.uploadPdfId,
+      motoristaId: input.motoristaId,
+      periodId: input.periodId,
+      basePaymentId: input.basePaymentId,
+      documentType: input.documentType ?? null
+    }) || {
       motoristaId: input.motoristaId,
       periodoPagamentoId: input.periodId,
       basePagamentoId: input.basePaymentId
@@ -71,6 +82,7 @@ export async function upsertDriverPdfReceivedFromUpload(
     basePagamentoId: input.basePaymentId,
     nomeArquivo: input.fileName,
     caminhoArquivo: input.storageKey,
+    documentType: input.documentType ?? null,
     tipoArquivo: input.mimeType || "application/pdf",
     uploadEm: now,
     usuarioId: input.createdByUserId ?? null,
@@ -140,6 +152,7 @@ export async function markDriverPdfReceivedRejected(input: DriverPdfReceivedReje
       basePagamentoId: input.basePaymentId,
       nomeArquivo: input.fileName ?? null,
       caminhoArquivo: input.storageKey ?? null,
+      documentType: input.documentType ?? null,
       tipoArquivo: input.mimeType ?? "application/pdf",
       uploadEm: now,
       usuarioId: input.rejectedById ?? null,

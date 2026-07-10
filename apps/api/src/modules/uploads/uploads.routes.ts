@@ -1,4 +1,4 @@
-import { UploadStatus } from "@prisma/client";
+import { DocumentTypeCode, UploadStatus } from "@prisma/client";
 import { Router } from "express";
 import multer from "multer";
 import { requireAuth, requireModuleAccess } from "../../middlewares/auth.middleware.js";
@@ -412,6 +412,7 @@ router.post("/", upload.array("files", 20), (req, res) => {
           nomeArquivo: prepared.file.originalname,
           nomeOriginal: prepared.file.originalname,
           caminhoArquivo: prepared.storageKey,
+          documentType: DocumentTypeCode.espelho,
           versao: 1,
           status: UploadStatus.pendente,
           usuarioId: auth.userId,
@@ -473,6 +474,7 @@ router.post("/", upload.array("files", 20), (req, res) => {
                 storageKey: upload.storageKey,
                 versao: upload.versao,
                 status: "pendente",
+                documentType: DocumentTypeCode.espelho,
                 tipoArquivo: upload.file.mimetype,
                 observacoes: `PDF anexado para ${upload.motoristaNome}`
               },
@@ -693,6 +695,7 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
           nomeArquivo: file.originalname,
           nomeOriginal: file.originalname,
           caminhoArquivo: key,
+          documentType: DocumentTypeCode.espelho,
           versao: currentUpload.versao + 1,
           status: currentUpload.status,
           usuarioId: auth.userId,
@@ -740,6 +743,7 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
           storageKey: newUpload.caminhoArquivo,
           versao: newUpload.versao,
           status: "pendente",
+          documentType: DocumentTypeCode.espelho,
           tipoArquivo: file.mimetype,
           substituiUploadId: currentUpload.id,
           observacoes: `PDF substituido para ${currentUpload.nomeOriginal}`

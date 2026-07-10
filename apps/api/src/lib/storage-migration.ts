@@ -1,6 +1,14 @@
 import { hasObjectStorage, normalizeStorageKey } from "./storage.js";
 import { prisma } from "./prisma.js";
 
+const noteStatusSet = new Set([
+  "nota_fiscal_recebida",
+  "nota_fiscal_em_analise",
+  "nota_fiscal_aprovada",
+  "nota_fiscal_rejeitada",
+  "processo_concluido"
+]);
+
 type MigrationRecord = {
   id: string;
   path: string | null;
@@ -26,6 +34,8 @@ type DriverPdfReceivedRow = {
   id: string;
   caminhoArquivo: string | null;
 };
+
+type UploadDocumentType = "espelho" | "nota_fiscal";
 
 function extractStorageKey(rawValue: string | null | undefined) {
   if (!rawValue) {
@@ -176,4 +186,68 @@ export async function reconcileStorageReferences() {
   await runMigration(attachmentRows);
   await runMigration(userPhotoRows);
   await runMigration(driverRecords);
+}
+
+export async function reconcileDocumentTypeReferences() {
+  const noteReceivedRows = await prisma.driverPdfReceived.findMany({
+    select: {
+      id: true,
+      uploadPdfId: true,
+      status: true
+    }
+  });
+
+  const noteUploadIds = new Set<string>();
+  const driverReceivedUpdates: Array<Promise<unknown>> = [];
+  const uploadUpdates: Array<Promise<unknown>> = [];
+
+  for (const row of noteReceivedRows) {
+    const documentType: UploadDocumentType = noteStatusSet.has(row.status)
+      ? "nota_fiscal"
+      : "espelho";
+
+    driverReceivedUpdates.push(
+      prisma.driverPdfReceived.update({
+        where: { id: row.id },
+        data: {
+          documentType
+        }
+      }).catch(() => null)
+    );
+
+    if (documentType === "nota_fiscal" && row.uploadPdfId) {
+      noteUploadIds.add(row.uploadPdfId);
+    }
+  }
+
+  const uploadRows = await prisma.uploadPdf.findMany({
+    select: {
+      id: true,
+      documentType: true,
+      status: true,
+      periodoPagamentoId: true,
+      basePagamentoId: true
+    }
+  });
+
+  for (const row of uploadRows) {
+    const documentType: UploadDocumentType = noteUploadIds.has(row.id)
+      ? "nota_fiscal"
+      : "espelho";
+
+    if (row.documentType === documentType) {
+      continue;
+    }
+
+    uploadUpdates.push(
+      prisma.uploadPdf.update({
+        where: { id: row.id },
+        data: {
+          documentType
+        }
+      }).catch(() => null)
+    );
+  }
+
+  await Promise.all([...driverReceivedUpdates, ...uploadUpdates]);
 }
