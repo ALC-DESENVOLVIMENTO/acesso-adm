@@ -2701,6 +2701,73 @@ button {
   .auth-page {
     grid-template-columns: 1fr;
   }
+  .auth-hero {
+    display: none;
+  }
+
+  .auth-page {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top, rgba(255, 95, 83, 0.08), transparent 30%),
+      linear-gradient(180deg, #fbfbfd 0%, #f2f4f9 100%);
+  }
+
+  .auth-panel {
+    min-height: 100vh;
+  }
+
+  .auth-card,
+  .first-access-card {
+    width: min(100%, 480px);
+    padding: 24px;
+    border-radius: 28px;
+  }
+
+  .auth-card__logo,
+  .first-access-card__logo {
+    width: 132px;
+    margin-bottom: 18px;
+  }
+
+  .auth-card h2,
+  .first-access-card h2 {
+    font-size: 1.6rem;
+  }
+
+  .auth-hero {
+    min-height: 280px;
+    padding: 24px 20px;
+    gap: 18px;
+  }
+
+  .auth-hero h1,
+  .screen__intro h1 {
+    max-width: none;
+    line-height: 1;
+  }
+
+  .auth-copy,
+  .panel-copy,
+  .screen__intro p {
+    max-width: none;
+  }
+
+  .hero-preview,
+  .hero-watermark {
+    display: none;
+  }
+
+  .auth-panel {
+    padding: 24px 18px 28px;
+    align-items: start;
+  }
+
+  .auth-card,
+  .first-access-card {
+    width: min(100%, 520px);
+    border-radius: 30px;
+    padding: 28px;
+  }
 
   .shell-page,
   .shell-page:has(.sidebar:hover) {
@@ -2739,8 +2806,44 @@ button {
     transform: translateX(0);
   }
 
+  .sidebar__item,
+  .sidebar__logout {
+    justify-content: flex-start;
+    padding: 14px 16px;
+  }
+
+  .sidebar__item span,
+  .sidebar__logout span,
+  .sidebar__brand-caption {
+    opacity: 1;
+  }
+
   .shell-content {
     padding-top: 86px;
+  }
+
+  .topbar {
+    position: static;
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+
+  .topbar__brand {
+    position: static;
+    transform: none;
+    width: 100%;
+    justify-content: center;
+    order: -1;
+    margin-bottom: 4px;
+  }
+
+  .topbar__actions {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .profile-chip {
+    max-width: 100%;
   }
 
   .stats-grid,
@@ -2762,6 +2865,17 @@ button {
   .hero-preview__body,
   .hero-preview__kpis {
     grid-template-columns: 1fr;
+  }
+
+  .quick-action-card,
+  .stat-card,
+  .panel,
+  .finance-base-card,
+  .finance-period-card,
+  .crm-search-card,
+  .crm-empty-screen,
+  .crm-empty {
+    border-radius: 22px;
   }
 }
 
@@ -2797,14 +2911,14 @@ button {
     border-radius: 24px;
   }
 
+  .topbar__brand img {
+    height: 42px;
+  }
+
   .topbar__actions {
     width: 100%;
     justify-content: space-between;
     flex-wrap: wrap;
-  }
-
-  .topbar__brand img {
-    width: 180px;
   }
 
   .crm-driver__hero,
@@ -2827,6 +2941,18 @@ button {
 
   .finance-period-hero__meta {
     text-align: left;
+  }
+
+  .screen__intro {
+    gap: 12px;
+  }
+
+  .screen__intro h1 {
+    font-size: clamp(1.8rem, 7vw, 2.4rem);
+  }
+
+  .panel__header h3 {
+    font-size: 1.45rem;
   }
 
   .chart {
@@ -2865,6 +2991,18 @@ button {
 
   .sidebar {
     width: min(88vw, 320px);
+    padding: 18px 14px;
+  }
+
+  .sidebar__item,
+  .sidebar__logout {
+    gap: 12px;
+    padding: 14px 12px;
+  }
+
+  .sidebar__item svg,
+  .sidebar__logout svg {
+    flex: none;
   }
 
   .modal-overlay {
@@ -2889,7 +3027,37 @@ button {
   .quick-actions-editor,
   .user-form--modal .user-modules-field .checkbox-grid,
   .modal-card--create .checkbox-grid,
-  .admin-form.period-form {
+  .admin-form.period-form,
+  .finance-period-form,
+  .crm-driver__grid,
+  .crm-grid,
+  .stats-grid,
+  .stats-grid--three,
+  .dashboard-grid {
     grid-template-columns: 1fr;
   }
+
+  .stats-grid--three .stat-card {
+    padding: 18px;
+    gap: 14px;
+  }
+
+  .quick-actions {
+    gap: 12px;
+  }
+
+  .quick-action-card {
+    min-height: 110px;
+    padding: 18px;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .data-table {
+    min-width: 760px;
+  }
 }
+
