@@ -4,7 +4,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireAuth, requireModuleAccess } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
-import { buildStorageObjectUrl, fetchObjectBuffer } from "../../lib/storage.js";
+import { buildStorageObjectUrl, fetchObjectBuffer, isPaymentMirrorStorageKey } from "../../lib/storage.js";
 import { loadDriverPdfReceivedContent } from "../../lib/driver-pdf-received-content.js";
 import {
   isDriverPdfMirrorStatus,
@@ -201,12 +201,13 @@ type ReceivedRecord = {
   nomeArquivo?: string | null;
 };
 
-function filterVisibleUploads<T extends { id: string; substituiUploadId: string | null; status?: string }>(uploads: T[]) {
+function filterVisibleUploads<T extends { id: string; caminhoArquivo: string | null; substituiUploadId: string | null; status?: string }>(uploads: T[]) {
+  const mirrorUploads = uploads.filter((item) => isPaymentMirrorStorageKey(item.caminhoArquivo));
   const childReferences = new Set(
-    uploads.map((item) => item.substituiUploadId).filter((value): value is string => Boolean(value))
+    mirrorUploads.map((item) => item.substituiUploadId).filter((value): value is string => Boolean(value))
   );
 
-  return uploads.filter((item) => !childReferences.has(item.id) && item.status !== "removido");
+  return mirrorUploads.filter((item) => !childReferences.has(item.id) && item.status !== "removido");
 }
 
 function pickLatestReceived(
@@ -238,7 +239,7 @@ function pickLatestReceived(
   );
 }
 
-function dedupeLatestUploadsByMotorista<T extends { id: string; motoristaId: string | null; criadoEm: Date; substituiUploadId: string | null; status?: string }>(
+function dedupeLatestUploadsByMotorista<T extends { id: string; caminhoArquivo: string | null; motoristaId: string | null; basePagamentoId?: string | null; criadoEm: Date; substituiUploadId: string | null; status?: string }>(
   uploads: T[]
 ) {
   const visibleUploads = filterVisibleUploads(uploads);
@@ -272,11 +273,12 @@ async function syncApprovedDriverPdfReceipts(
 
   const groupedByPeriod = new Map<string, Map<string, SummaryUploadRecord>>();
 
+  const mirrorUploads = uploads.filter((item) => isPaymentMirrorStorageKey(item.caminhoArquivo));
   const childReferences = new Set(
-    uploads.map((item) => item.substituiUploadId).filter((value): value is string => Boolean(value))
+    mirrorUploads.map((item) => item.substituiUploadId).filter((value): value is string => Boolean(value))
   );
 
-  for (const upload of [...uploads].sort((left, right) => right.criadoEm.getTime() - left.criadoEm.getTime())) {
+  for (const upload of [...mirrorUploads].sort((left, right) => right.criadoEm.getTime() - left.criadoEm.getTime())) {
     if (!upload.periodoPagamentoId || !approvedPeriodIds.has(upload.periodoPagamentoId)) {
       continue;
     }
@@ -448,6 +450,7 @@ router.get("/periods/:periodId/bases", (req, res) => {
             id: true,
             motoristaId: true,
             basePagamentoId: true,
+            caminhoArquivo: true,
             criadoEm: true,
             status: true,
             substituiUploadId: true
@@ -668,7 +671,9 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
     });
     const latestUploads = new Map<string, (typeof uploads)[number]>();
 
-    for (const upload of uploads.sort((left, right) => right.criadoEm.getTime() - left.criadoEm.getTime())) {
+    const mirrorUploads = uploads.filter((upload) => isPaymentMirrorStorageKey(upload.caminhoArquivo));
+
+    for (const upload of mirrorUploads.sort((left, right) => right.criadoEm.getTime() - left.criadoEm.getTime())) {
       if (!upload.motoristaId || !upload.basePagamentoId) {
         continue;
       }
@@ -944,7 +949,7 @@ router.get("/periods/:periodId/export", (req, res) => {
       return;
     }
 
-    const visibleUploads = period.uploads.filter((upload) => upload.status !== "removido");
+    const visibleUploads = filterVisibleUploads(period.uploads);
     const latestUploads = new Map<string, (typeof visibleUploads)[number]>();
 
     for (const upload of [...visibleUploads].sort((left, right) => right.criadoEm.getTime() - left.criadoEm.getTime())) {

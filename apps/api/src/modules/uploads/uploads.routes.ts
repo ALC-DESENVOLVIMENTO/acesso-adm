@@ -241,15 +241,15 @@ router.get("/", (_req, res) => {
       }
     });
 
+    const paymentUploads = uploads.filter((item) => item.documentType !== DocumentTypeCode.nota_fiscal);
     const childReferences = new Set(
-      uploads
+      paymentUploads
         .map((item) => item.substituiUploadId)
         .filter((value): value is string => Boolean(value))
     );
 
     res.json(
-      uploads
-        .filter((item) => item.documentType !== DocumentTypeCode.nota_fiscal)
+      paymentUploads
         .filter((item) => !childReferences.has(item.id) && isPaymentMirrorUpload(item))
         .map(serializeUpload)
     );

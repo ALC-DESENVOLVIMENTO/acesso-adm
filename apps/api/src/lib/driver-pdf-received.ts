@@ -1,4 +1,4 @@
-import { DocumentTypeCode, DriverPdfReceivedStatus } from "@prisma/client";
+import { DocumentTypeCode, DriverPdfReceivedStatus, Prisma } from "@prisma/client";
 import { prisma } from "./prisma.js";
 
 const noteStatuses: DriverPdfReceivedStatus[] = [
@@ -84,6 +84,14 @@ function buildReceivedWhere(input: {
   return null;
 }
 
+async function setDriverPdfDocumentType(id: string, documentType: DocumentTypeCode) {
+  await prisma.$executeRaw(Prisma.sql`
+    update "driver_pdf_received"
+       set "document_type" = ${documentType}
+     where "id" = cast(${id} as uuid)
+  `);
+}
+
 export async function upsertDriverPdfReceivedFromUpload(
   input: DriverPdfReceivedUploadInput,
   status: DriverPdfReceivedStatus = DriverPdfReceivedStatus.pdf_enviado_ao_motorista
@@ -113,7 +121,6 @@ export async function upsertDriverPdfReceivedFromUpload(
     nomeArquivo: input.fileName,
     caminhoArquivo: input.storageKey,
     tipoArquivo: input.mimeType || "application/pdf",
-    documentType: DocumentTypeCode.espelho,
     uploadEm: now,
     usuarioId: input.createdByUserId ?? null,
     status,
@@ -130,17 +137,23 @@ export async function upsertDriverPdfReceivedFromUpload(
   } as const;
 
   if (existing?.id) {
-    return prisma.driverPdfReceived.update({
+    const updated = await prisma.driverPdfReceived.update({
       where: {
         id: existing.id
       },
       data
     });
+
+    await setDriverPdfDocumentType(updated.id, DocumentTypeCode.espelho);
+    return updated;
   }
 
-  return prisma.driverPdfReceived.create({
+  const created = await prisma.driverPdfReceived.create({
     data
   });
+
+  await setDriverPdfDocumentType(created.id, DocumentTypeCode.espelho);
+  return created;
 }
 
 export async function markDriverPdfReceivedRejected(input: DriverPdfReceivedRejectionInput) {
@@ -162,12 +175,11 @@ export async function markDriverPdfReceivedRejected(input: DriverPdfReceivedReje
     });
 
     if (existing?.id) {
-      return prisma.driverPdfReceived.update({
+      const updated = await prisma.driverPdfReceived.update({
         where: {
           id: existing.id
         },
         data: {
-          documentType: DocumentTypeCode.nota_fiscal,
           status: DriverPdfReceivedStatus.nota_fiscal_rejeitada,
           rejeitadoEm: now,
           rejeitadoPorId: input.rejectedById ?? null,
@@ -175,6 +187,9 @@ export async function markDriverPdfReceivedRejected(input: DriverPdfReceivedReje
           observacoes: input.observacoes ?? null
         }
       });
+
+      await setDriverPdfDocumentType(updated.id, DocumentTypeCode.nota_fiscal);
+      return updated;
     }
   }
 
@@ -182,7 +197,7 @@ export async function markDriverPdfReceivedRejected(input: DriverPdfReceivedReje
     return null;
   }
 
-  return prisma.driverPdfReceived.create({
+  const created = await prisma.driverPdfReceived.create({
     data: {
       motoristaId: input.motoristaId,
       periodoPagamentoId: input.periodId,
@@ -190,7 +205,6 @@ export async function markDriverPdfReceivedRejected(input: DriverPdfReceivedReje
       nomeArquivo: input.fileName ?? null,
       caminhoArquivo: input.storageKey ?? null,
       tipoArquivo: input.mimeType ?? "application/pdf",
-      documentType: DocumentTypeCode.nota_fiscal,
       uploadEm: now,
       usuarioId: input.rejectedById ?? null,
       status: DriverPdfReceivedStatus.nota_fiscal_rejeitada,
@@ -200,6 +214,9 @@ export async function markDriverPdfReceivedRejected(input: DriverPdfReceivedReje
       motivoRejeicao: input.motivoRejeicao ?? null
     }
   });
+
+  await setDriverPdfDocumentType(created.id, DocumentTypeCode.nota_fiscal);
+  return created;
 }
 
 export function isDriverPdfNoteStatus(value: string | null | undefined) {
