@@ -12,6 +12,8 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
+    "db:backfill:document-types": "tsx scripts/backfill-document-types.ts",
+    "db:repair:upload-storage-paths": "tsx scripts/repair-upload-storage-paths.ts",
     "db:import:driver-registry": "tsx scripts/import-driver-registry.ts"
   },
   "dependencies": {

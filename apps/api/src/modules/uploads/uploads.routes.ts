@@ -5,6 +5,7 @@ import { requireAuth, requireModuleAccess } from "../../middlewares/auth.middlew
 import { prisma } from "../../lib/prisma.js";
 import {
   buildStorageObjectUrl,
+  assertPaymentMirrorStorageKey,
   createStorageKey,
   getStorageDiagnostics,
   deleteObject,
@@ -36,6 +37,14 @@ function isPaymentMirrorUpload(upload: { documentType?: DocumentTypeCode | null;
   return upload.status !== UploadStatus.removido;
 }
 
+function resolvePaymentMirrorUrl(upload: { caminhoArquivo: string | null | undefined }) {
+  try {
+    return buildStorageObjectUrl(assertPaymentMirrorStorageKey(upload.caminhoArquivo));
+  } catch {
+    return null;
+  }
+}
+
 type UploadHistoryItem = Awaited<ReturnType<typeof prisma.uploadPdf.findMany>>[number] & {
   usuario: {
     nome: string;
@@ -49,7 +58,7 @@ type UploadHistoryItem = Awaited<ReturnType<typeof prisma.uploadPdf.findMany>>[n
 };
 
 function serializeUpload(upload: UploadHistoryItem) {
-  const storageUrl = buildStorageObjectUrl(upload.caminhoArquivo) || null;
+  const storageUrl = resolvePaymentMirrorUrl(upload);
 
   return {
     id: upload.id,
@@ -383,7 +392,7 @@ router.post("/", upload.array("files", 20), (req, res) => {
     const preparedFiles = await Promise.all(
       validFiles.map(async (item) => {
         const { file, motoristaId, motoristaNome, motoristaCpf, baseName } = item;
-        const storageKey = createStorageKey(storageFolder, file.originalname);
+        const storageKey = assertPaymentMirrorStorageKey(createStorageKey(storageFolder, file.originalname));
 
         await uploadObject({
           key: storageKey,
@@ -638,7 +647,7 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
       `periodos/${currentUpload.periodoPagamentoId || "sem-periodo"}`,
       `bases/${currentUpload.basePagamentoId || "sem-base"}`
     ].join("/");
-    const key = createStorageKey(storageFolder, file.originalname);
+    const key = assertPaymentMirrorStorageKey(createStorageKey(storageFolder, file.originalname));
     await uploadObject({
       key,
       body: file.buffer,
@@ -721,7 +730,7 @@ router.get("/:id/download", (req, res) => {
       return;
     }
 
-    const downloadUrl = buildStorageObjectUrl(upload.caminhoArquivo);
+    const downloadUrl = resolvePaymentMirrorUrl(upload);
 
     if (!downloadUrl) {
       res.status(404).json({

@@ -157,6 +157,21 @@ export function normalizeStorageKey(value: string | null | undefined) {
   return trimmed;
 }
 
+export function isPaymentMirrorStorageKey(value: string | null | undefined) {
+  const normalized = normalizeStorageKey(value);
+  return Boolean(normalized && normalized.startsWith("uploads/"));
+}
+
+export function assertPaymentMirrorStorageKey(value: string | null | undefined) {
+  const normalized = normalizeStorageKey(value);
+
+  if (!normalized || !normalized.startsWith("uploads/")) {
+    throw new Error("Caminho invalido para PDF do espelho de pagamento.");
+  }
+
+  return normalized;
+}
+
 export function buildStorageObjectUrl(key: string | null | undefined) {
   const normalized = normalizeStorageKey(key);
   return normalized ? `/api/storage/${normalized.split("/").map(encodePathSegment).join("/")}` : null;
