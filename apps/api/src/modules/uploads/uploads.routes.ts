@@ -1,4 +1,4 @@
-import { UploadStatus } from "@prisma/client";
+import { DocumentTypeCode, UploadStatus } from "@prisma/client";
 import { Router } from "express";
 import multer from "multer";
 import { requireAuth, requireModuleAccess } from "../../middlewares/auth.middleware.js";
@@ -27,6 +27,14 @@ const upload = multer({
 });
 
 router.use(requireAuth, requireModuleAccess("pdfs"));
+
+function isPaymentMirrorUpload(upload: { documentType?: DocumentTypeCode | null; status: UploadStatus | string }) {
+  if (upload.documentType === DocumentTypeCode.nota_fiscal) {
+    return false;
+  }
+
+  return upload.status !== UploadStatus.removido;
+}
 
 type UploadHistoryItem = Awaited<ReturnType<typeof prisma.uploadPdf.findMany>>[number] & {
   usuario: {
@@ -62,6 +70,14 @@ function serializeUpload(upload: UploadHistoryItem) {
 
 async function getUploadHistory(uploadId: string) {
   const uploads = await prisma.uploadPdf.findMany({
+    where: {
+      documentType: {
+        not: DocumentTypeCode.nota_fiscal
+      },
+      status: {
+        not: UploadStatus.removido
+      }
+    },
     include: {
       usuario: {
         select: {
@@ -195,6 +211,9 @@ router.get("/", (_req, res) => {
   void (async () => {
     const uploads = await prisma.uploadPdf.findMany({
       where: {
+        documentType: {
+          not: DocumentTypeCode.nota_fiscal
+        },
         status: {
           not: UploadStatus.removido
         }
@@ -223,7 +242,7 @@ router.get("/", (_req, res) => {
         .filter((value): value is string => Boolean(value))
     );
 
-    res.json(uploads.filter((item) => !childReferences.has(item.id)).map(serializeUpload));
+    res.json(uploads.filter((item) => !childReferences.has(item.id) && isPaymentMirrorUpload(item)).map(serializeUpload));
   })().catch((error) => {
     res.status(500).json({
       message: "Falha ao listar uploads.",
@@ -409,6 +428,7 @@ router.post("/", upload.array("files", 20), (req, res) => {
           nomeArquivo: prepared.file.originalname,
           nomeOriginal: prepared.file.originalname,
           caminhoArquivo: prepared.storageKey,
+          documentType: DocumentTypeCode.espelho,
           versao: 1,
           status: UploadStatus.pendente,
           usuarioId: auth.userId,
@@ -471,16 +491,29 @@ router.delete("/:id", (req, res) => {
       where: {
         id: String(req.params.id)
       },
-      include: {
-        periodoPagamento: {
-          select: {
-            status: true
-          }
-        }
+      select: {
+        id: true,
+        documentType: true,
+        status: true,
+        caminhoArquivo: true,
+        nomeOriginal: true,
+        nomeArquivo: true,
+        usuarioId: true,
+        versao: true,
+        substituiUploadId: true,
+        periodoPagamentoId: true,
+        basePagamentoId: true
       }
     });
 
     if (!upload) {
+      res.status(404).json({
+        message: "Upload nao encontrado."
+      });
+      return;
+    }
+
+    if (!isPaymentMirrorUpload(upload)) {
       res.status(404).json({
         message: "Upload nao encontrado."
       });
@@ -559,21 +592,29 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
       where: {
         id: String(req.params.id)
       },
-      include: {
-        periodoPagamento: {
-          select: {
-            status: true
-          }
-        },
-        basePagamento: {
-          select: {
-            nome: true
-          }
-        }
+      select: {
+        id: true,
+        documentType: true,
+        nomeArquivo: true,
+        nomeOriginal: true,
+        caminhoArquivo: true,
+        versao: true,
+        status: true,
+        usuarioId: true,
+        motoristaId: true,
+        periodoPagamentoId: true,
+        basePagamentoId: true
       }
     });
 
     if (!currentUpload) {
+      res.status(404).json({
+        message: "Upload nao encontrado."
+      });
+      return;
+    }
+
+    if (!isPaymentMirrorUpload(currentUpload)) {
       res.status(404).json({
         message: "Upload nao encontrado."
       });
@@ -618,6 +659,7 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
           nomeArquivo: file.originalname,
           nomeOriginal: file.originalname,
           caminhoArquivo: key,
+          documentType: DocumentTypeCode.espelho,
           versao: currentUpload.versao + 1,
           status: currentUpload.status,
           usuarioId: auth.userId,
@@ -666,6 +708,13 @@ router.get("/:id/download", (req, res) => {
     });
 
     if (!upload) {
+      res.status(404).json({
+        message: "Arquivo nao encontrado."
+      });
+      return;
+    }
+
+    if (!isPaymentMirrorUpload(upload)) {
       res.status(404).json({
         message: "Arquivo nao encontrado."
       });

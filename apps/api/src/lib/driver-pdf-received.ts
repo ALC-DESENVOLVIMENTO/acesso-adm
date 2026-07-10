@@ -1,4 +1,4 @@
-import { DriverPdfReceivedStatus } from "@prisma/client";
+import { DocumentTypeCode, DriverPdfReceivedStatus } from "@prisma/client";
 import { prisma } from "./prisma.js";
 
 const noteStatuses: DriverPdfReceivedStatus[] = [
@@ -11,6 +11,19 @@ const noteStatuses: DriverPdfReceivedStatus[] = [
 
 function isNoteStatus(value: string | null | undefined) {
   return Boolean(value && noteStatuses.includes(value as DriverPdfReceivedStatus));
+}
+
+function isMirrorStatus(value: string | null | undefined) {
+  const mirrorStatuses: DriverPdfReceivedStatus[] = [
+    DriverPdfReceivedStatus.pdf_aguardando_envio,
+    DriverPdfReceivedStatus.pdf_enviado_ao_motorista,
+    DriverPdfReceivedStatus.motorista_visualizou,
+    DriverPdfReceivedStatus.aguardando_envio_nota_fiscal
+  ];
+
+  return Boolean(
+    value && mirrorStatuses.includes(value as DriverPdfReceivedStatus)
+  );
 }
 
 export type DriverPdfReceivedUploadInput = {
@@ -100,6 +113,7 @@ export async function upsertDriverPdfReceivedFromUpload(
     nomeArquivo: input.fileName,
     caminhoArquivo: input.storageKey,
     tipoArquivo: input.mimeType || "application/pdf",
+    documentType: DocumentTypeCode.espelho,
     uploadEm: now,
     usuarioId: input.createdByUserId ?? null,
     status,
@@ -153,6 +167,7 @@ export async function markDriverPdfReceivedRejected(input: DriverPdfReceivedReje
           id: existing.id
         },
         data: {
+          documentType: DocumentTypeCode.nota_fiscal,
           status: DriverPdfReceivedStatus.nota_fiscal_rejeitada,
           rejeitadoEm: now,
           rejeitadoPorId: input.rejectedById ?? null,
@@ -175,6 +190,7 @@ export async function markDriverPdfReceivedRejected(input: DriverPdfReceivedReje
       nomeArquivo: input.fileName ?? null,
       caminhoArquivo: input.storageKey ?? null,
       tipoArquivo: input.mimeType ?? "application/pdf",
+      documentType: DocumentTypeCode.nota_fiscal,
       uploadEm: now,
       usuarioId: input.rejectedById ?? null,
       status: DriverPdfReceivedStatus.nota_fiscal_rejeitada,
@@ -184,4 +200,12 @@ export async function markDriverPdfReceivedRejected(input: DriverPdfReceivedReje
       motivoRejeicao: input.motivoRejeicao ?? null
     }
   });
+}
+
+export function isDriverPdfNoteStatus(value: string | null | undefined) {
+  return isNoteStatus(value);
+}
+
+export function isDriverPdfMirrorStatus(value: string | null | undefined) {
+  return isMirrorStatus(value);
 }

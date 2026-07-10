@@ -6,7 +6,11 @@ import { requireAuth, requireModuleAccess } from "../../middlewares/auth.middlew
 import { prisma } from "../../lib/prisma.js";
 import { buildStorageObjectUrl, fetchObjectBuffer } from "../../lib/storage.js";
 import { loadDriverPdfReceivedContent } from "../../lib/driver-pdf-received-content.js";
-import { upsertDriverPdfReceivedFromUpload } from "../../lib/driver-pdf-received.js";
+import {
+  isDriverPdfMirrorStatus,
+  isDriverPdfNoteStatus,
+  upsertDriverPdfReceivedFromUpload
+} from "../../lib/driver-pdf-received.js";
 
 const router = Router();
 
@@ -77,6 +81,14 @@ function isNoteStatus(status: string | null | undefined) {
         "processo_concluido"
       ]).has(status)
   );
+}
+
+function isMirrorUploadStatus(status: string | null | undefined) {
+  return isDriverPdfMirrorStatus(status);
+}
+
+function isNoteReceiptStatus(status: string | null | undefined) {
+  return isDriverPdfNoteStatus(status);
 }
 
 function resolvePdfStatus(periodStatus: string | null | undefined, uploadStatus: string | null | undefined) {
@@ -673,41 +685,55 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
         return [];
       }
 
-      const receiptByUploadId = receivedRows.find((item) => item.uploadPdfId && item.uploadPdfId === upload.id) || null;
-      const receiptByIdentity =
+      const mirrorReceipt =
+        receivedRows.find(
+          (item) => item.uploadPdfId && item.uploadPdfId === upload.id && isMirrorUploadStatus(item.status)
+        ) || null;
+      const noteReceiptByUpload =
+        receivedRows.find(
+          (item) => item.uploadPdfId && item.uploadPdfId === upload.id && isNoteReceiptStatus(item.status)
+        ) || null;
+      const noteReceiptByIdentity =
         receivedRows
           .filter(
             (item) =>
               item.motoristaId === upload.motoristaId &&
               item.periodoPagamentoId === upload.periodoPagamentoId &&
               item.basePagamentoId === upload.basePagamentoId &&
-              isNoteStatus(item.status)
+              isNoteReceiptStatus(item.status)
           )
           .sort(
             (left, right) =>
               (right.uploadEm?.getTime() ?? 0) - (left.uploadEm?.getTime() ?? 0)
           )[0] || null;
-      const noteReceipt = isNoteStatus(receiptByUploadId?.status) ? receiptByUploadId : receiptByIdentity;
+      const noteReceipt = noteReceiptByUpload || noteReceiptByIdentity;
 
       const ticketStatuses = upload.motorista.chamados.map((item) => item.status);
       const attendanceStatus = computeAttendanceStatus(ticketStatuses, upload.motorista.atendimentos.length);
-      const currentStatus = resolvePdfStatus(upload.periodoPagamento?.status || null, upload.status);
-      const pdfSentAt = receiptByUploadId?.enviadoAoMotoristaEm || upload.criadoEm;
+      const currentStatus = noteReceipt
+        ? noteReceipt.status === "nota_fiscal_aprovada"
+          ? "processo_concluido"
+          : noteReceipt.status
+        : mirrorReceipt
+          ? mirrorReceipt.visualizadoEm
+            ? "motorista_visualizou"
+            : mirrorReceipt.enviadoAoMotoristaEm
+              ? "pdf_enviado_ao_motorista"
+              : "pdf_aguardando_envio"
+          : resolvePdfStatus(upload.periodoPagamento?.status || null, upload.status);
+      const pdfSentAt = mirrorReceipt?.enviadoAoMotoristaEm || upload.criadoEm;
       const noteSentAt = noteReceipt?.uploadEm || null;
-      const noteDownloadUrl =
-        noteReceipt && noteReceipt.caminhoArquivo
-          ? buildStorageObjectUrl(noteReceipt.caminhoArquivo)
-          : null;
+      const noteDownloadUrl = noteReceipt?.id ? `/api/financeiro/driver-pdfs/${noteReceipt.id}/content` : null;
 
       return {
-        id: noteReceipt?.id || receiptByUploadId?.id || upload.id,
+        id: noteReceipt?.id || mirrorReceipt?.id || upload.id,
         motoristaId: upload.motoristaId,
         nome: upload.motorista.nome,
         cpf: upload.motorista.cpf,
         base: upload.basePagamento.nome,
         periodoPagamento: upload.periodoPagamento.nome,
         pdfEnviadoEm: toIso(pdfSentAt),
-        pdfVisualizadoEm: toIso(receiptByUploadId?.visualizadoEm || null),
+        pdfVisualizadoEm: toIso(mirrorReceipt?.visualizadoEm || null),
         notaFiscalEnviadaEm: toIso(noteSentAt),
         notaFiscalRecebidaEm: toIso(
           noteReceipt?.aprovadoEm ||
@@ -722,7 +748,7 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
           noteReceipt?.aprovadoEm ||
             noteReceipt?.rejeitadoEm ||
             noteReceipt?.uploadEm ||
-            receiptByUploadId?.visualizadoEm ||
+            mirrorReceipt?.visualizadoEm ||
             upload.criadoEm
         ),
         atendimentoStatus: attendanceStatus,
@@ -981,7 +1007,7 @@ router.get("/periods/:periodId/export", (req, res) => {
       const motoristaName = upload.motorista?.nome || "Motorista";
       const motoristaCpf = upload.motorista?.cpf || "";
       const receipt =
-        receivedRows.find((item) => item.uploadPdfId && item.uploadPdfId === upload.id) ||
+        receivedRows.find((item) => item.uploadPdfId && item.uploadPdfId === upload.id && isNoteStatus(item.status)) ||
         receivedRows.find(
           (item) =>
             item.motoristaId === upload.motoristaId &&

@@ -900,39 +900,33 @@ async function loadMotoristaDetail(motoristaId: string) {
 
   const paymentHistory = await Promise.all(
     Array.from(paymentHistoryByKey.values()).map(async (upload) => {
-      const receipt =
+      const mirrorReceipt =
+        paymentReceipts.find((item) => item.uploadPdfId && item.uploadPdfId === upload.id && !isNoteStatus(item.status)) ||
+        null;
+      const noteReceiptByUpload =
         paymentReceipts.find((item) => item.uploadPdfId && item.uploadPdfId === upload.id && isNoteStatus(item.status)) ||
-        paymentReceipts.find(
-          (item) =>
-            item.uploadPdfId &&
-            item.uploadPdfId === upload.id
-        ) ||
+        null;
+      const noteReceiptByIdentity =
         paymentReceipts.find(
           (item) =>
             item.motoristaId === motorista.id &&
             item.periodoPagamentoId === upload.periodoPagamentoId &&
             item.basePagamentoId === upload.basePagamentoId &&
             isNoteStatus(item.status)
-        ) ||
-        paymentReceipts.find(
-          (item) =>
-            item.motoristaId === motorista.id &&
-            item.periodoPagamentoId === upload.periodoPagamentoId &&
-            item.basePagamentoId === upload.basePagamentoId
-        ) ||
-        null;
+        ) || null;
+      const noteReceipt = noteReceiptByUpload || noteReceiptByIdentity;
       const period = upload.periodoPagamento || null;
       const base = upload.basePagamento || null;
-      const pdfSentAt = receipt?.enviadoAoMotoristaEm || upload.criadoEm;
-      const pdfViewedAt = receipt?.visualizadoEm || null;
-      const noteSentAt = isNoteStatus(receipt?.status) ? receipt?.uploadEm || null : null;
-      const noteReceivedAt = isNoteStatus(receipt?.status) ? receipt?.aprovadoEm || receipt?.rejeitadoEm || null : null;
-      const noteStatus = isNoteStatus(receipt?.status) ? receipt!.status : "aguardando_envio_nota_fiscal";
+      const pdfSentAt = mirrorReceipt?.enviadoAoMotoristaEm || upload.criadoEm;
+      const pdfViewedAt = mirrorReceipt?.visualizadoEm || null;
+      const noteSentAt = noteReceipt?.uploadEm || null;
+      const noteReceivedAt = noteReceipt?.aprovadoEm || noteReceipt?.rejeitadoEm || null;
+      const noteStatus = noteReceipt?.status || "aguardando_envio_nota_fiscal";
       const currentStatus =
-        isNoteStatus(receipt?.status) && receipt?.status === "nota_fiscal_aprovada"
+        noteReceipt?.status === "nota_fiscal_aprovada"
           ? "processo_concluido"
-          : isNoteStatus(receipt?.status)
-            ? receipt?.status || "aguardando_envio_nota_fiscal"
+          : noteReceipt?.status
+            ? noteReceipt.status
             : pdfViewedAt
               ? "motorista_visualizou"
               : pdfSentAt
@@ -942,10 +936,10 @@ async function loadMotoristaDetail(motoristaId: string) {
       const valorPagamento = await extractTotalGeralValue(upload.caminhoArquivo).catch(() => null);
 
       return {
-        id: receipt?.id || upload.id,
-        periodoPagamentoId: upload.periodoPagamentoId || receipt?.periodoPagamentoId || null,
+        id: noteReceipt?.id || mirrorReceipt?.id || upload.id,
+        periodoPagamentoId: upload.periodoPagamentoId || noteReceipt?.periodoPagamentoId || null,
         periodoPagamento: period?.nome || null,
-        basePagamentoId: upload.basePagamentoId || receipt?.basePagamentoId || null,
+        basePagamentoId: upload.basePagamentoId || noteReceipt?.basePagamentoId || null,
         basePagamento: base?.nome || null,
         dataPagamento: null,
         valorPagamento,
@@ -957,12 +951,9 @@ async function loadMotoristaDetail(motoristaId: string) {
         notaFiscalEnviadaEm: noteSentAt ? toIso(noteSentAt) : null,
         notaFiscalRecebidaEm: noteReceivedAt ? toIso(noteReceivedAt) : null,
         pago: paid,
-        atualizadoEm: toIso(noteReceivedAt || pdfViewedAt || pdfSentAt || receipt?.uploadEm || upload.criadoEm),
+        atualizadoEm: toIso(noteReceivedAt || pdfViewedAt || pdfSentAt || noteReceipt?.uploadEm || upload.criadoEm),
         pdfDownloadUrl: upload.caminhoArquivo ? buildStorageObjectUrl(upload.caminhoArquivo) : null,
-        notaFiscalDownloadUrl:
-          isNoteStatus(receipt?.status) && receipt?.id
-            ? `/api/financeiro/driver-pdfs/${receipt.id}/content`
-            : null
+        notaFiscalDownloadUrl: noteReceipt?.id ? `/api/financeiro/driver-pdfs/${noteReceipt.id}/content` : null
       };
     })
   );
