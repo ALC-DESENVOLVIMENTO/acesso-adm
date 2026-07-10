@@ -79,6 +79,30 @@ function isNoteStatus(status: string | null | undefined) {
   );
 }
 
+function resolvePdfStatus(periodStatus: string | null | undefined, uploadStatus: string | null | undefined) {
+  if (uploadStatus === "removido") {
+    return "pdf_aguardando_envio";
+  }
+
+  if (periodStatus === "aprovado") {
+    return "pdf_enviado_ao_motorista";
+  }
+
+  if (uploadStatus === "processado") {
+    return "pdf_enviado_ao_motorista";
+  }
+
+  return "pdf_aguardando_envio";
+}
+
+function collectNoteLinkedUploadIds(receivedRows: Array<{ uploadPdfId?: string | null; status: string }>) {
+  return new Set(
+    receivedRows
+      .filter((item) => item.uploadPdfId && isNoteStatus(item.status))
+      .map((item) => item.uploadPdfId as string)
+  );
+}
+
 function normalizeScopeBaseId(baseId: string | null | undefined) {
   const value = String(baseId || "").trim();
 
@@ -361,8 +385,9 @@ router.get("/summary", (_req, res) => {
       }
     });
 
+    const noteUploadIds = collectNoteLinkedUploadIds(receivedRows);
     const { visibleUploads } = dedupeLatestUploadsByMotorista(uploads);
-    const espelhoUploads = visibleUploads;
+    const espelhoUploads = visibleUploads.filter((item) => !noteUploadIds.has(item.id));
     const activeMotoristaIds = new Set(
       espelhoUploads.map((item) => item.motoristaId).filter((value): value is string => Boolean(value))
     );
@@ -450,11 +475,12 @@ router.get("/periods/:periodId/bases", (req, res) => {
       return;
     }
 
+    const noteUploadIds = collectNoteLinkedUploadIds(period.pdfsRecebidos);
     const { visibleUploads } = dedupeLatestUploadsByMotorista(period.uploads);
 
     const bases = period.bases.map((periodBase) => {
       const baseId = periodBase.basePagamento.id;
-      const baseUploads = visibleUploads.filter((item) => item.basePagamentoId === baseId);
+      const baseUploads = visibleUploads.filter((item) => item.basePagamentoId === baseId && !noteUploadIds.has(item.id));
       const baseRecebidos = period.pdfsRecebidos.filter(
         (item) =>
           item.basePagamentoId === baseId &&
@@ -591,7 +617,8 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
         },
         periodoPagamento: {
           select: {
-            nome: true
+            nome: true,
+            status: true
           }
         },
         basePagamento: {
@@ -656,13 +683,8 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
         return [];
       }
 
-      const receipt =
-        receivedRows.find(
-          (item) =>
-            item.uploadPdfId &&
-            item.uploadPdfId === upload.id &&
-            isNoteStatus(item.status)
-        ) ||
+      const receiptByUploadId = receivedRows.find((item) => item.uploadPdfId && item.uploadPdfId === upload.id) || null;
+      const receiptByIdentity =
         receivedRows
           .filter(
             (item) =>
@@ -674,51 +696,56 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
           .sort(
             (left, right) =>
               (right.uploadEm?.getTime() ?? 0) - (left.uploadEm?.getTime() ?? 0)
-          )[0] ||
-        null;
+          )[0] || null;
+      const noteReceipt = isNoteStatus(receiptByUploadId?.status) ? receiptByUploadId : receiptByIdentity;
 
       const ticketStatuses = upload.motorista.chamados.map((item) => item.status);
       const attendanceStatus = computeAttendanceStatus(ticketStatuses, upload.motorista.atendimentos.length);
-      const currentStatus = isNoteStatus(receipt?.status) ? receipt?.status : receipt?.status || "pdf_aguardando_envio";
-      const pdfSentAt = receipt?.enviadoAoMotoristaEm || upload.criadoEm;
-      const noteSentAt = isNoteStatus(receipt?.status) ? receipt?.uploadEm : null;
+      const currentStatus = resolvePdfStatus(upload.periodoPagamento?.status || null, upload.status);
+      const pdfSentAt = receiptByUploadId?.enviadoAoMotoristaEm || upload.criadoEm;
+      const noteSentAt = noteReceipt?.uploadEm || null;
       const noteDownloadUrl =
-        isNoteStatus(receipt?.status) && receipt?.caminhoArquivo
-          ? buildStorageObjectUrl(receipt.caminhoArquivo)
+        noteReceipt && noteReceipt.caminhoArquivo
+          ? buildStorageObjectUrl(noteReceipt.caminhoArquivo)
           : null;
 
       return {
-        id: receipt?.id || upload.id,
+        id: noteReceipt?.id || receiptByUploadId?.id || upload.id,
         motoristaId: upload.motoristaId,
         nome: upload.motorista.nome,
         cpf: upload.motorista.cpf,
         base: upload.basePagamento.nome,
         periodoPagamento: upload.periodoPagamento.nome,
         pdfEnviadoEm: toIso(pdfSentAt),
-        pdfVisualizadoEm: toIso(receipt?.visualizadoEm || (receipt?.status === "motorista_visualizou" ? receipt.uploadEm : null)),
+        pdfVisualizadoEm: toIso(receiptByUploadId?.visualizadoEm || null),
         notaFiscalEnviadaEm: toIso(noteSentAt),
         notaFiscalRecebidaEm: toIso(
-          receipt?.aprovadoEm ||
-            receipt?.rejeitadoEm ||
-            (isNoteStatus(receipt?.status) ? receipt.uploadEm : null)
+          noteReceipt?.aprovadoEm ||
+            noteReceipt?.rejeitadoEm ||
+            noteReceipt?.uploadEm ||
+            null
         ),
         status: currentStatus,
         statusLabel: formatStatusLabel(currentStatus),
         situacaoAtendimento: attendanceStatus,
         ultimaAtualizacao: toIso(
-          receipt?.aprovadoEm || receipt?.rejeitadoEm || receipt?.uploadEm || upload.criadoEm
+          noteReceipt?.aprovadoEm ||
+            noteReceipt?.rejeitadoEm ||
+            noteReceipt?.uploadEm ||
+            receiptByUploadId?.visualizadoEm ||
+            upload.criadoEm
         ),
         atendimentoStatus: attendanceStatus,
         statusNotaFiscal:
-          currentStatus === "nota_fiscal_rejeitada"
+          noteReceipt?.status === "nota_fiscal_rejeitada"
             ? "Recusada"
-            : currentStatus === "nota_fiscal_aprovada"
+            : noteReceipt?.status === "nota_fiscal_aprovada"
               ? "Aprovada"
-              : currentStatus === "nota_fiscal_em_analise"
+              : noteReceipt?.status === "nota_fiscal_em_analise"
                 ? "Em an?lise"
-                : currentStatus === "nota_fiscal_recebida"
+                : noteReceipt?.status === "nota_fiscal_recebida"
                   ? "Recebida"
-                  : currentStatus === "aguardando_envio_nota_fiscal"
+                  : currentStatus === "pdf_enviado_ao_motorista"
                     ? "Pendente"
                     : "Pendente",
         caminhoArquivo: buildStorageObjectUrl(upload.caminhoArquivo),
@@ -901,7 +928,8 @@ router.get("/periods/:periodId/export", (req, res) => {
       return;
     }
 
-    const visibleUploads = period.uploads.filter((upload) => upload.status !== "removido");
+    const noteUploadIds = collectNoteLinkedUploadIds(period.pdfsRecebidos);
+    const visibleUploads = period.uploads.filter((upload) => upload.status !== "removido" && !noteUploadIds.has(upload.id));
     const latestUploads = new Map<string, (typeof visibleUploads)[number]>();
 
     for (const upload of [...visibleUploads].sort((left, right) => right.criadoEm.getTime() - left.criadoEm.getTime())) {
