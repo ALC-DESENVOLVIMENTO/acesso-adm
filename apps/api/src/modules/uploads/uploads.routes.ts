@@ -60,14 +60,6 @@ function serializeUpload(upload: UploadHistoryItem) {
   };
 }
 
-const noteStatuses = new Set([
-  "nota_fiscal_recebida",
-  "nota_fiscal_em_analise",
-  "nota_fiscal_aprovada",
-  "nota_fiscal_rejeitada",
-  "processo_concluido"
-]);
-
 async function getUploadHistory(uploadId: string) {
   const uploads = await prisma.uploadPdf.findMany({
     include: {
@@ -225,29 +217,13 @@ router.get("/", (_req, res) => {
       }
     });
 
-    const noteReceipts = await prisma.driverPdfReceived.findMany({
-      select: {
-        uploadPdfId: true,
-        status: true
-      }
-    });
-    const noteUploadIds = new Set(
-      noteReceipts
-        .filter((item) => item.uploadPdfId && noteStatuses.has(item.status))
-        .map((item) => item.uploadPdfId as string)
-    );
-
     const childReferences = new Set(
       uploads
         .map((item) => item.substituiUploadId)
         .filter((value): value is string => Boolean(value))
     );
 
-    res.json(
-      uploads
-        .filter((item) => !childReferences.has(item.id) && !noteUploadIds.has(item.id))
-        .map(serializeUpload)
-    );
+    res.json(uploads.filter((item) => !childReferences.has(item.id)).map(serializeUpload));
   })().catch((error) => {
     res.status(500).json({
       message: "Falha ao listar uploads.",

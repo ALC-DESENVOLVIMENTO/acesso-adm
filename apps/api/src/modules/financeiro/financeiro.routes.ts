@@ -95,14 +95,6 @@ function resolvePdfStatus(periodStatus: string | null | undefined, uploadStatus:
   return "pdf_aguardando_envio";
 }
 
-function collectNoteLinkedUploadIds(receivedRows: Array<{ uploadPdfId?: string | null; status: string }>) {
-  return new Set(
-    receivedRows
-      .filter((item) => item.uploadPdfId && isNoteStatus(item.status))
-      .map((item) => item.uploadPdfId as string)
-  );
-}
-
 function normalizeScopeBaseId(baseId: string | null | undefined) {
   const value = String(baseId || "").trim();
 
@@ -385,9 +377,8 @@ router.get("/summary", (_req, res) => {
       }
     });
 
-    const noteUploadIds = collectNoteLinkedUploadIds(receivedRows);
     const { visibleUploads } = dedupeLatestUploadsByMotorista(uploads);
-    const espelhoUploads = visibleUploads.filter((item) => !noteUploadIds.has(item.id));
+    const espelhoUploads = visibleUploads;
     const activeMotoristaIds = new Set(
       espelhoUploads.map((item) => item.motoristaId).filter((value): value is string => Boolean(value))
     );
@@ -475,12 +466,11 @@ router.get("/periods/:periodId/bases", (req, res) => {
       return;
     }
 
-    const noteUploadIds = collectNoteLinkedUploadIds(period.pdfsRecebidos);
     const { visibleUploads } = dedupeLatestUploadsByMotorista(period.uploads);
 
     const bases = period.bases.map((periodBase) => {
       const baseId = periodBase.basePagamento.id;
-      const baseUploads = visibleUploads.filter((item) => item.basePagamentoId === baseId && !noteUploadIds.has(item.id));
+      const baseUploads = visibleUploads.filter((item) => item.basePagamentoId === baseId);
       const baseRecebidos = period.pdfsRecebidos.filter(
         (item) =>
           item.basePagamentoId === baseId &&
@@ -928,8 +918,7 @@ router.get("/periods/:periodId/export", (req, res) => {
       return;
     }
 
-    const noteUploadIds = collectNoteLinkedUploadIds(period.pdfsRecebidos);
-    const visibleUploads = period.uploads.filter((upload) => upload.status !== "removido" && !noteUploadIds.has(upload.id));
+    const visibleUploads = period.uploads.filter((upload) => upload.status !== "removido");
     const latestUploads = new Map<string, (typeof visibleUploads)[number]>();
 
     for (const upload of [...visibleUploads].sort((left, right) => right.criadoEm.getTime() - left.criadoEm.getTime())) {
