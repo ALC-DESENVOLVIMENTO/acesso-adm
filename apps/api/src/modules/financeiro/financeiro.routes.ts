@@ -201,6 +201,26 @@ type ReceivedRecord = {
   nomeArquivo?: string | null;
 };
 
+type ReceivedScopeRecord = {
+  id: string;
+  motoristaId: string | null;
+  periodoPagamentoId?: string | null;
+  basePagamentoId: string | null;
+};
+
+function resolveReceivedScope(
+  receipt: ReceivedRecord,
+  uploadById: Map<string, ReceivedScopeRecord>
+) {
+  const sourceUpload = receipt.uploadPdfId ? uploadById.get(receipt.uploadPdfId) || null : null;
+
+  return {
+    motoristaId: receipt.motoristaId ?? sourceUpload?.motoristaId ?? null,
+    periodoPagamentoId: receipt.periodoPagamentoId ?? sourceUpload?.periodoPagamentoId ?? null,
+    basePagamentoId: receipt.basePagamentoId ?? sourceUpload?.basePagamentoId ?? null
+  };
+}
+
 function filterVisibleUploads<T extends { id: string; caminhoArquivo: string | null; substituiUploadId: string | null; status?: string }>(uploads: T[]) {
   const mirrorUploads = uploads.filter((item) => isPaymentMirrorStorageKey(item.caminhoArquivo));
   const childReferences = new Set(
@@ -212,7 +232,8 @@ function filterVisibleUploads<T extends { id: string; caminhoArquivo: string | n
 
 function pickLatestReceived(
   receivedRows: ReceivedRecord[],
-  upload: MotoristaUploadRecord
+  upload: MotoristaUploadRecord,
+  uploadById: Map<string, ReceivedScopeRecord> = new Map()
 ) {
   if (!upload.motoristaId || !upload.periodoPagamentoId || !upload.basePagamentoId) {
     return null;
@@ -227,10 +248,15 @@ function pickLatestReceived(
   return (
     receivedRows
       .filter(
-        (item) =>
-          item.motoristaId === upload.motoristaId &&
-          item.periodoPagamentoId === upload.periodoPagamentoId &&
-          item.basePagamentoId === upload.basePagamentoId
+        (item) => {
+          const scope = resolveReceivedScope(item, uploadById);
+
+          return (
+            scope.motoristaId === upload.motoristaId &&
+            scope.periodoPagamentoId === upload.periodoPagamentoId &&
+            scope.basePagamentoId === upload.basePagamentoId
+          );
+        }
       )
       .sort(
         (left, right) =>
@@ -384,24 +410,45 @@ router.get("/summary", (_req, res) => {
 
     await syncApprovedDriverPdfReceipts(periods, uploads);
 
-    const receivedRows = await prisma.driverPdfReceived.findMany({
+    const receivedRowsQuery = await prisma.driverPdfReceived.findMany({
+      where: {
+        OR: [
+          {
+            periodoPagamentoId: {
+              in: periods.map((period) => period.id)
+            }
+          },
+          {
+            uploadPdfId: {
+              in: uploads.map((upload) => upload.id)
+            }
+          }
+        ]
+      },
       select: {
+        uploadPdfId: true,
         motoristaId: true,
+        periodoPagamentoId: true,
+        basePagamentoId: true,
         status: true
       }
     });
 
     const { visibleUploads } = dedupeLatestUploadsByMotorista(uploads);
     const espelhoUploads = visibleUploads;
+    const uploadById = new Map(uploads.map((upload) => [upload.id, upload] as const));
     const activeMotoristaIds = new Set(
       espelhoUploads.map((item) => item.motoristaId).filter((value): value is string => Boolean(value))
     );
-    const filteredReceivedRows = receivedRows.filter(
-      (item) =>
-        item.motoristaId &&
-        activeMotoristaIds.has(item.motoristaId) &&
-        isNoteStatus(item.status)
-    );
+    const filteredReceivedRows = receivedRowsQuery.filter((item) => {
+      const scope = resolveReceivedScope(item, uploadById);
+
+      return Boolean(
+        scope.motoristaId &&
+          activeMotoristaIds.has(scope.motoristaId) &&
+          isNoteStatus(item.status)
+      );
+    });
     const sentMotoristas = countUnique(espelhoUploads.map((item) => item.motoristaId));
     const completedMotoristas = countUnique(
       filteredReceivedRows.filter((item) => receivedNoteStatuses.has(item.status)).map((item) => item.motoristaId)
@@ -482,24 +529,57 @@ router.get("/periods/:periodId/bases", (req, res) => {
     }
 
     const { visibleUploads } = dedupeLatestUploadsByMotorista(period.uploads);
+    const uploadById = new Map(period.uploads.map((upload) => [upload.id, upload] as const));
+    const receivedRowsQuery = await prisma.driverPdfReceived.findMany({
+      where: {
+        OR: [
+          {
+            periodoPagamentoId: periodId
+          },
+          {
+            uploadPdfId: {
+              in: period.uploads.map((upload) => upload.id)
+            }
+          }
+        ]
+      },
+      select: {
+        id: true,
+        uploadPdfId: true,
+        motoristaId: true,
+        periodoPagamentoId: true,
+        basePagamentoId: true,
+        status: true,
+        uploadEm: true,
+        enviadoAoMotoristaEm: true,
+        visualizadoEm: true,
+        caminhoArquivo: true,
+        nomeArquivo: true
+      }
+    });
 
     const bases = period.bases.map((periodBase) => {
       const baseId = periodBase.basePagamento.id;
       const baseUploads = visibleUploads.filter((item) => item.basePagamentoId === baseId);
-      const baseRecebidos = period.pdfsRecebidos.filter(
-        (item) =>
-          item.basePagamentoId === baseId &&
-          baseUploads.some((upload) => upload.motoristaId === item.motoristaId) &&
+      const baseRecebidos = receivedRowsQuery.filter((item) => {
+        const scope = resolveReceivedScope(item, uploadById);
+
+        return (
+          scope.basePagamentoId === baseId &&
+          baseUploads.some((upload) => upload.motoristaId === scope.motoristaId) &&
           isNoteStatus(item.status)
-      );
+        );
+      });
       const completedBaseRecebidos = baseRecebidos.filter((item) => receivedNoteStatuses.has(item.status));
       const motoristas = countUnique([
         ...baseUploads.map((item) => item.motoristaId),
-        ...baseRecebidos.map((item) => item.motoristaId)
+        ...baseRecebidos.map((item) => resolveReceivedScope(item, uploadById).motoristaId)
       ]);
       const pdfsSent = countUnique(baseUploads.map((item) => item.motoristaId));
       const pdfsPending = countUnique(baseUploads.filter((item) => item.status === "pendente").map((item) => item.motoristaId));
-      const notesReceived = countUnique(completedBaseRecebidos.map((item) => item.motoristaId));
+      const notesReceived = countUnique(
+        completedBaseRecebidos.map((item) => resolveReceivedScope(item, uploadById).motoristaId)
+      );
 
       return {
         id: baseId,
@@ -642,14 +722,23 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
       }
     });
 
-    const receivedRows = await prisma.driverPdfReceived.findMany({
+    const receivedRowsQuery = await prisma.driverPdfReceived.findMany({
       where: {
-        periodoPagamentoId: periodId,
-        ...(scopeBaseId
-          ? {
-              basePagamentoId: scopeBaseId
+        OR: [
+          {
+            periodoPagamentoId: periodId,
+            ...(scopeBaseId
+              ? {
+                  basePagamentoId: scopeBaseId
+                }
+              : {})
+          },
+          {
+            uploadPdfId: {
+              in: uploads.map((upload) => upload.id)
             }
-          : {})
+          }
+        ]
       },
       select: {
         id: true,
@@ -669,6 +758,7 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
         nomeArquivo: true
       }
     });
+    const uploadById = new Map(uploads.map((upload) => [upload.id, upload] as const));
     const latestUploads = new Map<string, (typeof uploads)[number]>();
 
     const mirrorUploads = uploads.filter((upload) => isPaymentMirrorStorageKey(upload.caminhoArquivo));
@@ -691,21 +781,26 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
       }
 
       const mirrorReceipt =
-        receivedRows.find(
+        receivedRowsQuery.find(
           (item) => item.uploadPdfId && item.uploadPdfId === upload.id && isMirrorUploadStatus(item.status)
         ) || null;
       const noteReceiptByUpload =
-        receivedRows.find(
+        receivedRowsQuery.find(
           (item) => item.uploadPdfId && item.uploadPdfId === upload.id && isNoteReceiptStatus(item.status)
         ) || null;
       const noteReceiptByIdentity =
-        receivedRows
+        receivedRowsQuery
           .filter(
-            (item) =>
-              item.motoristaId === upload.motoristaId &&
-              item.periodoPagamentoId === upload.periodoPagamentoId &&
-              item.basePagamentoId === upload.basePagamentoId &&
-              isNoteReceiptStatus(item.status)
+            (item) => {
+              const scope = resolveReceivedScope(item, uploadById);
+
+              return (
+                scope.motoristaId === upload.motoristaId &&
+                scope.periodoPagamentoId === upload.periodoPagamentoId &&
+                scope.basePagamentoId === upload.basePagamentoId &&
+                isNoteReceiptStatus(item.status)
+              );
+            }
           )
           .sort(
             (left, right) =>
@@ -950,6 +1045,48 @@ router.get("/periods/:periodId/export", (req, res) => {
     }
 
     const visibleUploads = filterVisibleUploads(period.uploads);
+    const uploadById = new Map(period.uploads.map((upload) => [upload.id, upload] as const));
+    const receivedRowsQuery = await prisma.driverPdfReceived.findMany({
+      where: {
+        OR: [
+          {
+            periodoPagamentoId: periodId,
+            ...(baseId
+              ? {
+                  basePagamentoId: baseId
+                }
+              : {})
+          },
+          {
+            uploadPdfId: {
+              in: period.uploads.map((upload) => upload.id)
+            }
+          }
+        ]
+      },
+      select: {
+        id: true,
+        uploadPdfId: true,
+        motoristaId: true,
+        basePagamentoId: true,
+        periodoPagamentoId: true,
+        status: true,
+        uploadEm: true,
+        caminhoArquivo: true,
+        nomeArquivo: true,
+        motorista: {
+          select: {
+            nome: true,
+            cpf: true
+          }
+        },
+        basePagamento: {
+          select: {
+            nome: true
+          }
+        }
+      }
+    });
     const latestUploads = new Map<string, (typeof visibleUploads)[number]>();
 
     for (const upload of [...visibleUploads].sort((left, right) => right.criadoEm.getTime() - left.criadoEm.getTime())) {
@@ -970,12 +1107,14 @@ router.get("/periods/:periodId/export", (req, res) => {
       }
     }
 
-    const receivedRows = period.pdfsRecebidos.filter((item) => {
-      if (baseId && item.basePagamentoId !== baseId) {
+    const receivedRows = receivedRowsQuery.filter((item) => {
+      const scope = resolveReceivedScope(item, uploadById);
+
+      if (baseId && scope.basePagamentoId !== baseId) {
         return false;
       }
 
-      if (selectedMotoristaIds.size > 0 && item.motoristaId && !selectedMotoristaIds.has(item.motoristaId)) {
+      if (selectedMotoristaIds.size > 0 && scope.motoristaId && !selectedMotoristaIds.has(scope.motoristaId)) {
         return false;
       }
 
@@ -1013,21 +1152,27 @@ router.get("/periods/:periodId/export", (req, res) => {
       const motoristaCpf = upload.motorista?.cpf || "";
       const receipt =
         receivedRows.find((item) => item.uploadPdfId && item.uploadPdfId === upload.id && isNoteStatus(item.status)) ||
-        receivedRows.find(
-          (item) =>
-            item.motoristaId === upload.motoristaId &&
-            item.basePagamentoId === upload.basePagamentoId &&
+        receivedRows.find((item) => {
+          const scope = resolveReceivedScope(item, uploadById);
+
+          return (
+            scope.motoristaId === upload.motoristaId &&
+            scope.basePagamentoId === upload.basePagamentoId &&
             item.status === "nota_fiscal_recebida"
-        ) ||
-        receivedRows.find(
-          (item) =>
-            item.motoristaId === upload.motoristaId &&
-            item.basePagamentoId === upload.basePagamentoId &&
+          );
+        }) ||
+        receivedRows.find((item) => {
+          const scope = resolveReceivedScope(item, uploadById);
+
+          return (
+            scope.motoristaId === upload.motoristaId &&
+            scope.basePagamentoId === upload.basePagamentoId &&
             (item.status === "nota_fiscal_em_analise" ||
               item.status === "nota_fiscal_aprovada" ||
               item.status === "nota_fiscal_rejeitada" ||
               item.status === "processo_concluido")
-        ) ||
+          );
+        }) ||
         null;
 
       if (!receipt) {
