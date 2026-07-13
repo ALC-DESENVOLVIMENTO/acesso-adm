@@ -17,6 +17,7 @@ import {
   normalizeText,
   resolveDriverRegistryByIdentity
 } from "../../lib/driver-registry.js";
+import { upsertDriverPdfReceivedFromUpload } from "../../lib/driver-pdf-received.js";
 
 const router = Router();
 const upload = multer({
@@ -166,7 +167,11 @@ async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseNam
 
   if (!resolved) {
     return {
-      error: `Nao foi possivel localizar o motorista no pre-cadastro para o arquivo ${file.originalname}.`
+      pending: true,
+      motoristaNome: identity.name || file.originalname,
+      motoristaCpf: identity.cpf || "",
+      motoristaCnpj: identity.cnpj || null,
+      baseName: selectedBaseName
     } as const;
   }
 
@@ -215,8 +220,92 @@ async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseNam
   } as const;
 }
 
+async function reconcilePendingUploadsFromRegistry() {
+  const pendingUploads = await prisma.uploadPdf.findMany({
+    where: {
+      status: UploadStatus.pendente,
+      documentType: {
+        not: DocumentTypeCode.nota_fiscal
+      },
+      motoristaId: null,
+      periodoPagamentoId: {
+        not: null
+      },
+      basePagamentoId: {
+        not: null
+      }
+    },
+    select: {
+      id: true,
+      nomeOriginal: true,
+      caminhoArquivo: true,
+      periodoPagamentoId: true,
+      basePagamentoId: true,
+      status: true,
+      motoristaId: true,
+      periodoPagamento: {
+        select: {
+          status: true
+        }
+      }
+    },
+    orderBy: {
+      criadoEm: "asc"
+    },
+    take: 100
+  });
+
+  for (const upload of pendingUploads) {
+    const resolved = await resolveDriverRegistryByIdentity({
+      fileName: upload.nomeOriginal
+    });
+
+    if (!resolved || "ambiguous" in resolved) {
+      continue;
+    }
+
+    const motoristaId = await ensureMotoristaFromRegistryMatch(resolved);
+
+    if (!motoristaId) {
+      continue;
+    }
+
+    const updated = await prisma.uploadPdf.update({
+      where: {
+        id: upload.id
+      },
+      data: {
+        motoristaId,
+        status: UploadStatus.processado
+      },
+      select: {
+        id: true,
+        motoristaId: true,
+        periodoPagamentoId: true,
+        basePagamentoId: true,
+        nomeOriginal: true,
+        caminhoArquivo: true
+      }
+    });
+
+    if (upload.periodoPagamento?.status === "aprovado") {
+      await upsertDriverPdfReceivedFromUpload({
+        uploadPdfId: updated.id,
+        motoristaId: updated.motoristaId || motoristaId,
+        periodId: updated.periodoPagamentoId || "",
+        basePaymentId: updated.basePagamentoId || "",
+        fileName: updated.nomeOriginal,
+        storageKey: updated.caminhoArquivo,
+        createdByUserId: null
+      });
+    }
+  }
+}
+
 router.get("/", (_req, res) => {
   void (async () => {
+    await reconcilePendingUploadsFromRegistry();
+
     const uploads = await prisma.uploadPdf.findMany({
       where: {
         status: {
@@ -358,10 +447,6 @@ router.post("/", upload.array("files", 20), (req, res) => {
       files.map(async (file) => {
         const resolved = await resolveUploadMotorista(file, selectedBase.nome, req.body as Record<string, unknown>);
 
-        if ("error" in resolved) {
-          return resolved;
-        }
-
         return {
           file,
           ...resolved
@@ -381,11 +466,12 @@ router.post("/", upload.array("files", 20), (req, res) => {
     const validFiles = resolvedFiles as Array<
       {
         file: Express.Multer.File;
-        motoristaId: string;
+        motoristaId?: string | null;
         motoristaNome: string;
         motoristaCpf: string;
         motoristaCnpj: string | null;
         baseName: string;
+        pending?: boolean;
       }
     >;
 
@@ -414,6 +500,9 @@ router.post("/", upload.array("files", 20), (req, res) => {
     );
 
     for (const prepared of preparedFiles) {
+      const motoristaIdSql = prepared.motoristaId
+        ? Prisma.sql`cast(${prepared.motoristaId} as uuid)`
+        : Prisma.sql`null`;
       await prisma.$executeRaw(Prisma.sql`
         insert into "uploads_pdf" (
           "id",
@@ -436,7 +525,7 @@ router.post("/", upload.array("files", 20), (req, res) => {
           ${1},
           cast(${UploadStatus.pendente} as "UploadStatus"),
           cast(${auth.userId} as uuid),
-          cast(${prepared.motoristaId} as uuid),
+          ${motoristaIdSql},
           cast(${periodId} as uuid),
           cast(${basePaymentId} as uuid)
         )
