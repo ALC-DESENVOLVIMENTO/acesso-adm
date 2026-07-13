@@ -667,7 +667,7 @@ export function FinanceiroScreen({
                   <div className="finance-base-card__top">
                     <div>
                       <strong>{base.name}</strong>
-                      <span>{base.paymentType.toUpperCase()}</span>
+                      <span>{` ${base.paymentType.toUpperCase()}`}</span>
                     </div>
                     <span>{base.motoristas} motoristas</span>
                   </div>
@@ -685,7 +685,7 @@ export function FinanceiroScreen({
                       setPeriodViewTab("motoristas");
                     }}
                   >
-                    Perfil
+                    Visualizar
                   </button>
                 </article>
               ))}
