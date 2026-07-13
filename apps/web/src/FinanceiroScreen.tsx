@@ -1079,7 +1079,18 @@ export function FinanceiroScreen({
                         <td>{row.situacaoValidacao}</td>
                         <td>{row.mensagem || "-"}</td>
                         <td>
-                          <button className="ghost-button ghost-button--small" type="button" onClick={() => row.pagamentoId && onOpenMotorista(row.motoristaId || "")} disabled={!row.motoristaId}>
+                          <button
+                            className="ghost-button ghost-button--small"
+                            type="button"
+                            onClick={() => {
+                              if (!row.motoristaId) {
+                                setImportError(row.mensagem || "Linha sem correspondencia segura.");
+                                return;
+                              }
+
+                              onOpenMotorista(row.motoristaId);
+                            }}
+                          >
                             Abrir
                           </button>
                         </td>

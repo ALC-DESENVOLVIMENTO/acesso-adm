@@ -2,6 +2,7 @@
 import * as XLSX from "xlsx";
 import { FinanceiroImportacaoItemResultado, FinanceiroImportacaoStatus, FinanceiroStatusPagamento, Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
+import { fetchObjectBuffer } from "../../lib/storage.js";
 
 const SUPPORTED_SHEETS = ["Resumido"];
 const RECOGNIZED_COLORS = new Map<string, FinanceiroStatusPagamento>([
@@ -23,6 +24,19 @@ type ImportContext = {
 };
 
 type ExcelCellValue = string | number | boolean | Date | null;
+
+type CandidateUpload = Prisma.UploadPdfGetPayload<{
+  include: {
+    motorista: true;
+    periodoPagamento: true;
+    basePagamento: true;
+    usuario: {
+      select: {
+        nome: true;
+      };
+    };
+  };
+}>;
 
 export type FinanceiroImportPreviewRow = {
   numeroLinha: number;
@@ -311,6 +325,64 @@ function formatCurrency(value: string | number | null | undefined) {
   return normalized.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function parseMoneyNumber(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  const normalized = String(value)
+    .replace(/[^\d,.-]/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function moneyMatches(left: string | number | null | undefined, right: string | number | null | undefined) {
+  const leftValue = parseMoneyNumber(left);
+  const rightValue = parseMoneyNumber(right);
+
+  if (leftValue === null || rightValue === null) {
+    return false;
+  }
+
+  return Math.abs(leftValue - rightValue) < 0.01;
+}
+
+async function extractPaymentTotalValue(storageKey: string | null | undefined) {
+  if (!storageKey) {
+    return null;
+  }
+
+  const remoteObject = await fetchObjectBuffer(storageKey).catch(() => null);
+
+  if (!remoteObject?.body) {
+    return null;
+  }
+
+  try {
+    const pdfParseModule = await import("pdf-parse");
+    const pdfParse =
+      (pdfParseModule as unknown as { default?: (buffer: Buffer) => Promise<{ text: string }> }).default ??
+      (pdfParseModule as unknown as (buffer: Buffer) => Promise<{ text: string }>);
+    const parsed = await pdfParse(Buffer.from(remoteObject.body));
+    const text = String(parsed.text || "");
+    const normalizedText = text.replace(/\s+/g, " ");
+    const match =
+      /Total Geral\s*[:\-]?\s*R?\$?\s*([\d.]+,\d{2})/i.exec(normalizedText) ||
+      /Total\s*[:\-]?\s*R?\$?\s*([\d.]+,\d{2})/i.exec(normalizedText);
+
+    return match?.[1] ? parseMoneyNumber(match[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
 async function loadPaymentCandidates(periodId: string, baseId: string | null) {
   return prisma.uploadPdf.findMany({
     where: {
@@ -340,17 +412,34 @@ async function loadPaymentCandidates(periodId: string, baseId: string | null) {
   });
 }
 
-function resolveCandidateMatch(
-  row: WorkbookRow,
-  candidates: Awaited<ReturnType<typeof loadPaymentCandidates>>
-) {
+function dedupeLatestCandidates(candidates: CandidateUpload[]) {
+  const latestByMotorista = new Map<string, CandidateUpload>();
+
+  for (const candidate of candidates) {
+    if (!candidate.motoristaId) {
+      continue;
+    }
+
+    const key = `${candidate.motoristaId}|${candidate.periodoPagamentoId}|${candidate.basePagamentoId}`;
+
+    if (!latestByMotorista.has(key)) {
+      latestByMotorista.set(key, candidate);
+    }
+  }
+
+  return Array.from(latestByMotorista.values());
+}
+
+async function resolveCandidateMatch(row: WorkbookRow, candidates: CandidateUpload[]) {
   const motorista = row.rowValues["Motorista"] || row.rowValues["Favorecido"] || "";
   const cpf = row.rowValues["CPF do Favorecido"] || "";
   const cpfDigits = normalizeDigits(cpf);
   const normalizedName = normalizeCompact(motorista);
+  const rowAmount = parseMoneyNumber(row.rowValues["Total"]);
+  const uniqueCandidates = dedupeLatestCandidates(candidates);
 
   const byCpf = cpfDigits
-    ? candidates.filter((candidate) => normalizeDigits(candidate.motorista?.cpf || "") === cpfDigits)
+    ? uniqueCandidates.filter((candidate) => normalizeDigits(candidate.motorista?.cpf || "") === cpfDigits)
     : [];
 
   if (byCpf.length === 1) {
@@ -358,19 +447,55 @@ function resolveCandidateMatch(
   }
 
   if (byCpf.length > 1) {
+    if (rowAmount !== null) {
+      const byCpfAndValue = await Promise.all(
+        byCpf.map(async (candidate) => ({
+          candidate,
+          valorTotal: await extractPaymentTotalValue(candidate.caminhoArquivo)
+        }))
+      );
+      const filteredByValue = byCpfAndValue.filter((item) => moneyMatches(item.valorTotal, rowAmount)).map((item) => item.candidate);
+
+      if (filteredByValue.length === 1) {
+        return { match: filteredByValue[0], reason: "CPF ou CNPJ + periodo + valor" };
+      }
+
+      if (filteredByValue.length > 1) {
+        return { ambiguous: true, matches: filteredByValue, reason: "CPF ou CNPJ + periodo + valor" };
+      }
+    }
+
     return { ambiguous: true, matches: byCpf, reason: "CPF ou CNPJ + periodo" };
   }
 
   const byName = normalizedName
-    ? candidates.filter((candidate) => normalizeCompact(candidate.motorista?.nome || "") === normalizedName)
+    ? uniqueCandidates.filter((candidate) => normalizeCompact(candidate.motorista?.nome || "") === normalizedName)
     : [];
 
   if (byName.length === 1) {
-    return { match: byName[0], reason: "Motorista + periodo + valor" };
+    return { match: byName[0], reason: rowAmount !== null ? "Motorista + periodo + valor" : "Motorista + periodo" };
   }
 
   if (byName.length > 1) {
-    return { ambiguous: true, matches: byName, reason: "Motorista + periodo + valor" };
+    if (rowAmount !== null) {
+      const byNameAndValue = await Promise.all(
+        byName.map(async (candidate) => ({
+          candidate,
+          valorTotal: await extractPaymentTotalValue(candidate.caminhoArquivo)
+        }))
+      );
+      const filteredByValue = byNameAndValue.filter((item) => moneyMatches(item.valorTotal, rowAmount)).map((item) => item.candidate);
+
+      if (filteredByValue.length === 1) {
+        return { match: filteredByValue[0], reason: "Motorista + periodo + valor" };
+      }
+
+      if (filteredByValue.length > 1) {
+        return { ambiguous: true, matches: filteredByValue, reason: "Motorista + periodo + valor" };
+      }
+    }
+
+    return { ambiguous: true, matches: byName, reason: rowAmount !== null ? "Motorista + periodo + valor" : "Motorista + periodo" };
   }
 
   return { match: null, reason: "Nenhuma correspondencia segura" };
@@ -465,6 +590,20 @@ function determineValidation(row: WorkbookRow, rowColorStatus: string | null, ob
   } as const;
 }
 
+function buildAmbiguousMessage(matches: CandidateUpload[], rowAmount: string | number | null | undefined, reason: string) {
+  const sample = matches.slice(0, 3).map((candidate) => {
+    const motorista = candidate.motorista?.nome || "Nao informado";
+    const cpf = candidate.motorista?.cpf || "Nao informado";
+    return `${motorista} (${cpf}) #${candidate.id.slice(0, 8)}`;
+  });
+
+  const amountLabel = rowAmount === null || rowAmount === undefined || rowAmount === ""
+    ? ""
+    : ` Valor da linha: ${formatCurrency(rowAmount)}.`;
+
+  return `Mais de um pagamento correspondente foi encontrado (${matches.length} candidatos). ${reason}.${amountLabel} Candidatos: ${sample.join(", ")}${matches.length > sample.length ? "..." : ""}`;
+}
+
 function pickCurrentStatus(upload: Awaited<ReturnType<typeof loadPaymentCandidates>>[number]) {
   return upload.statusPagamento || FinanceiroStatusPagamento.PENDENTE;
 }
@@ -497,11 +636,17 @@ export async function createFinanceiroImportPreview(context: ImportContext) {
       })
     : null;
 
-  const previewRows: FinanceiroImportPreviewRow[] = rows.map((row) => {
+  const previewRows: FinanceiroImportPreviewRow[] = [];
+
+  for (const row of rows) {
+    if (!row.hasData) {
+      continue;
+    }
+
     const rowColorStatus = resolveRowColorStatus(row.colorCode);
     const obbStatus = resolveStatusByObb(row.rowValues["CodOBB"]);
     const validation = determineValidation(row, rowColorStatus, obbStatus);
-    const matchResult = resolveCandidateMatch(row, candidates);
+    const matchResult = await resolveCandidateMatch(row, candidates);
     const current = matchResult.match ? pickCurrentStatus(matchResult.match) : null;
     const candidateStatus = validation.statusNovo;
     const finalStatus = candidateStatus ?? obbStatus ?? null;
@@ -509,7 +654,7 @@ export async function createFinanceiroImportPreview(context: ImportContext) {
     const sameStatus = Boolean(current && finalStatus && current === finalStatus);
 
     if (matchResult.ambiguous) {
-      return {
+      previewRows.push({
         numeroLinha: row.numeroLinha,
         identificador: row.rowValues["Motorista"] || row.rowValues["Favorecido"] || null,
         motorista: row.rowValues["Motorista"] || row.rowValues["Favorecido"] || null,
@@ -522,17 +667,18 @@ export async function createFinanceiroImportPreview(context: ImportContext) {
         novoStatus: null,
         regraAplicada: matchResult.reason,
         situacaoValidacao: FinanceiroImportacaoItemResultado.correspondencia_ambiguo,
-        mensagem: "Mais de um pagamento correspondente foi encontrado.",
+        mensagem: buildAmbiguousMessage(matchResult.matches || [], row.rowValues["Total"], matchResult.reason),
         pagamentoId: null,
         motoristaId: null,
         baseId: context.baseId,
         periodoId: context.periodId,
         statusAnterior: current
-      };
+      });
+      continue;
     }
 
     if (!matchResult.match) {
-      return {
+      previewRows.push({
         numeroLinha: row.numeroLinha,
         identificador: row.rowValues["Motorista"] || row.rowValues["Favorecido"] || null,
         motorista: row.rowValues["Motorista"] || row.rowValues["Favorecido"] || null,
@@ -553,10 +699,11 @@ export async function createFinanceiroImportPreview(context: ImportContext) {
         baseId: context.baseId,
         periodoId: context.periodId,
         statusAnterior: null
-      };
+      });
+      continue;
     }
 
-    return {
+    previewRows.push({
       numeroLinha: row.numeroLinha,
       identificador: row.rowValues["Motorista"] || row.rowValues["Favorecido"] || null,
       motorista: matchResult.match.motorista?.nome || row.rowValues["Motorista"] || row.rowValues["Favorecido"] || null,
@@ -584,8 +731,8 @@ export async function createFinanceiroImportPreview(context: ImportContext) {
       baseId: matchResult.match.basePagamentoId,
       periodoId: matchResult.match.periodoPagamentoId,
       statusAnterior: current
-    };
-  });
+    });
+  }
 
   const importacao = await prisma.importacaoFinanceira.create({
     data: {
