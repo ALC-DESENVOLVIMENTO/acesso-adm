@@ -804,7 +804,7 @@ router.get("/summary", (_req, res) => {
     const analysisStatuses = new Set(["nota_fiscal_em_analise"]);
     const rejectedStatuses = new Set(["nota_fiscal_rejeitada"]);
     const attendanceStatuses = new Set(["em_atendimento", "chamado_aberto"]);
-    const concludedStatuses = new Set(["processo_concluido"]);
+    const concludedStatuses = new Set(["processo_concluido", "pago"]);
 
     res.json({
       activePeriods: periods.filter((period) => period.status !== "aprovado").length,

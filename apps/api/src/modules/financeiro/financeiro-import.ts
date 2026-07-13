@@ -1,6 +1,6 @@
 ﻿import crypto from "node:crypto";
 import * as XLSX from "xlsx";
-import { FinanceiroImportacaoItemResultado, FinanceiroImportacaoStatus, FinanceiroStatusPagamento, Prisma } from "@prisma/client";
+import { FinanceiroImportacaoItemResultado, FinanceiroImportacaoStatus, FinanceiroStatusPagamento, Prisma, UploadStatus } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { fetchObjectBuffer } from "../../lib/storage.js";
 
@@ -776,6 +776,20 @@ export async function confirmFinanceiroImport(importacaoId: string, userId: stri
       }
 
       const currentStatus = pagamento.statusPagamento || FinanceiroStatusPagamento.PENDENTE;
+      const relatedUploads = await transaction.uploadPdf.findMany({
+        where: {
+          motoristaId: pagamento.motoristaId,
+          periodoPagamentoId: pagamento.periodoPagamentoId,
+          basePagamentoId: pagamento.basePagamentoId,
+          status: {
+            not: UploadStatus.removido
+          }
+        },
+        select: {
+          id: true,
+          statusPagamento: true
+        }
+      });
 
       if (isDangerousRegression(currentStatus, item.statusNovo)) {
         await transaction.importacaoFinanceiraItem.update({
@@ -788,8 +802,12 @@ export async function confirmFinanceiroImport(importacaoId: string, userId: stri
         continue;
       }
 
-      await transaction.uploadPdf.update({
-        where: { id: pagamento.id },
+      await transaction.uploadPdf.updateMany({
+        where: {
+          id: {
+            in: relatedUploads.map((related) => related.id)
+          }
+        },
         data: {
           statusPagamento: item.statusNovo,
           statusPagamentoAtualizadoEm: new Date(),
