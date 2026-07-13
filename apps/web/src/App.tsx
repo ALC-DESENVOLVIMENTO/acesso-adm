@@ -3307,9 +3307,6 @@ function PdfsScreen({
                       {batch.ownerName} - {batch.periodName} -{" "}
                       {new Date(batch.lastSentAt).toLocaleString("pt-BR")}
                     </p>
-                    <p className="upload-batch__meta">
-                      Motoristas: {batch.uploads.map((item) => item.fileName).join(", ")}
-                    </p>
                   </div>
                   <button
                     className="ghost-button ghost-button--small"
