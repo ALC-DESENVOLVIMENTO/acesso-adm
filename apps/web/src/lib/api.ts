@@ -185,7 +185,7 @@ export type FinanceiroImportPreviewRow = {
   periodo: string | null;
   valor: string | null;
   codigoObb: string | null;
-  corIdentificada: string | null;
+  statusPlanilha: string | null;
   statusAtual: string | null;
   novoStatus: string | null;
   regraAplicada: string;

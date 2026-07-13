@@ -121,6 +121,35 @@ function formatStatusLabel(value: string) {
   return labels[value] || value;
 }
 
+function formatImportStatusLabel(value: string | null | undefined) {
+  if (!value) {
+    return "Nao informado";
+  }
+
+  const labels: Record<string, string> = {
+    NOTA_FISCAL_PENDENTE: "NOTA FISCAL PENDENTE"
+  };
+
+  return labels[value] || value.replace(/_/g, " ");
+}
+
+function formatImportValidationLabel(value: string) {
+  const labels: Record<string, string> = {
+    valido: "Valida",
+    pagamento_nao_encontrado: "Pagamento nao encontrado",
+    correspondencia_ambiguo: "Correspondencia ambigua",
+    linha_duplicada: "Linha duplicada",
+    linha_vazia: "Linha vazia",
+    linha_inconsistente: "Linha inconsistente",
+    cor_nao_reconhecida: "Status nao reconhecido",
+    sem_identificador: "Sem identificador",
+    ja_atualizada: "Ja atualizada",
+    conflito_status: "Conflito de status"
+  };
+
+  return labels[value] || value;
+}
+
 function financeStatusClass(status: string) {
   if (["nota_fiscal_aprovada", "processo_concluido"].includes(status)) {
     return "finance-status-pill finance-status-pill--success";
@@ -983,7 +1012,7 @@ export function FinanceiroScreen({
             <div className="panel__header">
               <div>
                 <h3>Importacao da planilha financeira</h3>
-                <p>Envie somente a aba Resumido, revise a cor da linha e confirme o status calculado.</p>
+                <p>Envie somente a aba Resumido, confira o status da coluna M e confirme o status calculado.</p>
               </div>
             </div>
 
@@ -1053,7 +1082,7 @@ export function FinanceiroScreen({
                     <th>Motorista</th>
                     <th>CPF/CNPJ</th>
                     <th>Cod.OBB</th>
-                    <th>Cor</th>
+                    <th>Status planilha</th>
                     <th>Status atual</th>
                     <th>Novo status</th>
                     <th>Regra</th>
@@ -1072,11 +1101,11 @@ export function FinanceiroScreen({
                         <td>{row.motorista || "Nao informado"}</td>
                         <td>{row.cpfCnpj || "Nao informado"}</td>
                         <td>{row.codigoObb || "Nao informado"}</td>
-                        <td>{row.corIdentificada || "Sem preenchimento"}</td>
+                        <td>{formatImportStatusLabel(row.statusPlanilha)}</td>
                         <td>{row.statusAtual || "PENDENTE"}</td>
                         <td>{row.novoStatus || "Sem alteracao"}</td>
                         <td>{row.regraAplicada}</td>
-                        <td>{row.situacaoValidacao}</td>
+                        <td>{formatImportValidationLabel(row.situacaoValidacao)}</td>
                         <td>{row.mensagem || "-"}</td>
                         <td>
                           <button

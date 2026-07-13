@@ -5,14 +5,6 @@ import { prisma } from "../../lib/prisma.js";
 import { fetchObjectBuffer } from "../../lib/storage.js";
 
 const SUPPORTED_SHEETS = ["Resumido"];
-const RECOGNIZED_COLORS = new Map<string, FinanceiroStatusPagamento>([
-  ["FF92D050", "PAGO"],
-  ["92D050", "PAGO"],
-  ["FFFFFF00", "TENTATIVA_FALHA"],
-  ["FFFF00", "TENTATIVA_FALHA"],
-  ["FFFF0000", "BLOQUEADO"],
-  ["FF0000", "BLOQUEADO"]
-]);
 
 const BLOCK_CODES = new Set(["BLOQOXPAY", "BLOQ", "BOLQOXPAY"]);
 type ImportContext = {
@@ -46,7 +38,7 @@ export type FinanceiroImportPreviewRow = {
   periodo: string | null;
   valor: string | null;
   codigoObb: string | null;
-  corIdentificada: string | null;
+  statusPlanilha: string | null;
   statusAtual: FinanceiroStatusPagamento | null;
   novoStatus: FinanceiroStatusPagamento | null;
   regraAplicada: string;
@@ -63,7 +55,7 @@ type WorkbookRow = {
   numeroLinha: number;
   cells: string[];
   rowValues: Record<string, string>;
-  colorCode: string | null;
+  statusPlanilha: string | null;
   hasData: boolean;
 };
 
@@ -141,71 +133,50 @@ function readCellValue(cell: XLSX.CellObject | undefined) {
   return toStringValue(cell.v as ExcelCellValue);
 }
 
-function normalizeColor(raw: unknown) {
-  if (typeof raw !== "string") {
-    return null;
-  }
-
-  const value = raw.trim().toUpperCase();
+function normalizePlanilhaStatus(raw: unknown) {
+  const value = normalizeCompact(String(raw || ""));
 
   if (!value) {
     return null;
   }
 
-  if (value.length === 8 && value.startsWith("FF")) {
-    return value;
+  if (value === "PAGO") {
+    return "PAGO";
   }
 
-  if (value.length === 6) {
-    return value;
+  if (value === "PENDENTE") {
+    return "PENDENTE";
   }
 
-  return value;
+  if (value === "BLOQUEADO") {
+    return "BLOQUEADO";
+  }
+
+  if (value === "NOTAFISCALPENDENTE") {
+    return "NOTA_FISCAL_PENDENTE";
+  }
+
+  return null;
 }
 
-function getCellFillColor(cell: XLSX.CellObject | undefined) {
-  const fillColor =
-    (cell as XLSX.CellObject & { s?: { fill?: { fgColor?: { rgb?: string; argb?: string; indexed?: number; theme?: number } } } })?.s?.fill
-      ?.fgColor;
-
-  if (!fillColor) {
+function resolveStatusFromPlanilha(statusPlanilha: string | null) {
+  if (!statusPlanilha) {
     return null;
   }
 
-  return normalizeColor(fillColor.rgb || fillColor.argb || null);
-}
-
-function detectRowColor(sheet: XLSX.WorkSheet, rowNumber: number, endColumn = 12) {
-  const fillColors = new Set<string>();
-
-  for (let column = 1; column <= endColumn; column += 1) {
-    const cellAddress = XLSX.utils.encode_cell({ r: rowNumber - 1, c: column - 1 });
-    const cell = sheet[cellAddress];
-    const color = getCellFillColor(cell);
-
-    if (color) {
-      fillColors.add(color);
-    }
+  if (statusPlanilha === "PAGO") {
+    return FinanceiroStatusPagamento.PAGO;
   }
 
-  if (fillColors.size === 0) {
-    return {
-      color: null,
-      isInconsistent: false
-    };
+  if (statusPlanilha === "PENDENTE" || statusPlanilha === "NOTA_FISCAL_PENDENTE") {
+    return FinanceiroStatusPagamento.PENDENTE;
   }
 
-  if (fillColors.size > 1) {
-    return {
-      color: Array.from(fillColors).join(","),
-      isInconsistent: true
-    };
+  if (statusPlanilha === "BLOQUEADO") {
+    return FinanceiroStatusPagamento.BLOQUEADO;
   }
 
-  return {
-    color: Array.from(fillColors)[0] || null,
-    isInconsistent: false
-  };
+  return null;
 }
 
 function parseWorkbookRows(buffer: Buffer) {
@@ -246,31 +217,21 @@ function parseWorkbookRows(buffer: Buffer) {
       }
     }
 
-    const { color, isInconsistent } = detectRowColor(sheet, rowNumber, range.e.c + 1);
+    const statusCellAddress = XLSX.utils.encode_cell({ r: rowNumber - 1, c: 12 });
+    const statusPlanilha = normalizePlanilhaStatus(readCellValue(sheet[statusCellAddress]));
+    rowValues["Status da planilha"] = readCellValue(sheet[statusCellAddress]);
     const hasData = values.some((value) => Boolean(String(value || "").trim()));
 
     rows.push({
       numeroLinha: rowNumber,
       cells: values,
       rowValues,
-      colorCode: isInconsistent ? `INCONSISTENTE:${color || ""}` : color,
+      statusPlanilha,
       hasData
     });
   }
 
   return { sheetName, rows };
-}
-
-function resolveRowColorStatus(colorCode: string | null) {
-  if (!colorCode) {
-    return null;
-  }
-
-  if (colorCode.startsWith("INCONSISTENTE:")) {
-    return "INCONSISTENTE";
-  }
-
-  return RECOGNIZED_COLORS.get(colorCode) || null;
 }
 
 function normalizeObbCode(value: string | null | undefined) {
@@ -286,26 +247,6 @@ function resolveStatusByObb(value: string | null | undefined) {
 
   if (BLOCK_CODES.has(normalized)) {
     return FinanceiroStatusPagamento.BLOQUEADO;
-  }
-
-  return null;
-}
-
-function resolveStatusByColor(rowColorStatus: string | null) {
-  if (rowColorStatus === "PAGO") {
-    return FinanceiroStatusPagamento.PAGO;
-  }
-
-  if (rowColorStatus === "TENTATIVA_FALHA") {
-    return FinanceiroStatusPagamento.TENTATIVA_FALHA;
-  }
-
-  if (rowColorStatus === "BLOQUEADO") {
-    return FinanceiroStatusPagamento.BLOQUEADO;
-  }
-
-  if (rowColorStatus === "INCONSISTENTE") {
-    return FinanceiroStatusPagamento.REVISAO_MANUAL;
   }
 
   return null;
@@ -517,9 +458,8 @@ function isDangerousRegression(current: FinanceiroStatusPagamento | null, next: 
   return false;
 }
 
-function determineValidation(row: WorkbookRow, rowColorStatus: string | null, obbStatus: FinanceiroStatusPagamento | null) {
-  const rawObb = row.rowValues["CodOBB"] || "";
-  const normalizedObb = normalizeObbCode(rawObb);
+function determineValidation(row: WorkbookRow) {
+  const rawStatus = row.statusPlanilha;
 
   if (!row.hasData) {
     return {
@@ -539,53 +479,30 @@ function determineValidation(row: WorkbookRow, rowColorStatus: string | null, ob
     } as const;
   }
 
-  if (rowColorStatus === "INCONSISTENTE") {
-    return {
-      resultado: FinanceiroImportacaoItemResultado.linha_inconsistente,
-      regraAplicada: "Cores diferentes na mesma linha",
-      statusNovo: null,
-      mensagem: "Linha possui preenchimentos conflitantes."
-    } as const;
-  }
-
-  if (!rowColorStatus && !obbStatus) {
-    return {
-      resultado: FinanceiroImportacaoItemResultado.valido,
-      regraAplicada: "Linha sem preenchimento",
-      statusNovo: FinanceiroStatusPagamento.PENDENTE,
-      mensagem: null
-    } as const;
-  }
-
-  if (obbStatus === FinanceiroStatusPagamento.BLOQUEADO) {
-    return {
-      resultado: FinanceiroImportacaoItemResultado.valido,
-      regraAplicada: `Coluna G = ${normalizedObb || "BLOQOXPAY"}`,
-      statusNovo: FinanceiroStatusPagamento.BLOQUEADO,
-      mensagem: normalizedObb ? `Bloqueio identificado na coluna CodOBB (${normalizedObb}).` : "Bloqueio identificado na coluna CodOBB."
-    } as const;
-  }
-
-  const statusFromColor = resolveStatusByColor(rowColorStatus);
-
-  if (!statusFromColor) {
+  if (!rawStatus) {
     return {
       resultado: FinanceiroImportacaoItemResultado.cor_nao_reconhecida,
-      regraAplicada: "Cor nao reconhecida",
+      regraAplicada: "Status nao informado",
       statusNovo: null,
-      mensagem: "Nao foi possivel reconhecer a cor da linha."
+      mensagem: "Nao foi possivel identificar o status na coluna M."
+    } as const;
+  }
+
+  const statusFromPlanilha = resolveStatusFromPlanilha(rawStatus);
+
+  if (!statusFromPlanilha) {
+    return {
+      resultado: FinanceiroImportacaoItemResultado.cor_nao_reconhecida,
+      regraAplicada: "Status nao reconhecido",
+      statusNovo: null,
+      mensagem: "Nao foi possivel reconhecer o status da coluna M."
     } as const;
   }
 
   return {
     resultado: FinanceiroImportacaoItemResultado.valido,
-    regraAplicada:
-      statusFromColor === FinanceiroStatusPagamento.PAGO
-        ? "Linha verde"
-        : statusFromColor === FinanceiroStatusPagamento.TENTATIVA_FALHA
-          ? "Linha amarela"
-          : "Linha vermelha",
-    statusNovo: statusFromColor,
+    regraAplicada: `Status da planilha = ${rawStatus}`,
+    statusNovo: statusFromPlanilha,
     mensagem: null
   } as const;
 }
@@ -634,13 +551,11 @@ export async function createFinanceiroImportPreview(context: ImportContext) {
       continue;
     }
 
-    const rowColorStatus = resolveRowColorStatus(row.colorCode);
-    const obbStatus = resolveStatusByObb(row.rowValues["CodOBB"]);
-    const validation = determineValidation(row, rowColorStatus, obbStatus);
+    const validation = determineValidation(row);
     const matchResult = await resolveCandidateMatch(row, candidates);
     const current = matchResult.match ? pickCurrentStatus(matchResult.match) : null;
     const candidateStatus = validation.statusNovo;
-    const finalStatus = candidateStatus ?? obbStatus ?? null;
+    const finalStatus = candidateStatus ?? null;
     const dangerous = isDangerousRegression(current, finalStatus);
     const sameStatus = Boolean(current && finalStatus && current === finalStatus);
 
@@ -653,7 +568,7 @@ export async function createFinanceiroImportPreview(context: ImportContext) {
         periodo: period?.nome || null,
         valor: formatCurrency(row.rowValues["Total"]),
         codigoObb: row.rowValues["CodOBB"] || null,
-        corIdentificada: row.colorCode,
+        statusPlanilha: row.statusPlanilha,
         statusAtual: current,
         novoStatus: null,
         regraAplicada: matchResult.reason,
@@ -677,7 +592,7 @@ export async function createFinanceiroImportPreview(context: ImportContext) {
         periodo: period?.nome || null,
         valor: formatCurrency(row.rowValues["Total"]),
         codigoObb: row.rowValues["CodOBB"] || null,
-        corIdentificada: row.colorCode,
+        statusPlanilha: row.statusPlanilha,
         statusAtual: null,
         novoStatus: null,
         regraAplicada: matchResult.reason,
@@ -703,7 +618,7 @@ export async function createFinanceiroImportPreview(context: ImportContext) {
         periodo: period?.nome || matchResult.match.periodoPagamento?.nome || null,
         valor: formatCurrency(row.rowValues["Total"]),
         codigoObb: row.rowValues["CodOBB"] || null,
-        corIdentificada: row.colorCode,
+        statusPlanilha: row.statusPlanilha,
         statusAtual: current,
         novoStatus: null,
         regraAplicada: "Pagamento duplicado na planilha",
@@ -728,7 +643,7 @@ export async function createFinanceiroImportPreview(context: ImportContext) {
       periodo: period?.nome || matchResult.match.periodoPagamento?.nome || null,
       valor: formatCurrency(row.rowValues["Total"]),
       codigoObb: row.rowValues["CodOBB"] || null,
-      corIdentificada: row.colorCode,
+      statusPlanilha: row.statusPlanilha,
       statusAtual: current,
       novoStatus: dangerous ? null : finalStatus,
       regraAplicada: validation.regraAplicada || matchResult.reason,
@@ -773,7 +688,7 @@ export async function createFinanceiroImportPreview(context: ImportContext) {
             periodoPagamentoId: item.periodoId,
             basePagamentoId: item.baseId,
             codigoObb: item.codigoObb,
-            corIdentificada: item.corIdentificada,
+            corIdentificada: item.statusPlanilha,
             regraAplicada: item.regraAplicada,
             statusAnterior: item.statusAnterior,
             statusNovo: item.novoStatus,
