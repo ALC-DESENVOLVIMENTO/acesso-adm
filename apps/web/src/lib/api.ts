@@ -177,6 +177,113 @@ export type FinanceiroMotoristaRow = {
   notaFiscalDownloadUrl: string | null;
 };
 
+export type FinanceiroImportPreviewRow = {
+  numeroLinha: number;
+  identificador: string | null;
+  motorista: string | null;
+  cpfCnpj: string | null;
+  periodo: string | null;
+  valor: string | null;
+  codigoObb: string | null;
+  corIdentificada: string | null;
+  statusAtual: string | null;
+  novoStatus: string | null;
+  regraAplicada: string;
+  situacaoValidacao: string;
+  mensagem: string | null;
+  pagamentoId: string | null;
+  motoristaId: string | null;
+  baseId: string | null;
+  periodoId: string | null;
+};
+
+export type FinanceiroImportPreviewResponse = {
+  importacao: {
+    id: string;
+    nomeArquivo: string;
+    nomeAba: string;
+    status: string;
+    totalLinhas: number;
+    totalValidas: number;
+    totalErros: number;
+    criadoEm: string;
+  };
+  previewRows: FinanceiroImportPreviewRow[];
+};
+
+export type FinanceiroImportacaoSummary = {
+  id: string;
+  nomeArquivo: string;
+  nomeAba: string;
+  usuario: string;
+  usuarioEmail: string;
+  periodo: string | null;
+  base: string | null;
+  status: string;
+  totalLinhas: number;
+  totalValidas: number;
+  totalErros: number;
+  criadoEm: string;
+  confirmadoEm: string | null;
+};
+
+export type FinanceiroImportacaoItem = {
+  id: string;
+  numeroLinha: number;
+  identificador: string | null;
+  pagamentoId: string | null;
+  motoristaId: string | null;
+  periodoPagamentoId: string | null;
+  basePagamentoId: string | null;
+  codigoObb: string | null;
+  corIdentificada: string | null;
+  regraAplicada: string | null;
+  statusAnterior: string | null;
+  statusNovo: string | null;
+  resultado: string;
+  mensagem: string | null;
+};
+
+export type FinanceiroImportacaoDetalhe = FinanceiroImportacaoSummary & {
+  usuario: {
+    nome: string;
+    email: string;
+  };
+  periodoPagamento: {
+    nome: string;
+  } | null;
+  basePagamento: {
+    nome: string;
+  } | null;
+  itens: FinanceiroImportacaoItem[];
+  webhookEventos: Array<{
+    eventId: string;
+    status: string;
+    tentativas: number;
+    respostaHttp: number | null;
+    mensagemErro: string | null;
+    criadoEm: string;
+  }>;
+};
+
+export type FinanceiroHistoricoItem = {
+  id: string;
+  pagamentoId: string;
+  statusAnterior: string | null;
+  statusNovo: string;
+  motivo: string | null;
+  codigoObb: string | null;
+  corIdentificada: string | null;
+  regraAplicada: string | null;
+  origem: string;
+  criadoEm: string;
+  usuario: string | null;
+  motorista: string | null;
+  cpf: string | null;
+  periodo: string | null;
+  base: string | null;
+};
+
 export type AtendimentoClassificacao = {
   id: string;
   name: string;
@@ -631,6 +738,89 @@ export function fetchFinanceiroMotoristas(
 
 export function fetchFinanceiroNotaFiscalContent(token: string, receivedId: string) {
   return requestBlob(`/financeiro/driver-pdfs/${receivedId}/content`, token);
+}
+
+export function previewFinanceiroImport(
+  token: string,
+  file: File,
+  body: { periodId: string; baseId?: string | null }
+): Promise<FinanceiroImportPreviewResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return requestUpload<FinanceiroImportPreviewResponse>({
+    path: "/financeiro/importacoes/preview",
+    token,
+    body: formData,
+    fields: {
+      periodId: body.periodId,
+      ...(body.baseId ? { baseId: body.baseId } : {})
+    }
+  });
+}
+
+export function confirmFinanceiroImport(token: string, importacaoId: string) {
+  return request<{ message: string; importacaoId: string; updatedItems: Array<{ itemId: string; pagamentoId: string; eventId: string }>; webhookResults: Array<{ ok: boolean; skipped: boolean; error?: string }> }>(
+    `/financeiro/importacoes/${importacaoId}/confirmar`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }
+  );
+}
+
+export function fetchFinanceiroImportacoes(token: string) {
+  return request<FinanceiroImportacaoSummary[]>("/financeiro/importacoes", {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function fetchFinanceiroImportacao(token: string, importacaoId: string) {
+  return request<FinanceiroImportacaoDetalhe>(`/financeiro/importacoes/${importacaoId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function fetchFinanceiroHistorico(token: string, filters?: { periodId?: string; baseId?: string; pagamentoId?: string }) {
+  const params = new URLSearchParams();
+
+  if (filters?.periodId) {
+    params.set("periodoId", filters.periodId);
+  }
+
+  if (filters?.baseId) {
+    params.set("baseId", filters.baseId);
+  }
+
+  if (filters?.pagamentoId) {
+    params.set("pagamentoId", filters.pagamentoId);
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+
+  return request<FinanceiroHistoricoItem[]>(`/financeiro/historico-status${suffix}`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function reprocessFinanceiroWebhook(token: string, eventId: string) {
+  return request<{ message: string; ok: boolean; skipped: boolean; error?: string }>(
+    `/financeiro/webhook-eventos/${eventId}/reprocessar`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }
+  );
 }
 
 export function exportFinanceiroNotasFiscais(token: string, periodId: string, baseId?: string | null) {

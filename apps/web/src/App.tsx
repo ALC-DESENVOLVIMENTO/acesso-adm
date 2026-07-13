@@ -117,7 +117,7 @@ const routePaths: Record<RouteView, string> = {
   pdfs: "/envio-pdfs",
   users: "/usuarios",
   periods: "/periodos",
-  financeiro: "/notas-fiscais",
+  financeiro: "/financeiro",
   atendimento: "/atendimento"
 };
 
@@ -126,7 +126,7 @@ const menuItems = [
   { key: "pdfs", label: "Envio de PDFs", icon: FileArrowUp },
   { key: "users", label: "Cadastro de Usuarios", icon: UserCirclePlus },
   { key: "periods", label: "Criacao de Periodo", icon: CalendarBlank },
-  { key: "financeiro", label: "Notas Fiscais", icon: FilePdf },
+  { key: "financeiro", label: "Financeiro", icon: FilePdf },
   { key: "atendimento", label: "Atendimento", icon: ChatCenteredDots }
 ] as const;
 
@@ -135,7 +135,7 @@ const moduleLabels: Record<string, string> = {
   pdfs: "Envio de PDFs",
   users: "Cadastro de Usuarios",
   periods: "Criacao de Periodo",
-  financeiro: "Notas Fiscais",
+  financeiro: "Financeiro",
   atendimento: "Atendimento"
 };
 
@@ -144,7 +144,7 @@ const userModuleOptions = [
   { code: "pdfs", label: "Envio de PDFs" },
   { code: "users", label: "Cadastro de Usuarios" },
   { code: "periods", label: "Criacao de Periodo" },
-  { code: "financeiro", label: "Notas Fiscais" },
+  { code: "financeiro", label: "Financeiro" },
   { code: "atendimento", label: "Atendimento" }
 ] as const;
 
@@ -156,7 +156,7 @@ const quickActionLabels: Record<RouteView, { title: string; description: string;
   pdfs: { title: "Enviar PDF", description: "Faca o envio de novos documentos.", icon: FileArrowUp },
   users: { title: "Cadastrar Usuario", description: "Adicione novos usuarios e niveis de acesso.", icon: UserCirclePlus },
   periods: { title: "Criacao de Periodo", description: "Gerencie periodos e bases.", icon: CalendarBlank },
-  financeiro: { title: "Notas Fiscais", description: "Acompanhe notas fiscais e status.", icon: FilePdf },
+  financeiro: { title: "Financeiro", description: "Acompanhe notas fiscais, espelho e importacao financeira.", icon: FilePdf },
   atendimento: { title: "Atendimento", description: "Abra o CRM do motorista.", icon: ChatCenteredDots }
 };
 
@@ -235,7 +235,7 @@ function getRouteViewFromPath(pathname: string): RouteView {
     return "periods";
   }
 
-  if (normalized === "/notas-fiscais") {
+  if (normalized === "/financeiro" || normalized === "/notas-fiscais") {
     return "financeiro";
   }
 
@@ -256,7 +256,7 @@ function getRouteLabel(view: RouteView) {
     pdfs: "Envio de PDFs",
     users: "Cadastro de Usuarios",
     periods: "Criacao de Periodo",
-    financeiro: "Notas Fiscais",
+    financeiro: "Financeiro",
     atendimento: "Atendimento"
   };
 

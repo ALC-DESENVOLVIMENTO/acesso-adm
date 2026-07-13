@@ -1,6 +1,8 @@
 import archiver from "archiver";
-import { UploadStatus } from "@prisma/client";
+import crypto from "node:crypto";
+import { FinanceiroImportacaoItemResultado, FinanceiroImportacaoStatus, FinanceiroStatusPagamento, UploadStatus } from "@prisma/client";
 import { Router } from "express";
+import multer from "multer";
 import { z } from "zod";
 import { requireAuth, requireModuleAccess } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
@@ -11,8 +13,27 @@ import {
   isDriverPdfNoteStatus,
   upsertDriverPdfReceivedFromUpload
 } from "../../lib/driver-pdf-received.js";
+import {
+  confirmFinanceiroImport,
+  createFinanceiroImportPreview,
+  listFinanceiroHistorico,
+  listFinanceiroImportacoes
+} from "./financeiro-import.js";
+import { notifyPaymentStatusToPdfOnline } from "../../lib/pdfonline-bridge.js";
 
 const router = Router();
+const financeImportUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (_req, file, callback) => {
+    const lower = file.originalname.toLowerCase();
+    const isExcel =
+      lower.endsWith(".xlsx") ||
+      lower.endsWith(".xls") ||
+      file.mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+      file.mimetype === "application/vnd.ms-excel";
+    callback(null, isExcel);
+  }
+});
 
 router.use(requireAuth, requireModuleAccess("financeiro"));
 
@@ -367,6 +388,331 @@ function computeAttendanceStatus(ticketStatuses: string[], attendanceCount: numb
 
   return attendanceCount > 0 ? "Atendimento encerrado" : "Aguardando retorno";
 }
+
+function readPayloadString(payload: Record<string, unknown>, key: string) {
+  const value = payload[key];
+
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const text = String(value).trim();
+  return text ? text : null;
+}
+
+async function dispatchWebhookEvent(eventId: string) {
+  const event = await prisma.webhookEvento.findUnique({
+    where: {
+      eventId
+    }
+  });
+
+  if (!event) {
+    throw new Error("Evento de webhook nao encontrado.");
+  }
+
+  const payload = event.payload as Record<string, unknown>;
+
+  await prisma.webhookEvento.update({
+    where: {
+      eventId
+    },
+    data: {
+      status: "processando",
+      tentativas: {
+        increment: 1
+      },
+      ultimaTentativaEm: new Date()
+    }
+  });
+
+  try {
+    const result = await notifyPaymentStatusToPdfOnline({
+      event: readPayloadString(payload, "event") || "pagamento.status_atualizado",
+      event_id: readPayloadString(payload, "event_id") || event.eventId,
+      occurred_at: readPayloadString(payload, "occurred_at") || new Date().toISOString(),
+      pagamento_id: readPayloadString(payload, "pagamento_id") || event.pagamentoId || "",
+      espelho_pagamento_id:
+        readPayloadString(payload, "espelho_pagamento_id") ||
+        readPayloadString(payload, "pagamento_id") ||
+        event.pagamentoId ||
+        "",
+      nota_fiscal_id: readPayloadString(payload, "nota_fiscal_id"),
+      pdfonline_id: readPayloadString(payload, "pdfonline_id"),
+      motorista_id: readPayloadString(payload, "motorista_id"),
+      cpf_cnpj: readPayloadString(payload, "cpf_cnpj"),
+      periodo_pagamento_id: readPayloadString(payload, "periodo_pagamento_id"),
+      lote_id: readPayloadString(payload, "lote_id"),
+      status_anterior: readPayloadString(payload, "status_anterior"),
+      status_atual: readPayloadString(payload, "status_atual") || "",
+      motivo: readPayloadString(payload, "motivo"),
+      codigo_obb: readPayloadString(payload, "codigo_obb"),
+      origem_status: readPayloadString(payload, "origem_status"),
+      origem: readPayloadString(payload, "origem") || "IMPORTACAO_PLANILHA_FINANCEIRA",
+      importacao_id: readPayloadString(payload, "importacao_id") || event.importacaoId || null,
+      linha_planilha: Number(readPayloadString(payload, "linha_planilha") || 0) || null
+    });
+
+    await prisma.webhookEvento.update({
+      where: {
+        eventId
+      },
+      data: {
+        status: "enviado",
+        respostaHttp: result.skipped ? 202 : result.status,
+        mensagemErro: null
+      }
+    });
+
+    return {
+      ok: true,
+      skipped: result.skipped
+    };
+  } catch (error) {
+    await prisma.webhookEvento.update({
+      where: {
+        eventId
+      },
+      data: {
+        status: "falhou",
+        mensagemErro: error instanceof Error ? error.message : "Erro desconhecido"
+      }
+    });
+
+    return {
+      ok: false,
+      skipped: false,
+      error: error instanceof Error ? error.message : "Erro desconhecido"
+    };
+  }
+}
+
+router.post("/importacoes/preview", financeImportUpload.single("file"), (req, res) => {
+  void (async () => {
+    if (!req.file?.buffer) {
+      res.status(400).json({
+        message: "Envie um arquivo Excel valido."
+      });
+      return;
+    }
+
+    const parsed = z
+      .object({
+        periodId: z.string().uuid(),
+        baseId: z.string().uuid().optional().nullable()
+      })
+      .safeParse({
+        periodId: req.body.periodId,
+        baseId: req.body.baseId || null
+      });
+
+    if (!parsed.success) {
+      res.status(400).json({
+        message: "Periodo ou base invalida.",
+        issues: parsed.error.flatten()
+      });
+      return;
+    }
+
+    const preview = await createFinanceiroImportPreview({
+      userId: req.auth?.userId || "",
+      fileName: req.file.originalname,
+      fileBuffer: req.file.buffer,
+      periodId: parsed.data.periodId,
+      baseId: parsed.data.baseId || null
+    });
+
+    res.json(preview);
+  })().catch((error) => {
+    const message = error instanceof Error ? error.message : "Erro desconhecido";
+    const status = /ja foi importado/i.test(message) ? 409 : 500;
+    res.status(status).json({
+      message,
+      detail: status === 500 ? message : undefined
+    });
+  });
+});
+
+router.post("/importacoes/:importacaoId/confirmar", (req, res) => {
+  void (async () => {
+    const importacaoId = String(req.params.importacaoId || "").trim();
+
+    if (!importacaoId) {
+      res.status(400).json({
+        message: "Importacao invalida."
+      });
+      return;
+    }
+
+    const result = await confirmFinanceiroImport(importacaoId, req.auth?.userId || "");
+    const webhooks = await prisma.webhookEvento.findMany({
+      where: {
+        importacaoId,
+        status: "pendente"
+      },
+      select: {
+        eventId: true
+      }
+    });
+
+    const webhookResults = [];
+    for (const webhook of webhooks) {
+      webhookResults.push(await dispatchWebhookEvent(webhook.eventId));
+    }
+
+    res.json({
+      message: "Importacao confirmada.",
+      ...result,
+      webhookResults
+    });
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao confirmar importacao.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
+
+router.get("/importacoes", (_req, res) => {
+  void (async () => {
+    const importacoes = await listFinanceiroImportacoes();
+
+    res.json(
+      importacoes.map((item) => ({
+        id: item.id,
+        nomeArquivo: item.nomeArquivo,
+        nomeAba: item.nomeAba,
+        usuario: item.usuario.nome,
+        usuarioEmail: item.usuario.email,
+        periodo: item.periodoPagamento?.nome || null,
+        base: item.basePagamento?.nome || null,
+        status: item.status,
+        totalLinhas: item.totalLinhas,
+        totalValidas: item.totalValidas,
+        totalErros: item.totalErros,
+        criadoEm: item.criadoEm,
+        confirmadoEm: item.confirmadoEm
+      }))
+    );
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao listar importacoes.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
+
+router.get("/importacoes/:importacaoId", (req, res) => {
+  void (async () => {
+    const importacaoId = String(req.params.importacaoId || "").trim();
+
+    const importacao = await prisma.importacaoFinanceira.findUnique({
+      where: {
+        id: importacaoId
+      },
+      include: {
+        usuario: {
+          select: {
+            nome: true,
+            email: true
+          }
+        },
+        periodoPagamento: {
+          select: {
+            nome: true
+          }
+        },
+        basePagamento: {
+          select: {
+            nome: true
+          }
+        },
+        itens: {
+          orderBy: {
+            numeroLinha: "asc"
+          }
+        },
+        webhookEventos: {
+          orderBy: {
+            criadoEm: "asc"
+          }
+        }
+      }
+    });
+
+    if (!importacao) {
+      res.status(404).json({
+        message: "Importacao nao encontrada."
+      });
+      return;
+    }
+
+    res.json(importacao);
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao carregar importacao.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
+
+router.get("/historico-status", (req, res) => {
+  void (async () => {
+    const periodoId = String(req.query.periodoId || req.query.periodId || "").trim() || undefined;
+    const baseId = String(req.query.baseId || "").trim() || undefined;
+    const pagamentoId = String(req.query.pagamentoId || "").trim() || undefined;
+    const historico = await listFinanceiroHistorico({ periodoId, baseId, pagamentoId });
+
+    res.json(
+      historico.map((item) => ({
+        id: item.id,
+        pagamentoId: item.pagamentoId,
+        statusAnterior: item.statusAnterior,
+        statusNovo: item.statusNovo,
+        motivo: item.motivo,
+        codigoObb: item.codigoObb,
+        corIdentificada: item.corIdentificada,
+        regraAplicada: item.regraAplicada,
+        origem: item.origem,
+        criadoEm: item.criadoEm,
+        usuario: item.usuario?.nome || null,
+        motorista: item.pagamento.motorista?.nome || null,
+        cpf: item.pagamento.motorista?.cpf || null,
+        periodo: item.pagamento.periodoPagamento?.nome || null,
+        base: item.pagamento.basePagamento?.nome || null
+      }))
+    );
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao consultar historico financeiro.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
+
+router.post("/webhook-eventos/:eventId/reprocessar", (req, res) => {
+  void (async () => {
+    const eventId = String(req.params.eventId || "").trim();
+
+    if (!eventId) {
+      res.status(400).json({
+        message: "Evento invalido."
+      });
+      return;
+    }
+
+    const result = await dispatchWebhookEvent(eventId);
+    res.json({
+      message: result.ok ? "Webhook reprocessado." : "Webhook com falha.",
+      ...result
+    });
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao reprocessar webhook.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
 
 router.get("/summary", (_req, res) => {
   void (async () => {

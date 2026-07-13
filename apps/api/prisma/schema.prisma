@@ -62,6 +62,43 @@ enum DriverPdfReceivedStatus {
   processo_concluido
 }
 
+enum FinanceiroStatusPagamento {
+  PAGO
+  TENTATIVA_FALHA
+  BLOQUEADO
+  PENDENTE
+  REVISAO_MANUAL
+}
+
+enum FinanceiroImportacaoStatus {
+  preview
+  confirmado
+  processando
+  concluido
+  concluido_com_erro
+  rejeitado
+}
+
+enum FinanceiroImportacaoItemResultado {
+  valido
+  pagamento_nao_encontrado
+  correspondencia_ambiguo
+  linha_duplicada
+  linha_vazia
+  linha_inconsistente
+  cor_nao_reconhecida
+  sem_identificador
+  ja_atualizada
+  conflito_status
+}
+
+enum WebhookEventoStatus {
+  pendente
+  processando
+  enviado
+  falhou
+}
+
 enum PaymentFrequencyCode {
   semanal
   quinzenal
@@ -135,6 +172,10 @@ model Usuario {
   logsAtendimento              LogAtendimento[]
   sessoes                      Sessao[]
   periodosCriados              PeriodoPagamento[]
+  uploadsStatusAtualizacao      UploadPdf[]            @relation("UploadStatusAtualizacao")
+  importacoesFinanceiras       ImportacaoFinanceira[]
+  historicosStatusPagamento    HistoricoStatusPagamento[]
+  webhookEventos               WebhookEvento[]
 
   @@index([nivelId])
   @@map("usuarios")
@@ -148,6 +189,7 @@ model BasePagamento {
   uploads        UploadPdf[]
   periodosBases  PeriodoPagamentoBase[]
   pdfsRecebidos  DriverPdfReceived[]
+  importacoesFinanceiras ImportacaoFinanceira[]
 
   @@map("bases_pagamento")
 }
@@ -166,6 +208,7 @@ model PeriodoPagamento {
   bases          PeriodoPagamentoBase[]
   uploads        UploadPdf[]
   pdfsRecebidos  DriverPdfReceived[]
+  importacoesFinanceiras ImportacaoFinanceira[]
 
   @@index([criadoPorId])
   @@map("periodos_pagamento")
@@ -250,6 +293,12 @@ model UploadPdf {
   periodoPagamentoId String?       @map("periodo_pagamento_id") @db.Uuid
   basePagamentoId    String?       @map("base_pagamento_id") @db.Uuid
   substituiUploadId  String?       @map("substitui_upload_id") @db.Uuid
+  statusPagamento    FinanceiroStatusPagamento? @map("status_pagamento")
+  statusPagamentoAtualizadoEm DateTime? @map("status_pagamento_atualizado_em")
+  statusPagamentoMotivo String?     @map("status_pagamento_motivo")
+  statusPagamentoOrigem String?     @map("status_pagamento_origem")
+  codigoObb          String?       @map("codigo_obb") @db.VarChar(80)
+  usuarioAtualizacaoId String?      @map("usuario_atualizacao_id") @db.Uuid
   criadoEm           DateTime      @default(now()) @map("criado_em")
   usuario            Usuario       @relation(fields: [usuarioId], references: [id])
   motorista          Motorista?    @relation(fields: [motoristaId], references: [id])
@@ -257,12 +306,18 @@ model UploadPdf {
   basePagamento      BasePagamento? @relation(fields: [basePagamentoId], references: [id])
   substituiUpload    UploadPdf?    @relation("UploadVersao", fields: [substituiUploadId], references: [id])
   novasVersoes       UploadPdf[]   @relation("UploadVersao")
+  usuarioAtualizacao Usuario?      @relation("UploadStatusAtualizacao", fields: [usuarioAtualizacaoId], references: [id])
+  historicosStatusPagamento HistoricoStatusPagamento[] @relation("HistoricoStatusPagamentoPagamento")
+  importacoesFinanceirasItens ImportacaoFinanceiraItem[] @relation("ImportacaoFinanceiraItemPagamento")
+  webhookEventosFinanceiros WebhookEvento[] @relation("WebhookEventoPagamento")
 
   @@index([usuarioId])
   @@index([motoristaId])
   @@index([periodoPagamentoId])
   @@index([basePagamentoId])
   @@index([substituiUploadId])
+  @@index([statusPagamento])
+  @@index([codigoObb])
   @@map("uploads_pdf")
 }
 
@@ -291,6 +346,7 @@ model Motorista {
   notas               NotaAtendimento[]
   classificacoes      MotoristaClassificacao[]
   logs                LogAtendimento[]
+  importacoesFinanceirasItens ImportacaoFinanceiraItem[]
 
   @@index([nome])
   @@index([cpf])
@@ -512,6 +568,112 @@ model LogAuditoria {
 
   @@index([usuarioId])
   @@map("logs_auditoria")
+}
+
+model ImportacaoFinanceira {
+  id              String                       @id @default(uuid()) @db.Uuid
+  nomeArquivo     String                       @map("nome_arquivo") @db.VarChar(255)
+  hashArquivo     String                       @unique @map("hash_arquivo") @db.VarChar(128)
+  nomeAba         String                       @map("nome_aba") @db.VarChar(80)
+  usuarioId       String                       @map("usuario_id") @db.Uuid
+  periodoPagamentoId String?                   @map("periodo_pagamento_id") @db.Uuid
+  basePagamentoId String?                      @map("base_pagamento_id") @db.Uuid
+  criadoEm        DateTime                     @default(now()) @map("criado_em")
+  confirmadoEm    DateTime?                    @map("confirmado_em")
+  totalLinhas     Int                          @default(0) @map("total_linhas")
+  totalValidas    Int                          @default(0) @map("total_validas")
+  totalErros      Int                          @default(0) @map("total_erros")
+  status          FinanceiroImportacaoStatus   @default(preview)
+  usuario         Usuario                      @relation(fields: [usuarioId], references: [id])
+  periodoPagamento PeriodoPagamento?           @relation(fields: [periodoPagamentoId], references: [id])
+  basePagamento   BasePagamento?               @relation(fields: [basePagamentoId], references: [id])
+  itens           ImportacaoFinanceiraItem[]
+  webhookEventos  WebhookEvento[]
+  historicos      HistoricoStatusPagamento[]
+
+  @@index([usuarioId])
+  @@index([periodoPagamentoId])
+  @@index([basePagamentoId])
+  @@map("importacoes_financeiras")
+}
+
+model ImportacaoFinanceiraItem {
+  id              String                          @id @default(uuid()) @db.Uuid
+  importacaoId    String                          @map("importacao_id") @db.Uuid
+  numeroLinha     Int                             @map("numero_linha")
+  identificador   String?                         @map("identificador") @db.VarChar(180)
+  pagamentoId     String?                         @map("pagamento_id") @db.Uuid
+  motoristaId     String?                         @map("motorista_id") @db.Uuid
+  periodoPagamentoId String?                      @map("periodo_pagamento_id") @db.Uuid
+  basePagamentoId String?                         @map("base_pagamento_id") @db.Uuid
+  codigoObb       String?                         @map("codigo_obb") @db.VarChar(80)
+  corIdentificada String?                         @map("cor_identificada") @db.VarChar(80)
+  regraAplicada   String?                         @map("regra_aplicada") @db.VarChar(120)
+  statusAnterior  FinanceiroStatusPagamento?      @map("status_anterior")
+  statusNovo      FinanceiroStatusPagamento?      @map("status_novo")
+  resultado       FinanceiroImportacaoItemResultado @default(valido)
+  mensagem        String?                         @db.Text
+  criadoEm        DateTime                        @default(now()) @map("criado_em")
+  importacao      ImportacaoFinanceira            @relation(fields: [importacaoId], references: [id])
+  pagamento       UploadPdf?                      @relation("ImportacaoFinanceiraItemPagamento", fields: [pagamentoId], references: [id])
+  motorista       Motorista?                     @relation(fields: [motoristaId], references: [id])
+  historicos      HistoricoStatusPagamento[]
+
+  @@index([importacaoId])
+  @@index([pagamentoId])
+  @@index([motoristaId])
+  @@index([periodoPagamentoId])
+  @@index([basePagamentoId])
+  @@map("importacoes_financeiras_itens")
+}
+
+model HistoricoStatusPagamento {
+  id              String                   @id @default(uuid()) @db.Uuid
+  pagamentoId     String                   @map("pagamento_id") @db.Uuid
+  importacaoId    String?                  @map("importacao_id") @db.Uuid
+  itemId          String?                  @map("item_id") @db.Uuid
+  statusAnterior  FinanceiroStatusPagamento? @map("status_anterior")
+  statusNovo      FinanceiroStatusPagamento   @map("status_novo")
+  motivo          String?                  @db.Text
+  codigoObb       String?                  @map("codigo_obb") @db.VarChar(80)
+  corIdentificada String?                  @map("cor_identificada") @db.VarChar(80)
+  regraAplicada   String?                  @map("regra_aplicada") @db.VarChar(120)
+  origem          String                   @db.VarChar(120)
+  usuarioId       String?                  @map("usuario_id") @db.Uuid
+  criadoEm        DateTime                 @default(now()) @map("criado_em")
+  pagamento       UploadPdf                @relation("HistoricoStatusPagamentoPagamento", fields: [pagamentoId], references: [id])
+  importacao      ImportacaoFinanceira?    @relation(fields: [importacaoId], references: [id])
+  item            ImportacaoFinanceiraItem? @relation(fields: [itemId], references: [id])
+  usuario         Usuario?                 @relation(fields: [usuarioId], references: [id])
+
+  @@index([pagamentoId])
+  @@index([importacaoId])
+  @@index([usuarioId])
+  @@map("historico_status_pagamento")
+}
+
+model WebhookEvento {
+  id              String             @id @default(uuid()) @db.Uuid
+  eventId         String             @unique @map("event_id") @db.VarChar(120)
+  importacaoId    String?            @map("importacao_id") @db.Uuid
+  pagamentoId     String?            @map("pagamento_id") @db.Uuid
+  payload         Json
+  status          WebhookEventoStatus @default(pendente)
+  tentativas      Int                @default(0)
+  ultimaTentativaEm DateTime?        @map("ultima_tentativa_em")
+  respostaHttp    Int?               @map("resposta_http")
+  mensagemErro    String?            @map("mensagem_erro") @db.Text
+  criadoEm        DateTime           @default(now()) @map("criado_em")
+  atualizadoEm    DateTime           @updatedAt @map("atualizado_em")
+  usuarioId       String?            @map("usuario_id") @db.Uuid
+  importacao      ImportacaoFinanceira? @relation(fields: [importacaoId], references: [id])
+  pagamento       UploadPdf?         @relation("WebhookEventoPagamento", fields: [pagamentoId], references: [id])
+  usuario         Usuario?           @relation(fields: [usuarioId], references: [id])
+
+  @@index([importacaoId])
+  @@index([pagamentoId])
+  @@index([status])
+  @@map("webhook_eventos")
 }
 
 model Sessao {

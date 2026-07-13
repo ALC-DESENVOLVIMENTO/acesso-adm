@@ -32,6 +32,12 @@ const permissions = [
   { codigo: "users.view", nome: "Visualizar usuarios", moduloCodigo: "users" },
   { codigo: "users.manage", nome: "Gerenciar usuarios", moduloCodigo: "users" },
   { codigo: "financeiro.view", nome: "Visualizar financeiro", moduloCodigo: "financeiro" },
+  { codigo: "financeiro.export", nome: "Exportar notas fiscais", moduloCodigo: "financeiro" },
+  { codigo: "financeiro.import", nome: "Importar planilha financeira", moduloCodigo: "financeiro" },
+  { codigo: "financeiro.preview", nome: "Visualizar previa financeira", moduloCodigo: "financeiro" },
+  { codigo: "financeiro.confirm", nome: "Confirmar importacao financeira", moduloCodigo: "financeiro" },
+  { codigo: "financeiro.history", nome: "Consultar historico financeiro", moduloCodigo: "financeiro" },
+  { codigo: "financeiro.reprocess", nome: "Reprocessar webhook financeiro", moduloCodigo: "financeiro" },
   { codigo: "atendimento.view", nome: "Visualizar atendimento", moduloCodigo: "atendimento" },
   { codigo: "atendimento.manage", nome: "Gerenciar atendimento", moduloCodigo: "atendimento" }
 ];
@@ -177,8 +183,40 @@ async function main() {
   const levelPermissions: Record<AccessLevelCode, string[]> = {
   N1: ["dashboard.view", "pdfs.view", "pdfs.upload"],
   N2: ["dashboard.view", "pdfs.view", "pdfs.upload", "financeiro.view"],
-  N3: ["dashboard.view", "pdfs.view", "pdfs.upload", "pdfs.replace", "users.view", "users.manage", "financeiro.view", "atendimento.view", "atendimento.manage"],
-  N4: ["dashboard.view", "pdfs.view", "pdfs.upload", "pdfs.replace", "users.view", "users.manage", "financeiro.view", "atendimento.view", "atendimento.manage"]
+  N3: [
+    "dashboard.view",
+    "pdfs.view",
+    "pdfs.upload",
+    "pdfs.replace",
+    "users.view",
+    "users.manage",
+    "financeiro.view",
+    "financeiro.export",
+    "financeiro.import",
+    "financeiro.preview",
+    "financeiro.confirm",
+    "financeiro.history",
+    "financeiro.reprocess",
+    "atendimento.view",
+    "atendimento.manage"
+  ],
+  N4: [
+    "dashboard.view",
+    "pdfs.view",
+    "pdfs.upload",
+    "pdfs.replace",
+    "users.view",
+    "users.manage",
+    "financeiro.view",
+    "financeiro.export",
+    "financeiro.import",
+    "financeiro.preview",
+    "financeiro.confirm",
+    "financeiro.history",
+    "financeiro.reprocess",
+    "atendimento.view",
+    "atendimento.manage"
+  ]
   };
 
   for (const [levelCode, permissionCodes] of Object.entries(levelPermissions) as Array<[AccessLevelCode, string[]]>) {

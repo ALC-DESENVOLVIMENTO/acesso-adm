@@ -16,13 +16,23 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   createPaymentPeriod,
   deletePaymentPeriod,
+  confirmFinanceiroImport,
   fetchFinanceiroBases,
+  fetchFinanceiroImportacao,
+  fetchFinanceiroImportacoes,
+  fetchFinanceiroHistorico,
   fetchFinanceiroNotaFiscalContent,
   fetchFinanceiroMotoristas,
   fetchFinanceiroSummary,
   exportFinanceiroNotasFiscais,
+  previewFinanceiroImport,
+  reprocessFinanceiroWebhook,
   type FinanceiroBaseCard,
+  type FinanceiroHistoricoItem,
   type FinanceiroMotoristaRow,
+  type FinanceiroImportPreviewRow,
+  type FinanceiroImportacaoDetalhe,
+  type FinanceiroImportacaoSummary,
   type FinanceiroSummary,
   type LoginResponse,
   type PaymentBase,
@@ -49,6 +59,9 @@ type PeriodFormState = {
   endDate: string;
   paymentType: PaymentFrequency;
 };
+
+type FinanceTab = "exportacao" | "importacao";
+type PreviewFilter = "todos" | "validos" | "erros";
 
 const initialSummary: FinanceiroSummary = {
   activePeriods: 0,
@@ -147,15 +160,25 @@ export function FinanceiroScreen({
   const [summary, setSummary] = useState<FinanceiroSummary>(initialSummary);
   const [baseCards, setBaseCards] = useState<FinanceiroBaseCard[]>([]);
   const [motoristas, setMotoristas] = useState<FinanceiroMotoristaRow[]>([]);
+  const [importacoes, setImportacoes] = useState<FinanceiroImportacaoSummary[]>([]);
+  const [currentImportacao, setCurrentImportacao] = useState<FinanceiroImportacaoDetalhe | null>(null);
+  const [previewRows, setPreviewRows] = useState<FinanceiroImportPreviewRow[]>([]);
+  const [selectedImportFile, setSelectedImportFile] = useState<File | null>(null);
   const [selectedPeriodId, setSelectedPeriodId] = useState("");
   const [selectedBaseId, setSelectedBaseId] = useState("all");
   const [periodViewTab, setPeriodViewTab] = useState<"bases" | "motoristas">("bases");
+  const [financeTab, setFinanceTab] = useState<FinanceTab>("exportacao");
+  const [previewFilter, setPreviewFilter] = useState<PreviewFilter>("todos");
   const [searchTerm, setSearchTerm] = useState("");
   const [cpfTerm, setCpfTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
   const [attendanceFilter, setAttendanceFilter] = useState("todos");
   const [busyMessage, setBusyMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [importMessage, setImportMessage] = useState("");
+  const [importError, setImportError] = useState("");
+  const [importBusy, setImportBusy] = useState("");
+  const [importacaoConfirmada, setImportacaoConfirmada] = useState(false);
   const [periodModalOpen, setPeriodModalOpen] = useState(false);
   const [editingPeriod, setEditingPeriod] = useState<PaymentPeriod | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PaymentPeriod | null>(null);
@@ -203,6 +226,11 @@ export function FinanceiroScreen({
     setSummary(data);
   };
 
+  const loadImportacoes = async () => {
+    const data = await fetchFinanceiroImportacoes(token);
+    setImportacoes(data);
+  };
+
   const loadBaseCards = async (periodId: string) => {
     if (!periodId) {
       setBaseCards([]);
@@ -226,6 +254,12 @@ export function FinanceiroScreen({
     });
 
     setMotoristas(data);
+  };
+
+  const loadImportacaoDetalhe = async (importacaoId: string) => {
+    const data = await fetchFinanceiroImportacao(token, importacaoId);
+    setCurrentImportacao(data);
+    setImportacaoConfirmada(data.status === "concluido" || data.status === "concluido_com_erro");
   };
 
   useEffect(() => {
@@ -301,6 +335,7 @@ export function FinanceiroScreen({
       try {
         setErrorMessage("");
         await loadSummary();
+        await loadImportacoes();
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "Falha ao carregar resumo.");
       }
@@ -310,6 +345,7 @@ export function FinanceiroScreen({
       void (async () => {
         try {
           await loadSummary();
+          await loadImportacoes();
         } catch {
           return;
         }
@@ -427,6 +463,73 @@ export function FinanceiroScreen({
     }
   };
 
+  const handlePreviewFinanceiroImport = async () => {
+    if (!selectedImportFile || !selectedPeriodId) {
+      setImportError("Selecione um arquivo e um periodo antes da pre-visualizacao.");
+      return;
+    }
+
+    try {
+      setImportBusy("Lendo planilha e montando pre-visualizacao...");
+      setImportError("");
+      setImportMessage("");
+      const preview = await previewFinanceiroImport(token, selectedImportFile, {
+        periodId: selectedPeriodId,
+        baseId: selectedBaseId === "all" ? null : selectedBaseId
+      });
+      setPreviewRows(preview.previewRows);
+      setImportMessage(
+        `${preview.importacao.totalValidas} linhas validas e ${preview.importacao.totalErros} linhas com alerta.`
+      );
+      setImportacaoConfirmada(false);
+      await loadImportacoes();
+      await loadImportacaoDetalhe(preview.importacao.id);
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : "Falha ao pre-visualizar a importacao.");
+    } finally {
+      setImportBusy("");
+    }
+  };
+
+  const handleConfirmFinanceiroImport = async () => {
+    if (!currentImportacao) {
+      setImportError("Nenhuma importacao para confirmar.");
+      return;
+    }
+
+    try {
+      setImportBusy("Confirmando importacao e atualizando status...");
+      setImportError("");
+      const result = await confirmFinanceiroImport(token, currentImportacao.id);
+      setImportacaoConfirmada(true);
+      setImportMessage(
+        `${result.updatedItems.length} pagamentos atualizados. ${result.webhookResults.filter((item) => item.ok).length} webhooks processados.`
+      );
+      await loadImportacaoDetalhe(currentImportacao.id);
+      await loadSummary();
+      await loadImportacoes();
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : "Falha ao confirmar importacao.");
+    } finally {
+      setImportBusy("");
+    }
+  };
+
+  const handleReprocessWebhook = async (eventId: string) => {
+    try {
+      setImportBusy("Reprocessando webhook...");
+      setImportError("");
+      await reprocessFinanceiroWebhook(token, eventId);
+      if (currentImportacao) {
+        await loadImportacaoDetalhe(currentImportacao.id);
+      }
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : "Falha ao reprocessar webhook.");
+    } finally {
+      setImportBusy("");
+    }
+  };
+
   const openNotaFiscal = async (row: FinanceiroMotoristaRow) => {
     if (!row.notaFiscalDownloadUrl) {
       setErrorMessage("Nota Fiscal ainda nao enviada.");
@@ -477,10 +580,10 @@ export function FinanceiroScreen({
       <section className="screen__intro screen__intro--financeiro">
         <div>
           <p className="eyebrow">Financeiro</p>
-          <h1>Notas Fiscais</h1>
+          <h1>Financeiro</h1>
           <p>
-            Acompanhe o ciclo completo dos PDFs enviados, visualizacoes do motorista e recebimento das notas
-            fiscais em um unico painel.
+            Acompanhe a exportacao das notas fiscais, o espelho de pagamento e a importacao da planilha financeira
+            em um unico painel.
           </p>
         </div>
         <div className="quick-meta">
@@ -565,8 +668,33 @@ export function FinanceiroScreen({
         </section>
       ) : null}
 
-      <section className="finance-layout">
-        <article className="panel finance-panel">
+      <section className="finance-section-tabs">
+        <div className="period-tabs">
+          <button
+            className={`period-tab ${financeTab === "exportacao" ? "period-tab--active" : ""}`}
+            type="button"
+            onClick={() => setFinanceTab("exportacao")}
+          >
+            Exportacao de notas fiscais
+          </button>
+          <button
+            className={`period-tab ${financeTab === "importacao" ? "period-tab--active" : ""}`}
+            type="button"
+            onClick={() => setFinanceTab("importacao")}
+          >
+            Importacao da planilha
+          </button>
+        </div>
+        <span className="finance-tab-hint">
+          {financeTab === "exportacao"
+            ? "Selecione um periodo e exporte apenas as notas fiscais vinculadas."
+            : "Importe a planilha da coluna Resumido e confirme a atualização dos status."}
+        </span>
+      </section>
+
+      {financeTab === "exportacao" ? (
+        <section className="finance-layout">
+          <article className="panel finance-panel">
           <div className="panel__header">
             <div>
               <h3>Periodos de pagamento</h3>
@@ -605,35 +733,35 @@ export function FinanceiroScreen({
           </div>
         </article>
 
-        <div className="finance-stack">
-          <div className="finance-section-tabs">
-            <div className="period-tabs">
+          <div className="finance-stack">
+            <div className="finance-section-tabs">
+              <div className="period-tabs">
+                <button
+                  className={`period-tab ${periodViewTab === "bases" ? "period-tab--active" : ""}`}
+                  type="button"
+                  onClick={() => setPeriodViewTab("bases")}
+                >
+                  Periodo ativo
+                </button>
+                <button
+                  className={`period-tab ${periodViewTab === "motoristas" ? "period-tab--active" : ""}`}
+                  type="button"
+                  onClick={() => setPeriodViewTab("motoristas")}
+                >
+                  Motoristas do periodo
+                </button>
+              </div>
               <button
-                className={`period-tab ${periodViewTab === "bases" ? "period-tab--active" : ""}`}
+                className="ghost-button ghost-button--small finance-export-button"
                 type="button"
-                onClick={() => setPeriodViewTab("bases")}
+                onClick={handleExportNotasFiscais}
+                disabled={!selectedPeriodId}
               >
-                Periodo ativo
-              </button>
-              <button
-                className={`period-tab ${periodViewTab === "motoristas" ? "period-tab--active" : ""}`}
-                type="button"
-                onClick={() => setPeriodViewTab("motoristas")}
-              >
-                Motoristas do periodo
+                Exportar Notas Fiscais
               </button>
             </div>
-            <button
-              className="ghost-button ghost-button--small finance-export-button"
-              type="button"
-              onClick={handleExportNotasFiscais}
-              disabled={!selectedPeriodId}
-            >
-              Exportar Notas Fiscais
-            </button>
-          </div>
 
-          <article className="panel finance-panel" style={{ display: periodViewTab === "bases" ? "grid" : "none" }}>
+            <article className="panel finance-panel" style={{ display: periodViewTab === "bases" ? "grid" : "none" }}>
             <div className="panel__header">
               <div>
                 <h3>Periodo ativo</h3>
@@ -692,10 +820,10 @@ export function FinanceiroScreen({
             </div>
           </article>
 
-          <article
-            className="panel finance-panel"
-            style={{ display: periodViewTab === "motoristas" ? "grid" : "none" }}
-          >
+            <article
+              className="panel finance-panel"
+              style={{ display: periodViewTab === "motoristas" ? "grid" : "none" }}
+            >
             <div className="panel__header">
               <div>
                 <h3>Motoristas do periodo</h3>
@@ -846,9 +974,146 @@ export function FinanceiroScreen({
                 </tbody>
               </table>
             </div>
+            </article>
+          </div>
+        </section>
+      ) : (
+        <section className="finance-layout finance-layout--import">
+          <article className="panel finance-panel">
+            <div className="panel__header">
+              <div>
+                <h3>Importacao da planilha financeira</h3>
+                <p>Envie somente a aba Resumido, revise a cor da linha e confirme o status calculado.</p>
+              </div>
+            </div>
+
+            <div className="finance-period-hero">
+              <div>
+                <p className="eyebrow">Contexto selecionado</p>
+                <h4>{selectedPeriod?.name || "Selecione um periodo"}</h4>
+                <p>
+                  {selectedPeriod ? `${formatDateOnly(selectedPeriod.startDate)} ate ${formatDateOnly(selectedPeriod.endDate)}` : "Periodo necessario para o processamento"}
+                </p>
+              </div>
+              <div className="finance-period-hero__meta">
+                <span>{selectedBase ? selectedBase.name : "Todas as bases"}</span>
+                <small>Importacao segura por periodo/base</small>
+              </div>
+            </div>
+
+            <div className="filters-row finance-filters">
+              <label className="field">
+                <span>Arquivo Excel</span>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={(event) => setSelectedImportFile(event.target.files?.[0] || null)}
+                />
+              </label>
+              <label className="filter-select">
+                <FunnelSimple size={18} />
+                <select value={previewFilter} onChange={(event) => setPreviewFilter(event.target.value as PreviewFilter)}>
+                  <option value="todos">Todos</option>
+                  <option value="validos">Validos</option>
+                  <option value="erros">Erros</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="admin-form__actions">
+              <button className="primary-button primary-button--inline" type="button" onClick={handlePreviewFinanceiroImport} disabled={!selectedImportFile || !selectedPeriodId || Boolean(importBusy)}>
+                {importBusy || "Gerar pre-visualizacao"}
+                <ArrowRight size={18} weight="bold" />
+              </button>
+              <button className="ghost-button ghost-button--small" type="button" onClick={handleConfirmFinanceiroImport} disabled={!currentImportacao || importacaoConfirmada}>
+                Confirmar importacao
+              </button>
+            </div>
+
+            {importBusy ? <p className="loading-note">{importBusy}</p> : null}
+            {importError ? <p className="finance-alert finance-alert--error">{importError}</p> : null}
+            {importMessage ? <p className="finance-alert finance-alert--success">{importMessage}</p> : null}
+
+            <div className="finance-import-summary">
+              {importacoes.slice(0, 3).map((item) => (
+                <button key={item.id} type="button" className="finance-import-card" onClick={() => void loadImportacaoDetalhe(item.id)}>
+                  <strong>{item.nomeArquivo}</strong>
+                  <span>{item.periodo || "Sem periodo"}</span>
+                  <small>{item.status}</small>
+                </button>
+              ))}
+            </div>
+
+            <div className="table-wrap finance-table">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Linha</th>
+                    <th>Identificador</th>
+                    <th>Motorista</th>
+                    <th>CPF/CNPJ</th>
+                    <th>Cod.OBB</th>
+                    <th>Cor</th>
+                    <th>Status atual</th>
+                    <th>Novo status</th>
+                    <th>Regra</th>
+                    <th>Validacao</th>
+                    <th>Mensagem</th>
+                    <th>Acoes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewRows
+                    .filter((row) => (previewFilter === "todos" ? true : previewFilter === "validos" ? row.situacaoValidacao === "valido" : row.situacaoValidacao !== "valido"))
+                    .map((row) => (
+                      <tr key={`${row.numeroLinha}-${row.identificador || row.codigoObb || "linha"}`}>
+                        <td>{row.numeroLinha}</td>
+                        <td>{row.identificador || "Nao informado"}</td>
+                        <td>{row.motorista || "Nao informado"}</td>
+                        <td>{row.cpfCnpj || "Nao informado"}</td>
+                        <td>{row.codigoObb || "Nao informado"}</td>
+                        <td>{row.corIdentificada || "Sem preenchimento"}</td>
+                        <td>{row.statusAtual || "PENDENTE"}</td>
+                        <td>{row.novoStatus || "Sem alteracao"}</td>
+                        <td>{row.regraAplicada}</td>
+                        <td>{row.situacaoValidacao}</td>
+                        <td>{row.mensagem || "-"}</td>
+                        <td>
+                          <button className="ghost-button ghost-button--small" type="button" onClick={() => row.pagamentoId && onOpenMotorista(row.motoristaId || "")} disabled={!row.motoristaId}>
+                            Abrir
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="finance-import-history">
+              <h4>Importacoes recentes</h4>
+              <div className="finance-import-history__list">
+                {currentImportacao?.webhookEventos?.length ? (
+                  currentImportacao.webhookEventos.map((event) => (
+                    <article className="finance-import-card finance-import-card--history" key={event.eventId}>
+                      <strong>{event.eventId}</strong>
+                      <span>{event.status}</span>
+                      <small>
+                        {event.tentativas} tentativa(s) - {event.respostaHttp || "sem resposta"}
+                      </small>
+                      {event.mensagemErro ? <p>{event.mensagemErro}</p> : null}
+                      <button className="ghost-button ghost-button--small" type="button" onClick={() => void handleReprocessWebhook(event.eventId)}>
+                        Reprocessar webhook
+                      </button>
+                    </article>
+                  ))
+                ) : (
+                  <p>Nenhum webhook registrado ainda.</p>
+                )}
+              </div>
+            </div>
           </article>
-        </div>
-      </section>
+        </section>
+      )}
 
       {periodModalOpen ? (
         <div className="modal-overlay">
