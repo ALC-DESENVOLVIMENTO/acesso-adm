@@ -60,16 +60,21 @@ function resolvePdfOnlinePaymentWebhookUrl() {
   const directUrl = readBridgeEnv("PDFONLINE_PAYMENTS_WEBHOOK_URL");
 
   if (directUrl) {
-    return directUrl;
+    return [directUrl];
   }
 
   const baseUrl = readBridgeEnv("PDFONLINE_BASE_URL", "PDFONLINE_URL");
 
   if (!baseUrl) {
-    return "";
+    return [];
   }
 
-  return new URL("/api/webhooks/pagamentos/status", baseUrl).toString();
+  return [
+    new URL("/api/webhooks/pagamentos/status", baseUrl).toString(),
+    new URL("/api/webhooks/pagamento/status", baseUrl).toString(),
+    new URL("/api/webhook/pagamentos/status", baseUrl).toString(),
+    new URL("/api/webhook/pagamento/status", baseUrl).toString()
+  ];
 }
 
 function buildHeaders(body: string) {
@@ -100,10 +105,49 @@ async function postJson(url: string, body: string) {
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    throw new Error(`PDF Online webhook retornou ${response.status}${text ? `: ${text}` : ""}`);
+    return {
+      ok: false,
+      status: response.status,
+      text
+    };
   }
 
-  return response.status;
+  return {
+    ok: true,
+    status: response.status,
+    text: ""
+  };
+}
+
+async function postJsonWithFallback(urls: string[], body: string) {
+  const errors: Array<{ url: string; status: number; text: string }> = [];
+
+  for (const url of urls) {
+    const result = await postJson(url, body);
+
+    if (result.ok) {
+      return {
+        status: result.status,
+        url
+      };
+    }
+
+    errors.push({
+      url,
+      status: result.status,
+      text: result.text
+    });
+
+    if (result.status !== 404) {
+      break;
+    }
+  }
+
+  const last = errors[errors.length - 1];
+  const urlsText = errors.map((item) => `${item.status} ${item.url}`).join(" | ");
+  throw new Error(
+    `PDF Online webhook retornou ${last?.status || 0}${last?.text ? `: ${last.text}` : ""}${urlsText ? ` | tentativas: ${urlsText}` : ""}`
+  );
 }
 
 export async function notifyPdfOnline(event: string, data: unknown = {}, meta: Record<string, unknown> = {}) {
@@ -134,19 +178,20 @@ export async function notifyPdfOnline(event: string, data: unknown = {}, meta: R
 }
 
 export async function notifyPaymentStatusToPdfOnline(payload: PaymentStatusWebhookPayload) {
-  const webhookUrl = resolvePdfOnlinePaymentWebhookUrl();
+  const webhookUrls = resolvePdfOnlinePaymentWebhookUrl();
 
-  if (!webhookUrl) {
+  if (!webhookUrls.length) {
     return {
       skipped: true,
       reason: "missing-webhook-url"
     };
   }
 
-  const status = await postJson(webhookUrl, JSON.stringify(payload));
+  const result = await postJsonWithFallback(webhookUrls, JSON.stringify(payload));
 
   return {
     skipped: false,
-    status
+    status: result.status,
+    url: result.url
   };
 }
