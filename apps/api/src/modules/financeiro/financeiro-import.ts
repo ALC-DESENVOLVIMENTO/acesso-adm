@@ -611,16 +611,6 @@ function pickCurrentStatus(upload: Awaited<ReturnType<typeof loadPaymentCandidat
 export async function createFinanceiroImportPreview(context: ImportContext) {
   const fileHash = sha256(context.fileBuffer);
 
-  const existing = await prisma.importacaoFinanceira.findUnique({
-    where: {
-      hashArquivo: fileHash
-    }
-  });
-
-  if (existing) {
-    throw new Error("Este arquivo ja foi importado anteriormente. Solicite autorizacao para reprocessar.");
-  }
-
   const { sheetName, rows } = parseWorkbookRows(context.fileBuffer);
   const candidates = await loadPaymentCandidates(context.periodId, context.baseId);
   const period = await prisma.periodoPagamento.findUnique({
@@ -637,6 +627,7 @@ export async function createFinanceiroImportPreview(context: ImportContext) {
     : null;
 
   const previewRows: FinanceiroImportPreviewRow[] = [];
+  const seenPaymentIds = new Set<string>();
 
   for (const row of rows) {
     if (!row.hasData) {
@@ -702,6 +693,32 @@ export async function createFinanceiroImportPreview(context: ImportContext) {
       });
       continue;
     }
+
+    if (seenPaymentIds.has(matchResult.match.id)) {
+      previewRows.push({
+        numeroLinha: row.numeroLinha,
+        identificador: row.rowValues["Motorista"] || row.rowValues["Favorecido"] || null,
+        motorista: matchResult.match.motorista?.nome || row.rowValues["Motorista"] || row.rowValues["Favorecido"] || null,
+        cpfCnpj: matchResult.match.motorista?.cpf || row.rowValues["CPF do Favorecido"] || null,
+        periodo: period?.nome || matchResult.match.periodoPagamento?.nome || null,
+        valor: formatCurrency(row.rowValues["Total"]),
+        codigoObb: row.rowValues["CodOBB"] || null,
+        corIdentificada: row.colorCode,
+        statusAtual: current,
+        novoStatus: null,
+        regraAplicada: "Pagamento duplicado na planilha",
+        situacaoValidacao: FinanceiroImportacaoItemResultado.linha_duplicada,
+        mensagem: "Este pagamento ja aparece em outra linha desta mesma planilha.",
+        pagamentoId: matchResult.match.id,
+        motoristaId: matchResult.match.motoristaId,
+        baseId: matchResult.match.basePagamentoId,
+        periodoId: matchResult.match.periodoPagamentoId,
+        statusAnterior: current
+      });
+      continue;
+    }
+
+    seenPaymentIds.add(matchResult.match.id);
 
     previewRows.push({
       numeroLinha: row.numeroLinha,
@@ -1013,9 +1030,12 @@ export async function listFinanceiroHistorico(params: { periodoId?: string; base
 export async function duplicateFinanceiroImportHash(fileBuffer: Buffer) {
   const fileHash = sha256(fileBuffer);
 
-  return prisma.importacaoFinanceira.findUnique({
+  return prisma.importacaoFinanceira.findFirst({
     where: {
       hashArquivo: fileHash
+    },
+    orderBy: {
+      criadoEm: "desc"
     }
   });
 }

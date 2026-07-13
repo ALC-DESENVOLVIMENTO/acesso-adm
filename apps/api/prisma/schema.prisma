@@ -573,7 +573,7 @@ model LogAuditoria {
 model ImportacaoFinanceira {
   id              String                       @id @default(uuid()) @db.Uuid
   nomeArquivo     String                       @map("nome_arquivo") @db.VarChar(255)
-  hashArquivo     String                       @unique @map("hash_arquivo") @db.VarChar(128)
+  hashArquivo     String                       @map("hash_arquivo") @db.VarChar(128)
   nomeAba         String                       @map("nome_aba") @db.VarChar(80)
   usuarioId       String                       @map("usuario_id") @db.Uuid
   periodoPagamentoId String?                   @map("periodo_pagamento_id") @db.Uuid

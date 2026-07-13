@@ -33,6 +33,10 @@ async function ensureTable(sql: string) {
   await prisma.$executeRawUnsafe(sql);
 }
 
+async function ensureStatement(sql: string) {
+  await prisma.$executeRawUnsafe(sql);
+}
+
 async function ensureIndex(sql: string) {
   await prisma.$executeRawUnsafe(sql);
 }
@@ -78,7 +82,7 @@ export async function ensureFinanceiroCompatibilitySchema() {
 CREATE TABLE IF NOT EXISTS "${DB_SCHEMA}"."importacoes_financeiras" (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nome_arquivo VARCHAR(255) NOT NULL,
-  hash_arquivo VARCHAR(128) NOT NULL UNIQUE,
+  hash_arquivo VARCHAR(128) NOT NULL,
   nome_aba VARCHAR(80) NOT NULL,
   usuario_id UUID NOT NULL,
   periodo_pagamento_id UUID NULL,
@@ -93,6 +97,23 @@ CREATE TABLE IF NOT EXISTS "${DB_SCHEMA}"."importacoes_financeiras" (
   CONSTRAINT importacoes_financeiras_periodo_fk FOREIGN KEY (periodo_pagamento_id) REFERENCES "${DB_SCHEMA}"."periodos_pagamento"(id) ON DELETE SET NULL,
   CONSTRAINT importacoes_financeiras_base_fk FOREIGN KEY (base_pagamento_id) REFERENCES "${DB_SCHEMA}"."bases_pagamento"(id) ON DELETE SET NULL
 );
+`);
+
+  await ensureStatement(`
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    WHERE n.nspname = '${DB_SCHEMA}'
+      AND t.relname = 'importacoes_financeiras'
+      AND c.conname = 'importacoes_financeiras_hash_arquivo_key'
+  ) THEN
+    ALTER TABLE "${DB_SCHEMA}"."importacoes_financeiras" DROP CONSTRAINT "importacoes_financeiras_hash_arquivo_key";
+  END IF;
+END $$;
 `);
 
   await ensureTable(`
