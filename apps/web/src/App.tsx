@@ -3139,7 +3139,7 @@ function PdfsScreen({
       .slice()
       .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())
       .forEach((row) => {
-        const key = `${row.periodId || "sem-periodo"}|${row.baseId || "sem-base"}|${row.owner}|${row.sentAt}`;
+        const key = `${row.periodId || "sem-periodo"}|${row.baseId || "sem-base"}|${row.owner}`;
         const existing = grouped.get(key);
 
         if (existing) {
@@ -3306,6 +3306,9 @@ function PdfsScreen({
                     <p>
                       {batch.ownerName} - {batch.periodName} -{" "}
                       {new Date(batch.lastSentAt).toLocaleString("pt-BR")}
+                    </p>
+                    <p className="upload-batch__meta">
+                      Motoristas: {batch.uploads.map((item) => item.fileName).join(", ")}
                     </p>
                   </div>
                   <button
