@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ensureFinanceiroCompatibilitySchema } from "./lib/financeiro-schema.js";
+import { backfillPaidStatusesFromExistingGroups } from "./lib/financeiro-status-backfill.js";
 import { ensureDriverRegistryColumns } from "./lib/driver-registry-schema.js";
 import { ensureDatabaseCompatibilityColumns } from "./lib/database-compatibility.js";
 import { reconcileStorageReferences } from "./lib/storage-migration.js";
@@ -47,6 +48,10 @@ async function main() {
 
   await ensureDatabaseCompatibilityColumns();
   await ensureFinanceiroCompatibilitySchema();
+  const backfilledRows = await backfillPaidStatusesFromExistingGroups();
+  if (backfilledRows > 0) {
+    console.log(`[financeiro] Backfill de status pago aplicado em ${backfilledRows} registro(s).`);
+  }
   await ensureDriverRegistryColumns();
   await reconcileStorageReferences();
   await runCommand("npm", ["run", "db:seed"], apiRoot);
