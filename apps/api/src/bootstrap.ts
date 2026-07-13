@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { ensureFinanceiroCompatibilitySchema } from "./lib/financeiro-schema.js";
 import { ensureDriverRegistryColumns } from "./lib/driver-registry-schema.js";
 import { ensureDatabaseCompatibilityColumns } from "./lib/database-compatibility.js";
 import { reconcileStorageReferences } from "./lib/storage-migration.js";
@@ -45,7 +46,7 @@ async function main() {
   const apiRoot = path.resolve(path.dirname(currentFile), "..");
 
   await ensureDatabaseCompatibilityColumns();
-  await runCommand("npx", ["prisma", "db", "push"], apiRoot);
+  await ensureFinanceiroCompatibilitySchema();
   await ensureDriverRegistryColumns();
   await reconcileStorageReferences();
   await runCommand("npm", ["run", "db:seed"], apiRoot);
