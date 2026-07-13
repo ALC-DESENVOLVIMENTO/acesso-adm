@@ -110,7 +110,8 @@ export async function upsertDriverPdfReceivedFromUpload(
       basePagamentoId: input.basePaymentId
     },
     select: {
-      id: true
+      id: true,
+      visualizadoEm: true
     }
   });
 
@@ -125,7 +126,7 @@ export async function upsertDriverPdfReceivedFromUpload(
     usuarioId: input.createdByUserId ?? null,
     status,
     observacoes: null,
-    visualizadoEm: null,
+    visualizadoEm: existing?.visualizadoEm ?? null,
     enviadoAoMotoristaEm:
       status === DriverPdfReceivedStatus.pdf_enviado_ao_motorista ? now : null,
     aprovadoEm: null,
