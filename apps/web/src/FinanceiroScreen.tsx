@@ -109,6 +109,7 @@ function formatStatusLabel(value: string) {
     pdf_enviado_ao_motorista: "PDF enviado ao motorista",
     motorista_visualizou: "Motorista visualizou o PDF",
     aguardando_envio_nota_fiscal: "Aguardando NF",
+    pago: "Pago",
     nota_fiscal_recebida: "Nota Fiscal recebida",
     nota_fiscal_em_analise: "Nota Fiscal em analise",
     nota_fiscal_aprovada: "Nota Fiscal aprovada",
@@ -151,7 +152,7 @@ function formatImportValidationLabel(value: string) {
 }
 
 function financeStatusClass(status: string) {
-  if (["nota_fiscal_aprovada", "processo_concluido"].includes(status)) {
+  if (["nota_fiscal_aprovada", "processo_concluido", "pago"].includes(status)) {
     return "finance-status-pill finance-status-pill--success";
   }
 
@@ -902,6 +903,7 @@ export function FinanceiroScreen({
                   <option value="nota_fiscal_recebida">NF recebida</option>
                   <option value="nota_fiscal_em_analise">Em análise</option>
                   <option value="nota_fiscal_aprovada">Aprovada</option>
+                  <option value="pago">Pago</option>
                   <option value="nota_fiscal_rejeitada">Rejeitada</option>
                   <option value="em_atendimento">Em atendimento</option>
                   <option value="chamado_aberto">Chamado aberto</option>

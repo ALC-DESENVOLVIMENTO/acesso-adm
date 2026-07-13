@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import {
   markDriverPdfReceivedRejected,
+  markDriverPdfReceivedViewed,
   upsertDriverPdfReceivedNoteStatus
 } from "../../lib/driver-pdf-received.js";
 
@@ -108,7 +109,8 @@ router.post("/access-adm", (req, res) => {
       nota_fiscal_em_analise: DriverPdfReceivedStatus.nota_fiscal_em_analise,
       nota_fiscal_aprovada: DriverPdfReceivedStatus.nota_fiscal_aprovada,
       nota_fiscal_rejeitada: DriverPdfReceivedStatus.nota_fiscal_rejeitada,
-      processo_concluido: DriverPdfReceivedStatus.processo_concluido
+      processo_concluido: DriverPdfReceivedStatus.processo_concluido,
+      motorista_visualizou: DriverPdfReceivedStatus.motorista_visualizou
     };
     const noteStatus = noteStatusMap[rawStatus] || null;
     const uploadId = readString(data.uploadId || data.uploadPdfId);
@@ -130,6 +132,44 @@ router.post("/access-adm", (req, res) => {
       : null;
 
     if (noteStatus) {
+      if (noteStatus === DriverPdfReceivedStatus.motorista_visualizou) {
+        const result = await markDriverPdfReceivedViewed({
+          uploadPdfId: uploadId || null,
+          motoristaId: readString(data.motoristaId) || upload?.motoristaId || null,
+          periodId: readString(data.periodId) || upload?.periodoPagamentoId || null,
+          basePaymentId: readString(data.basePaymentId) || upload?.basePagamentoId || null,
+          fileName: readString(data.fileName) || upload?.nomeOriginal || upload?.nomeArquivo || null,
+          storageKey: readString(data.storageKey) || upload?.caminhoArquivo || null,
+          mimeType: readString(data.mimeType) || "application/pdf",
+          viewedAt: parseWebhookDate(data.viewedAt || data.visualizadoEm || data.occurredAt || data.occurred_at),
+          createdByUserId: readString(data.createdByUserId) || null
+        });
+
+        await prisma.logAuditoria.create({
+          data: {
+            usuarioId: null,
+            acao: "webhook_pdf_visualizado",
+            entidade: "driver_pdf_received",
+            entidadeId: result?.id || upload?.id || null,
+            ipOrigem: req.ip,
+            userAgent: req.get("user-agent") || null,
+            detalhes: {
+              event,
+              uploadId,
+              motoristaId: readString(data.motoristaId) || upload?.motoristaId || null,
+              periodId: readString(data.periodId) || upload?.periodoPagamentoId || null,
+              basePaymentId: readString(data.basePaymentId) || upload?.basePagamentoId || null
+            }
+          }
+        });
+
+        res.json({
+          message: "Visualizacao registrada com sucesso.",
+          receivedId: result?.id || null
+        });
+        return;
+      }
+
       const result = await upsertDriverPdfReceivedNoteStatus({
         uploadPdfId: uploadId || null,
         motoristaId: readString(data.motoristaId) || upload?.motoristaId || null,

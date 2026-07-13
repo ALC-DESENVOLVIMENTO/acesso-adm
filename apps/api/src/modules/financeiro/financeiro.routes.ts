@@ -52,6 +52,7 @@ const listFiltersSchema = z.object({
       "nota_fiscal_recebida",
       "nota_fiscal_em_analise",
       "nota_fiscal_aprovada",
+      "pago",
       "nota_fiscal_rejeitada",
       "em_atendimento",
       "chamado_aberto",
@@ -71,6 +72,7 @@ function formatStatusLabel(value: string) {
     pdf_enviado_ao_motorista: "PDF enviado ao motorista",
     motorista_visualizou: "PDF visualizado",
     aguardando_envio_nota_fiscal: "Aguardando envio da Nota Fiscal",
+    pago: "Pago",
     nota_fiscal_recebida: "Nota Fiscal recebida",
     nota_fiscal_em_analise: "Nota Fiscal em an?lise",
     nota_fiscal_aprovada: "Nota Fiscal aprovada",
@@ -1153,10 +1155,13 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
               (right.uploadEm?.getTime() ?? 0) - (left.uploadEm?.getTime() ?? 0)
           )[0] || null;
       const noteReceipt = noteReceiptByUpload || noteReceiptByIdentity;
+      const paymentStatus = upload.statusPagamento === FinanceiroStatusPagamento.PAGO ? "pago" : null;
 
       const ticketStatuses = upload.motorista.chamados.map((item) => item.status);
       const attendanceStatus = computeAttendanceStatus(ticketStatuses, upload.motorista.atendimentos.length);
-      const currentStatus = noteReceipt
+      const currentStatus = paymentStatus
+        ? paymentStatus
+        : noteReceipt
         ? noteReceipt.status === "nota_fiscal_aprovada"
           ? "processo_concluido"
           : noteReceipt.status
@@ -1199,7 +1204,9 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
         ),
         atendimentoStatus: attendanceStatus,
         statusNotaFiscal:
-          noteReceipt?.status === "nota_fiscal_rejeitada"
+          paymentStatus === "pago"
+            ? "Pago"
+            : noteReceipt?.status === "nota_fiscal_rejeitada"
             ? "Recusada"
             : noteReceipt?.status === "nota_fiscal_aprovada"
               ? "Aprovada"

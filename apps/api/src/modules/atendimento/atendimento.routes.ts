@@ -74,6 +74,7 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
   pdf_enviado_ao_motorista: "PDF enviado ao motorista",
   motorista_visualizou: "PDF visualizado",
   aguardando_envio_nota_fiscal: "Aguardando envio da Nota Fiscal",
+  pago: "Pago",
   nota_fiscal_recebida: "Nota Fiscal recebida",
   nota_fiscal_em_analise: "Nota Fiscal em análise",
   nota_fiscal_aprovada: "Nota Fiscal aprovada",
@@ -922,8 +923,11 @@ async function loadMotoristaDetail(motoristaId: string) {
       const noteSentAt = noteReceipt?.uploadEm || null;
       const noteReceivedAt = noteReceipt?.aprovadoEm || noteReceipt?.rejeitadoEm || null;
       const noteStatus = noteReceipt?.status || "aguardando_envio_nota_fiscal";
+      const paymentStatus = upload.statusPagamento === "PAGO" ? "pago" : null;
       const currentStatus =
-        noteReceipt?.status === "nota_fiscal_aprovada"
+        paymentStatus
+          ? paymentStatus
+          : noteReceipt?.status === "nota_fiscal_aprovada"
           ? "processo_concluido"
           : noteReceipt?.status
             ? noteReceipt.status
@@ -932,7 +936,7 @@ async function loadMotoristaDetail(motoristaId: string) {
               : pdfSentAt
                 ? "pdf_enviado_ao_motorista"
                 : "pdf_aguardando_envio";
-      const paid = currentStatus === "processo_concluido";
+      const paid = currentStatus === "processo_concluido" || currentStatus === "pago";
       const valorPagamento = await extractTotalGeralValue(upload.caminhoArquivo).catch(() => null);
 
       return {

@@ -51,6 +51,18 @@ export type DriverPdfReceivedRejectionInput = {
   rejectedAt?: Date | null;
 };
 
+export type DriverPdfReceivedViewInput = {
+  uploadPdfId?: string | null;
+  motoristaId?: string | null;
+  periodId?: string | null;
+  basePaymentId?: string | null;
+  fileName?: string | null;
+  storageKey?: string | null;
+  mimeType?: string | null;
+  viewedAt?: Date | null;
+  createdByUserId?: string | null;
+};
+
 export type DriverPdfReceivedNoteStatusInput = {
   uploadPdfId?: string | null;
   motoristaId?: string | null;
@@ -233,6 +245,72 @@ export async function markDriverPdfReceivedRejected(input: DriverPdfReceivedReje
   });
 
   await setDriverPdfDocumentType(created.id, DocumentTypeCode.nota_fiscal);
+  return created;
+}
+
+export async function markDriverPdfReceivedViewed(input: DriverPdfReceivedViewInput) {
+  const now = input.viewedAt || new Date();
+  const where = buildReceivedWhere({
+    uploadPdfId: input.uploadPdfId,
+    motoristaId: input.motoristaId,
+    periodId: input.periodId,
+    basePaymentId: input.basePaymentId,
+    nonNoteOnly: true
+  });
+
+  const existing = where
+    ? await prisma.driverPdfReceived.findFirst({
+        where,
+        select: {
+          id: true,
+          visualizadoEm: true
+        }
+      })
+    : null;
+
+  if (!input.motoristaId || !input.periodId || !input.basePaymentId) {
+    return null;
+  }
+
+  if (existing?.id) {
+    const updated = await prisma.driverPdfReceived.update({
+      where: {
+        id: existing.id
+      },
+      data: {
+        status: DriverPdfReceivedStatus.motorista_visualizou,
+        visualizadoEm: existing.visualizadoEm ?? now
+      }
+    });
+
+    await setDriverPdfDocumentType(updated.id, DocumentTypeCode.espelho);
+    return updated;
+  }
+
+  const created = await prisma.driverPdfReceived.create({
+    data: {
+      motoristaId: input.motoristaId,
+      periodoPagamentoId: input.periodId,
+      basePagamentoId: input.basePaymentId,
+      nomeArquivo: input.fileName ?? null,
+      caminhoArquivo: input.storageKey ?? null,
+      tipoArquivo: input.mimeType ?? "application/pdf",
+      uploadEm: now,
+      usuarioId: input.createdByUserId ?? null,
+      status: DriverPdfReceivedStatus.motorista_visualizou,
+      observacoes: null,
+      visualizadoEm: now,
+      enviadoAoMotoristaEm: null,
+      aprovadoEm: null,
+      aprovadoPorId: null,
+      rejeitadoEm: null,
+      rejeitadoPorId: null,
+      motivoRejeicao: null,
+      uploadPdfId: input.uploadPdfId ?? null
+    }
+  });
+
+  await setDriverPdfDocumentType(created.id, DocumentTypeCode.espelho);
   return created;
 }
 
