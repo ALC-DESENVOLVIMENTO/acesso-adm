@@ -1,7 +1,11 @@
 import { Router, type Request } from "express";
+import { DriverPdfReceivedStatus } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
-import { markDriverPdfReceivedRejected } from "../../lib/driver-pdf-received.js";
+import {
+  markDriverPdfReceivedRejected,
+  upsertDriverPdfReceivedNoteStatus
+} from "../../lib/driver-pdf-received.js";
 
 const router = Router();
 
@@ -48,6 +52,25 @@ function readString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function normalizeWebhookStatus(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+}
+
+function parseWebhookDate(value: unknown) {
+  const raw = readString(value);
+
+  if (!raw) {
+    return null;
+  }
+
+  const parsed = new Date(raw);
+
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 router.post("/access-adm", (req, res) => {
   void (async () => {
     if (!isAuthorized(req)) {
@@ -69,15 +92,25 @@ router.post("/access-adm", (req, res) => {
 
     const event = parsed.data.event.trim();
     const data = parsed.data.data || {};
+    const rawStatus = normalizeWebhookStatus(
+      readString(
+        data.status ||
+          data.notaFiscalStatus ||
+          data.nota_fiscal_status ||
+          data.situacao ||
+          data.situacaoNotaFiscal ||
+          event
+      )
+    );
 
-    if (!event.toLowerCase().includes("rejeit")) {
-      res.json({
-        message: "Evento recebido.",
-        ignored: true
-      });
-      return;
-    }
-
+    const noteStatusMap: Record<string, DriverPdfReceivedStatus> = {
+      nota_fiscal_recebida: DriverPdfReceivedStatus.nota_fiscal_recebida,
+      nota_fiscal_em_analise: DriverPdfReceivedStatus.nota_fiscal_em_analise,
+      nota_fiscal_aprovada: DriverPdfReceivedStatus.nota_fiscal_aprovada,
+      nota_fiscal_rejeitada: DriverPdfReceivedStatus.nota_fiscal_rejeitada,
+      processo_concluido: DriverPdfReceivedStatus.processo_concluido
+    };
+    const noteStatus = noteStatusMap[rawStatus] || null;
     const uploadId = readString(data.uploadId || data.uploadPdfId);
     const upload = uploadId
       ? await prisma.uploadPdf.findUnique({
@@ -95,6 +128,57 @@ router.post("/access-adm", (req, res) => {
           }
         })
       : null;
+
+    if (noteStatus) {
+      const result = await upsertDriverPdfReceivedNoteStatus({
+        uploadPdfId: uploadId || null,
+        motoristaId: readString(data.motoristaId) || upload?.motoristaId || null,
+        periodId: readString(data.periodId) || upload?.periodoPagamentoId || null,
+        basePaymentId: readString(data.basePaymentId) || upload?.basePagamentoId || null,
+        fileName: readString(data.fileName) || upload?.nomeOriginal || upload?.nomeArquivo || null,
+        storageKey: readString(data.storageKey) || upload?.caminhoArquivo || null,
+        mimeType: readString(data.mimeType) || "application/pdf",
+        status: noteStatus,
+        receivedAt: parseWebhookDate(data.receivedAt),
+        approvedAt: parseWebhookDate(data.approvedAt),
+        rejectedAt: parseWebhookDate(data.rejectedAt),
+        observacoes: readString(data.observacoes || data.observation || data.notes) || null,
+        createdByUserId: readString(data.createdByUserId) || null
+      });
+
+      await prisma.logAuditoria.create({
+        data: {
+          usuarioId: null,
+          acao: "webhook_pdf_nota_fiscal_status",
+          entidade: "driver_pdf_received",
+          entidadeId: result?.id || upload?.id || null,
+          ipOrigem: req.ip,
+          userAgent: req.get("user-agent") || null,
+          detalhes: {
+            event,
+            status: noteStatus,
+            uploadId,
+            motoristaId: readString(data.motoristaId) || upload?.motoristaId || null,
+            periodId: readString(data.periodId) || upload?.periodoPagamentoId || null,
+            basePaymentId: readString(data.basePaymentId) || upload?.basePagamentoId || null
+          }
+        }
+      });
+
+      res.json({
+        message: "Status de nota fiscal registrado com sucesso.",
+        receivedId: result?.id || null
+      });
+      return;
+    }
+
+    if (!event.toLowerCase().includes("rejeit")) {
+      res.json({
+        message: "Evento recebido.",
+        ignored: true
+      });
+      return;
+    }
 
     const result = await markDriverPdfReceivedRejected({
       uploadPdfId: uploadId || null,

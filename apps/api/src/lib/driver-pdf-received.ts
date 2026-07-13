@@ -51,6 +51,22 @@ export type DriverPdfReceivedRejectionInput = {
   rejectedAt?: Date | null;
 };
 
+export type DriverPdfReceivedNoteStatusInput = {
+  uploadPdfId?: string | null;
+  motoristaId?: string | null;
+  periodId?: string | null;
+  basePaymentId?: string | null;
+  fileName?: string | null;
+  storageKey?: string | null;
+  mimeType?: string | null;
+  status: DriverPdfReceivedStatus;
+  receivedAt?: Date | null;
+  approvedAt?: Date | null;
+  rejectedAt?: Date | null;
+  observacoes?: string | null;
+  createdByUserId?: string | null;
+};
+
 function buildReceivedWhere(input: {
   uploadPdfId?: string | null;
   motoristaId?: string | null;
@@ -214,6 +230,78 @@ export async function markDriverPdfReceivedRejected(input: DriverPdfReceivedReje
       rejeitadoPorId: input.rejectedById ?? null,
       motivoRejeicao: input.motivoRejeicao ?? null
     }
+  });
+
+  await setDriverPdfDocumentType(created.id, DocumentTypeCode.nota_fiscal);
+  return created;
+}
+
+export async function upsertDriverPdfReceivedNoteStatus(input: DriverPdfReceivedNoteStatusInput) {
+  const now = input.receivedAt || input.approvedAt || input.rejectedAt || new Date();
+  const where = buildReceivedWhere({
+    uploadPdfId: input.uploadPdfId,
+    motoristaId: input.motoristaId,
+    periodId: input.periodId,
+    basePaymentId: input.basePaymentId,
+    noteOnly: true
+  });
+
+  const existing = where
+    ? await prisma.driverPdfReceived.findFirst({
+        where,
+        select: {
+          id: true,
+          uploadEm: true,
+          aprovadoEm: true,
+          rejeitadoEm: true,
+          visualizadoEm: true
+        }
+      })
+    : null;
+
+  if (!input.motoristaId || !input.periodId || !input.basePaymentId) {
+    return null;
+  }
+
+  const data = {
+    motoristaId: input.motoristaId,
+    periodoPagamentoId: input.periodId,
+    basePagamentoId: input.basePaymentId,
+    nomeArquivo: input.fileName ?? null,
+    caminhoArquivo: input.storageKey ?? null,
+    tipoArquivo: input.mimeType ?? "application/pdf",
+    uploadEm: existing?.uploadEm || now,
+    usuarioId: input.createdByUserId ?? null,
+    status: input.status,
+    observacoes: input.observacoes ?? null,
+    visualizadoEm: existing?.visualizadoEm ?? null,
+    enviadoAoMotoristaEm: null,
+    aprovadoEm:
+      input.status === DriverPdfReceivedStatus.nota_fiscal_aprovada ||
+      input.status === DriverPdfReceivedStatus.processo_concluido
+        ? input.approvedAt || now
+        : existing?.aprovadoEm ?? null,
+    aprovadoPorId: null,
+    rejeitadoEm: input.status === DriverPdfReceivedStatus.nota_fiscal_rejeitada ? input.rejectedAt || now : existing?.rejeitadoEm ?? null,
+    rejeitadoPorId: null,
+    motivoRejeicao: null,
+    uploadPdfId: input.uploadPdfId ?? null
+  } as const;
+
+  if (existing?.id) {
+    const updated = await prisma.driverPdfReceived.update({
+      where: {
+        id: existing.id
+      },
+      data
+    });
+
+    await setDriverPdfDocumentType(updated.id, DocumentTypeCode.nota_fiscal);
+    return updated;
+  }
+
+  const created = await prisma.driverPdfReceived.create({
+    data
   });
 
   await setDriverPdfDocumentType(created.id, DocumentTypeCode.nota_fiscal);
