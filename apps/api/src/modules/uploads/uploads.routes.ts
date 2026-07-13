@@ -304,8 +304,6 @@ async function reconcilePendingUploadsFromRegistry() {
 
 router.get("/", (_req, res) => {
   void (async () => {
-    await reconcilePendingUploadsFromRegistry();
-
     const uploads = await prisma.uploadPdf.findMany({
       where: {
         status: {
