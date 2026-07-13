@@ -33,6 +33,10 @@ async function ensureTable(sql: string) {
   await prisma.$executeRawUnsafe(sql);
 }
 
+async function ensureIndex(sql: string) {
+  await prisma.$executeRawUnsafe(sql);
+}
+
 export async function ensureFinanceiroCompatibilitySchema() {
   await ensureType("FinanceiroStatusPagamento", [
     "PAGO",
@@ -158,18 +162,16 @@ CREATE TABLE IF NOT EXISTS "${DB_SCHEMA}"."webhook_eventos" (
 );
 `);
 
-  await prisma.$executeRawUnsafe(`
-CREATE INDEX IF NOT EXISTS "importacoes_financeiras_usuario_id_idx" ON "${DB_SCHEMA}"."importacoes_financeiras" ("usuario_id");
-CREATE INDEX IF NOT EXISTS "importacoes_financeiras_periodo_pagamento_id_idx" ON "${DB_SCHEMA}"."importacoes_financeiras" ("periodo_pagamento_id");
-CREATE INDEX IF NOT EXISTS "importacoes_financeiras_base_pagamento_id_idx" ON "${DB_SCHEMA}"."importacoes_financeiras" ("base_pagamento_id");
-CREATE INDEX IF NOT EXISTS "importacoes_financeiras_itens_importacao_id_idx" ON "${DB_SCHEMA}"."importacoes_financeiras_itens" ("importacao_id");
-CREATE INDEX IF NOT EXISTS "importacoes_financeiras_itens_pagamento_id_idx" ON "${DB_SCHEMA}"."importacoes_financeiras_itens" ("pagamento_id");
-CREATE INDEX IF NOT EXISTS "importacoes_financeiras_itens_motorista_id_idx" ON "${DB_SCHEMA}"."importacoes_financeiras_itens" ("motorista_id");
-CREATE INDEX IF NOT EXISTS "historico_status_pagamento_pagamento_id_idx" ON "${DB_SCHEMA}"."historico_status_pagamento" ("pagamento_id");
-CREATE INDEX IF NOT EXISTS "historico_status_pagamento_importacao_id_idx" ON "${DB_SCHEMA}"."historico_status_pagamento" ("importacao_id");
-CREATE INDEX IF NOT EXISTS "historico_status_pagamento_usuario_id_idx" ON "${DB_SCHEMA}"."historico_status_pagamento" ("usuario_id");
-CREATE INDEX IF NOT EXISTS "webhook_eventos_importacao_id_idx" ON "${DB_SCHEMA}"."webhook_eventos" ("importacao_id");
-CREATE INDEX IF NOT EXISTS "webhook_eventos_pagamento_id_idx" ON "${DB_SCHEMA}"."webhook_eventos" ("pagamento_id");
-CREATE INDEX IF NOT EXISTS "webhook_eventos_status_idx" ON "${DB_SCHEMA}"."webhook_eventos" ("status");
-`);
+  await ensureIndex(`CREATE INDEX IF NOT EXISTS "importacoes_financeiras_usuario_id_idx" ON "${DB_SCHEMA}"."importacoes_financeiras" ("usuario_id");`);
+  await ensureIndex(`CREATE INDEX IF NOT EXISTS "importacoes_financeiras_periodo_pagamento_id_idx" ON "${DB_SCHEMA}"."importacoes_financeiras" ("periodo_pagamento_id");`);
+  await ensureIndex(`CREATE INDEX IF NOT EXISTS "importacoes_financeiras_base_pagamento_id_idx" ON "${DB_SCHEMA}"."importacoes_financeiras" ("base_pagamento_id");`);
+  await ensureIndex(`CREATE INDEX IF NOT EXISTS "importacoes_financeiras_itens_importacao_id_idx" ON "${DB_SCHEMA}"."importacoes_financeiras_itens" ("importacao_id");`);
+  await ensureIndex(`CREATE INDEX IF NOT EXISTS "importacoes_financeiras_itens_pagamento_id_idx" ON "${DB_SCHEMA}"."importacoes_financeiras_itens" ("pagamento_id");`);
+  await ensureIndex(`CREATE INDEX IF NOT EXISTS "importacoes_financeiras_itens_motorista_id_idx" ON "${DB_SCHEMA}"."importacoes_financeiras_itens" ("motorista_id");`);
+  await ensureIndex(`CREATE INDEX IF NOT EXISTS "historico_status_pagamento_pagamento_id_idx" ON "${DB_SCHEMA}"."historico_status_pagamento" ("pagamento_id");`);
+  await ensureIndex(`CREATE INDEX IF NOT EXISTS "historico_status_pagamento_importacao_id_idx" ON "${DB_SCHEMA}"."historico_status_pagamento" ("importacao_id");`);
+  await ensureIndex(`CREATE INDEX IF NOT EXISTS "historico_status_pagamento_usuario_id_idx" ON "${DB_SCHEMA}"."historico_status_pagamento" ("usuario_id");`);
+  await ensureIndex(`CREATE INDEX IF NOT EXISTS "webhook_eventos_importacao_id_idx" ON "${DB_SCHEMA}"."webhook_eventos" ("importacao_id");`);
+  await ensureIndex(`CREATE INDEX IF NOT EXISTS "webhook_eventos_pagamento_id_idx" ON "${DB_SCHEMA}"."webhook_eventos" ("pagamento_id");`);
+  await ensureIndex(`CREATE INDEX IF NOT EXISTS "webhook_eventos_status_idx" ON "${DB_SCHEMA}"."webhook_eventos" ("status");`);
 }
