@@ -43,13 +43,43 @@ async function parsePdfTextFromSource(source: PdfSource | null | undefined) {
 
   try {
     const pdfParseModule = await import("pdf-parse");
-    const pdfParse =
-      (pdfParseModule as unknown as { default?: (buffer: Buffer) => Promise<{ text: string }> }).default ??
-      (pdfParseModule as unknown as (buffer: Buffer) => Promise<{ text: string }>);
-    const parsed = await pdfParse(candidateBuffer);
+    const legacyParser = (pdfParseModule as unknown as { default?: unknown }).default;
+    const modernParser = (pdfParseModule as unknown as {
+      PDFParse?: new (params: { data: Buffer }) => {
+        getText: () => Promise<{ text: string }>;
+        destroy?: () => Promise<void>;
+      };
+    }).PDFParse;
+
+    const parsed =
+      typeof legacyParser === "function"
+        ? await (legacyParser as (buffer: Buffer) => Promise<{ text: string }>)(candidateBuffer)
+        : modernParser
+          ? await parseWithModernPdfParser(modernParser, candidateBuffer)
+          : null;
+
+    if (!parsed) {
+      return null;
+    }
+
     return String(parsed.text || "").replace(/\s+/g, " ");
   } catch {
     return null;
+  }
+}
+
+async function parseWithModernPdfParser(
+  PDFParse: new (params: { data: Buffer }) => {
+    getText: () => Promise<{ text: string }>;
+    destroy?: () => Promise<void>;
+  },
+  candidateBuffer: Buffer
+) {
+  const parser = new PDFParse({ data: candidateBuffer });
+  try {
+    return await parser.getText();
+  } finally {
+    await parser.destroy?.();
   }
 }
 
