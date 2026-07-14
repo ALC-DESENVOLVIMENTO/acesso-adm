@@ -21,7 +21,6 @@ import {
   fetchFinanceiroBases,
   fetchFinanceiroAptosPagamento,
   fetchFinanceiroImportacao,
-  fetchFinanceiroImportacoes,
   fetchFinanceiroHistorico,
   fetchFinanceiroNotaFiscalContent,
   fetchFinanceiroMotoristas,
@@ -35,7 +34,6 @@ import {
   type FinanceiroMotoristaRow,
   type FinanceiroImportPreviewRow,
   type FinanceiroImportacaoDetalhe,
-  type FinanceiroImportacaoSummary,
   type FinanceiroSummary,
   type LoginResponse,
   type PaymentBase,
@@ -200,7 +198,6 @@ export function FinanceiroScreen({
   const [summary, setSummary] = useState<FinanceiroSummary>(initialSummary);
   const [baseCards, setBaseCards] = useState<FinanceiroBaseCard[]>([]);
   const [motoristas, setMotoristas] = useState<FinanceiroMotoristaRow[]>([]);
-  const [importacoes, setImportacoes] = useState<FinanceiroImportacaoSummary[]>([]);
   const [currentImportacao, setCurrentImportacao] = useState<FinanceiroImportacaoDetalhe | null>(null);
   const [previewRows, setPreviewRows] = useState<FinanceiroImportPreviewRow[]>([]);
   const [apagarPreview, setApagarPreview] = useState<FinanceiroAptosPagamentoPreview | null>(null);
@@ -267,11 +264,6 @@ export function FinanceiroScreen({
   const loadSummary = async () => {
     const data = await fetchFinanceiroSummary(token);
     setSummary(data);
-  };
-
-  const loadImportacoes = async () => {
-    const data = await fetchFinanceiroImportacoes(token);
-    setImportacoes(data);
   };
 
   const loadBaseCards = async (periodId: string) => {
@@ -383,7 +375,6 @@ export function FinanceiroScreen({
       try {
         setErrorMessage("");
         await loadSummary();
-        await loadImportacoes();
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "Falha ao carregar resumo.");
       }
@@ -393,7 +384,6 @@ export function FinanceiroScreen({
       void (async () => {
         try {
           await loadSummary();
-          await loadImportacoes();
         } catch {
           return;
         }
@@ -579,7 +569,6 @@ export function FinanceiroScreen({
         `${preview.importacao.totalValidas} linhas validas e ${preview.importacao.totalErros} linhas com alerta.`
       );
       setImportacaoConfirmada(false);
-      await loadImportacoes();
       await loadImportacaoDetalhe(preview.importacao.id);
     } catch (error) {
       setImportError(error instanceof Error ? error.message : "Falha ao pre-visualizar a importacao.");
@@ -604,7 +593,6 @@ export function FinanceiroScreen({
       );
       await loadImportacaoDetalhe(currentImportacao.id);
       await loadSummary();
-      await loadImportacoes();
     } catch (error) {
       setImportError(error instanceof Error ? error.message : "Falha ao confirmar importacao.");
     } finally {
@@ -772,7 +760,7 @@ export function FinanceiroScreen({
             type="button"
             onClick={() => setFinanceTab("exportacao")}
           >
-            Exportacao de notas fiscais
+            Notas Fiscais
           </button>
           {canAccessAptos ? (
             <button
@@ -788,7 +776,7 @@ export function FinanceiroScreen({
             type="button"
             onClick={() => setFinanceTab("importacao")}
           >
-            Importacao da planilha
+            Atualizar Pagamentos
           </button>
         </div>
         <span className="finance-tab-hint">
@@ -796,7 +784,7 @@ export function FinanceiroScreen({
             ? "Selecione um periodo e exporte apenas as notas fiscais vinculadas."
             : financeTab === "apagar"
               ? "Consulte somente os motoristas aptos a receber pagamento e exporte o Excel."
-              : "Importe a planilha da coluna Resumido e confirme a atualização dos status."}
+              : "Atualize os pagamentos pela planilha da coluna Resumido e confirme os status."}
         </span>
       </section>
 
@@ -1250,7 +1238,7 @@ export function FinanceiroScreen({
           <article className="panel finance-panel">
             <div className="panel__header">
               <div>
-                <h3>Importacao da planilha financeira</h3>
+                <h3>Atualizar Pagamentos</h3>
                 <p>Envie somente a aba Resumido, confira o status da coluna M e confirme o status calculado.</p>
               </div>
             </div>
@@ -1301,16 +1289,6 @@ export function FinanceiroScreen({
             {importBusy ? <p className="loading-note">{importBusy}</p> : null}
             {importError ? <p className="finance-alert finance-alert--error">{importError}</p> : null}
             {importMessage ? <p className="finance-alert finance-alert--success">{importMessage}</p> : null}
-
-            <div className="finance-import-summary">
-              {importacoes.slice(0, 3).map((item) => (
-                <button key={item.id} type="button" className="finance-import-card" onClick={() => void loadImportacaoDetalhe(item.id)}>
-                  <strong>{item.nomeArquivo}</strong>
-                  <span>{item.periodo || "Sem periodo"}</span>
-                  <small>{item.status}</small>
-                </button>
-              ))}
-            </div>
 
             <div className="table-wrap finance-table">
               <table className="data-table">

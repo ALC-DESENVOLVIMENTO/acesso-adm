@@ -3221,6 +3221,31 @@ body.theme-dark .modal-card{
   color: var(--text) !important;
 }
 
+body.theme-dark .period-launch-card,
+body.theme-dark .base-management-row,
+body.theme-dark .crm-search-empty,
+body.theme-dark .crm-empty,
+body.theme-dark .crm-empty-screen,
+body.theme-dark .crm-detail-tabs,
+body.theme-dark .crm-payment-card,
+body.theme-dark .crm-list__item,
+body.theme-dark .crm-ticket,
+body.theme-dark .duplicate-review-card,
+body.theme-dark .loading-note,
+body.theme-dark .finance-import-card,
+body.theme-dark .shell-mobile-toggle{
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.018)),
+    rgba(18, 22, 29, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+}
+
+body.theme-dark .base-management-list::-webkit-scrollbar-track{
+  background: rgba(255, 255, 255, 0.07) !important;
+}
+
 body.theme-dark .screen__intro h1,
 body.theme-dark .panel__header h3,
 body.theme-dark .panel__header h2,
@@ -3276,6 +3301,42 @@ body.theme-dark .quick-actions-editor__text small,
 body.theme-dark .modal-card__header p,
 body.theme-dark .crm-driver__grid div span{
   color: var(--muted);
+}
+
+body.theme-dark .period-launch-card strong,
+body.theme-dark .base-management-cell--strong strong,
+body.theme-dark .crm-search-empty strong,
+body.theme-dark .crm-empty strong,
+body.theme-dark .crm-empty-screen h3,
+body.theme-dark .crm-empty-screen strong,
+body.theme-dark .finance-import-card strong,
+body.theme-dark .crm-payment-card__header strong,
+body.theme-dark .crm-payment-card__grid strong,
+body.theme-dark .crm-list__item strong,
+body.theme-dark .crm-ticket strong,
+body.theme-dark .duplicate-review-card strong{
+  color: #ffffff !important;
+}
+
+body.theme-dark .period-launch-card p,
+body.theme-dark .base-management-cell--strong small,
+body.theme-dark .crm-search-empty p,
+body.theme-dark .crm-empty p,
+body.theme-dark .crm-empty-screen p,
+body.theme-dark .finance-import-card span,
+body.theme-dark .finance-import-card small,
+body.theme-dark .finance-import-card p,
+body.theme-dark .crm-payment-card__header span,
+body.theme-dark .crm-payment-card__grid span,
+body.theme-dark .crm-list__item span,
+body.theme-dark .crm-list__item small,
+body.theme-dark .crm-ticket span,
+body.theme-dark .crm-ticket small,
+body.theme-dark .crm-ticket p,
+body.theme-dark .duplicate-review-card span,
+body.theme-dark .duplicate-review-card small,
+body.theme-dark .duplicate-review-card p{
+  color: var(--muted) !important;
 }
 
 body.theme-dark .eyebrow,
@@ -3343,6 +3404,28 @@ body.theme-dark .empty-state{
   box-shadow: none !important;
 }
 
+body.theme-dark .search-field input,
+body.theme-dark .filter-select select,
+body.theme-dark .admin-form input,
+body.theme-dark .admin-form select,
+body.theme-dark .admin-form textarea,
+body.theme-dark .crm-textarea{
+  background: transparent !important;
+  color: var(--text) !important;
+}
+
+body.theme-dark .search-field svg,
+body.theme-dark .filter-select svg,
+body.theme-dark .field svg{
+  color: #dfe5ef !important;
+}
+
+body.theme-dark .filter-select::before,
+body.theme-dark .search-field::before,
+body.theme-dark .field__control::before{
+  display: none !important;
+}
+
 body.theme-dark .ghost-button:hover,
 body.theme-dark .period-tab:hover,
 body.theme-dark .crm-detail-tab:hover,
@@ -3363,7 +3446,13 @@ body.theme-dark .checkbox-chip--active{
   background: linear-gradient(135deg, rgba(235, 0, 0, 0.9), rgba(123, 0, 0, 0.78)) !important;
   border-color: rgba(235, 0, 0, 0.78) !important;
   color: #ffffff !important;
-  box-shadow: 0 12px 28px rgba(235, 0, 0, 0.22) !important;
+  box-shadow: none !important;
+}
+
+body.theme-dark .primary-button,
+body.theme-dark .primary-button--inline,
+body.theme-dark .file-picker{
+  box-shadow: none !important;
 }
 
 body.theme-dark .period-tabs{
