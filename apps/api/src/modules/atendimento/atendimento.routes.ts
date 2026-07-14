@@ -2,6 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import { requireAdmin, requireAuth, requireModuleAccess } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
+import { extractTotalGeralValueFromSource } from "../../lib/financeiro-total-backfill.js";
 import { buildStorageObjectUrl, createStorageKey, fetchObjectBuffer, uploadObject } from "../../lib/storage.js";
 
 const router = Router();
@@ -866,21 +867,22 @@ async function loadMotoristaDetail(motoristaId: string) {
     where: {
       motoristaId: motorista.id
     },
-    select: {
-      id: true,
-      uploadPdfId: true,
-      motoristaId: true,
+      select: {
+        id: true,
+        uploadPdfId: true,
+        motoristaId: true,
       periodoPagamentoId: true,
       basePagamentoId: true,
       status: true,
       uploadEm: true,
       enviadoAoMotoristaEm: true,
       visualizadoEm: true,
-      aprovadoEm: true,
-      rejeitadoEm: true,
-      caminhoArquivo: true,
-      nomeArquivo: true
-    },
+        aprovadoEm: true,
+        rejeitadoEm: true,
+        caminhoArquivo: true,
+        content: true,
+        nomeArquivo: true
+      },
     orderBy: {
       uploadEm: "desc"
     }
@@ -945,7 +947,10 @@ async function loadMotoristaDetail(motoristaId: string) {
                 ? "pdf_enviado_ao_motorista"
                 : "pdf_aguardando_envio";
       const paid = currentStatus === "pago";
-      const valorPagamento = await extractTotalGeralValue(mirrorReceipt?.caminhoArquivo || upload.caminhoArquivo).catch(() => null);
+      const valorPagamento = await extractTotalGeralValueFromSource({
+        caminhoArquivo: mirrorReceipt?.caminhoArquivo || upload.caminhoArquivo,
+        content: mirrorReceipt?.content || null
+      });
 
       return {
         id: noteReceipt?.id || mirrorReceipt?.id || upload.id,

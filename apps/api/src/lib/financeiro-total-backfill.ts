@@ -1,8 +1,8 @@
-import { Prisma } from "@prisma/client";
+import { DocumentTypeCode, Prisma } from "@prisma/client";
 import { prisma } from "./prisma.js";
 import { fetchObjectBuffer } from "./storage.js";
 
-function parseMoneyNumber(value: string | number | null | undefined) {
+export function parseMoneyNumber(value: string | number | null | undefined) {
   if (value === null || value === undefined || value === "") {
     return null;
   }
@@ -20,13 +20,24 @@ function parseMoneyNumber(value: string | number | null | undefined) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-async function extractTotalGeralValue(storageKey: string | null | undefined) {
-  if (!storageKey) {
+type PdfSource = {
+  caminhoArquivo?: string | null;
+  content?: Buffer | Uint8Array | null;
+};
+
+async function parsePdfTextFromSource(source: PdfSource | null | undefined) {
+  if (!source) {
     return null;
   }
 
-  const remoteObject = await fetchObjectBuffer(storageKey).catch(() => null);
-  if (!remoteObject?.body) {
+  const candidateBuffer =
+    source.content && source.content.length > 0
+      ? Buffer.from(source.content)
+      : source.caminhoArquivo
+        ? (await fetchObjectBuffer(source.caminhoArquivo).catch(() => null))?.body || null
+        : null;
+
+  if (!candidateBuffer) {
     return null;
   }
 
@@ -35,17 +46,48 @@ async function extractTotalGeralValue(storageKey: string | null | undefined) {
     const pdfParse =
       (pdfParseModule as unknown as { default?: (buffer: Buffer) => Promise<{ text: string }> }).default ??
       (pdfParseModule as unknown as (buffer: Buffer) => Promise<{ text: string }>);
-    const parsed = await pdfParse(Buffer.from(remoteObject.body));
-    const text = String(parsed.text || "").replace(/\s+/g, " ");
-    const match =
-      /Total Geral\s*[:\-]?\s*R?\$?\s*([\d.]+,\d{2})/i.exec(text) ||
-      /Total\s*Geral\s*[:\-]?\s*R?\$?\s*([\d.]+,\d{2})/i.exec(text) ||
-      /Total Geral\s*[:\-]?\s*([\d.]+,\d{2})/i.exec(text);
-
-    return match?.[1] ? parseMoneyNumber(match[1]) : null;
+    const parsed = await pdfParse(candidateBuffer);
+    return String(parsed.text || "").replace(/\s+/g, " ");
   } catch {
     return null;
   }
+}
+
+export async function extractTotalGeralValueFromSource(source: PdfSource | null | undefined) {
+  const text = await parsePdfTextFromSource(source);
+  if (!text) {
+    return null;
+  }
+
+  const normalizedText = text.replace(/\u00a0/g, " ").replace(/\s+/g, " ");
+  const patterns = [
+    /Total\s*Geral\s*[:\-]?\s*(?:R?\$?\s*)?((?:\d{1,3}(?:\.\d{3})*|\d+),\d{2})/i,
+    /Total\s*Geral\s*[:\-]?\s*((?:\d{1,3}(?:\.\d{3})*|\d+),\d{2})/i,
+    /Total\s*(?:Liquido|Líquido|Final)\s*[:\-]?\s*(?:R?\$?\s*)?((?:\d{1,3}(?:\.\d{3})*|\d+),\d{2})/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = pattern.exec(normalizedText);
+    if (match?.[1]) {
+      return parseMoneyNumber(match[1]);
+    }
+  }
+
+  const markerIndex = normalizedText.toLowerCase().lastIndexOf("total geral");
+  if (markerIndex >= 0) {
+    const excerpt = normalizedText.slice(markerIndex, markerIndex + 240);
+    const excerptMatch = /((?:\d{1,3}(?:\.\d{3})*|\d+),\d{2})/.exec(excerpt);
+    if (excerptMatch?.[1]) {
+      return parseMoneyNumber(excerptMatch[1]);
+    }
+  }
+
+  const allAmounts = Array.from(normalizedText.matchAll(/((?:\d{1,3}(?:\.\d{3})*|\d+),\d{2})/g));
+  if (allAmounts.length > 0) {
+    return parseMoneyNumber(allAmounts.at(-1)?.[1] || null);
+  }
+
+  return null;
 }
 
 export async function backfillPaymentTotalsFromMirrorPdfs() {
@@ -54,22 +96,30 @@ export async function backfillPaymentTotalsFromMirrorPdfs() {
       status: {
         not: "removido"
       },
-      valorTotalPdf: null,
-      caminhoArquivo: {
-        startsWith: "uploads/"
-      }
+      valorTotalPdf: null
     },
     select: {
       id: true,
       caminhoArquivo: true,
-      valorTotalPdf: true
+      valorTotalPdf: true,
+      content: true,
+      motoristaId: true,
+      periodoPagamentoId: true,
+      basePagamentoId: true
     }
   });
 
   let updated = 0;
 
   for (const upload of uploads) {
-    const total = await extractTotalGeralValue(upload.caminhoArquivo);
+    const total =
+      (await extractTotalGeralValueFromSource({
+        caminhoArquivo: upload.caminhoArquivo,
+        content: upload.content
+      })) ??
+      (await extractTotalGeralValueFromSource(
+        await resolveAdditionalMirrorSource(upload.id, upload.motoristaId, upload.periodoPagamentoId, upload.basePagamentoId)
+      ));
 
     if (total === null) {
       continue;
@@ -85,4 +135,40 @@ export async function backfillPaymentTotalsFromMirrorPdfs() {
   }
 
   return updated;
+}
+
+async function resolveAdditionalMirrorSource(
+  uploadId: string,
+  motoristaId: string | null,
+  periodoPagamentoId: string | null,
+  basePagamentoId: string | null
+): Promise<PdfSource | null> {
+  const receipt = await prisma.driverPdfReceived.findFirst({
+    where: {
+      OR: [
+        {
+          uploadPdfId: uploadId
+        },
+        ...(motoristaId && periodoPagamentoId && basePagamentoId
+          ? [
+              {
+                motoristaId,
+                periodoPagamentoId,
+                basePagamentoId,
+                documentType: DocumentTypeCode.espelho
+              }
+            ]
+          : [])
+      ]
+    },
+    orderBy: {
+      uploadEm: "desc"
+    },
+    select: {
+      caminhoArquivo: true,
+      content: true
+    }
+  });
+
+  return receipt || null;
 }

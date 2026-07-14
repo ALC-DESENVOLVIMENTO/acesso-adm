@@ -140,21 +140,32 @@ export function normalizeStorageKey(value: string | null | undefined) {
     return null;
   }
 
-  const trimmed = value.trim().replace(/^\/+/, "");
+  const trimmed = value.trim();
 
   if (!trimmed) {
     return null;
   }
 
-  if (trimmed.startsWith("storage/")) {
-    return trimmed.slice("storage/".length);
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed);
+      return normalizeStorageKey(parsed.pathname);
+    } catch {
+      return null;
+    }
   }
 
-  if (trimmed.startsWith("api/storage/")) {
-    return trimmed.slice("api/storage/".length);
+  const normalizedPath = trimmed.replace(/^\/+/, "");
+
+  if (normalizedPath.startsWith("storage/")) {
+    return normalizedPath.slice("storage/".length);
   }
 
-  return trimmed;
+  if (normalizedPath.startsWith("api/storage/")) {
+    return normalizedPath.slice("api/storage/".length);
+  }
+
+  return normalizedPath;
 }
 
 export function isPaymentMirrorStorageKey(value: string | null | undefined) {

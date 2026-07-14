@@ -12,17 +12,12 @@ export async function loadDriverPdfReceivedContent(
       documentType: true,
       status: true,
       caminhoArquivo: true,
+      content: true,
       uploadPdfId: true
     }
   });
 
   if (!received) {
-    return null;
-  }
-
-  const sourceKey = normalizeStorageKey(received.caminhoArquivo || null);
-
-  if (!sourceKey) {
     return null;
   }
 
@@ -38,6 +33,16 @@ export async function loadDriverPdfReceivedContent(
   );
 
   if (received.documentType !== "nota_fiscal" && !isNoteStatus) {
+    return null;
+  }
+
+  if (received.content && received.content.length > 0) {
+    return Buffer.from(received.content);
+  }
+
+  const sourceKey = normalizeStorageKey(received.caminhoArquivo || null);
+
+  if (!sourceKey) {
     return null;
   }
 

@@ -12,7 +12,7 @@ import {
   searchDriverRegistryMatchesByCpfDigits,
   type DriverRegistryMatch
 } from "./driver-registry.js";
-import { fetchObjectBuffer } from "./storage.js";
+import { extractTotalGeralValueFromSource } from "./financeiro-total-backfill.js";
 
 const APPROVED_NOTE_STATUSES: Set<DriverPdfReceivedStatus> = new Set([
   DriverPdfReceivedStatus.nota_fiscal_aprovada,
@@ -27,6 +27,7 @@ type AptoPagamentoUpload = Prisma.UploadPdfGetPayload<{
     basePagamentoId: true;
     substituiUploadId: true;
     caminhoArquivo: true;
+    content: true;
     criadoEm: true;
     status: true;
     statusPagamento: true;
@@ -69,6 +70,7 @@ type AptoPagamentoReceipt = Prisma.DriverPdfReceivedGetPayload<{
     aprovadoEm: true;
     rejeitadoEm: true;
     caminhoArquivo: true;
+    content: true;
     nomeArquivo: true;
     motorista: {
       select: {
@@ -162,24 +164,6 @@ function formatMoney(value: number) {
   }).format(value);
 }
 
-function parseMoneyNumber(value: string | number | null | undefined) {
-  if (value === null || value === undefined || value === "") {
-    return null;
-  }
-
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : null;
-  }
-
-  const normalized = String(value)
-    .replace(/[^\d,.-]/g, "")
-    .replace(/\./g, "")
-    .replace(",", ".");
-
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
 function coerceDecimalValue(value: unknown) {
   if (value === null || value === undefined) {
     return null;
@@ -196,33 +180,6 @@ function coerceDecimalValue(value: unknown) {
 
   const parsed = Number(String(value));
   return Number.isFinite(parsed) ? parsed : null;
-}
-
-async function extractPaymentTotalValue(storageKey: string | null | undefined) {
-  if (!storageKey) {
-    return null;
-  }
-
-  const remoteObject = await fetchObjectBuffer(storageKey).catch(() => null);
-  if (!remoteObject?.body) {
-    return null;
-  }
-
-  try {
-    const pdfParseModule = await import("pdf-parse");
-    const pdfParse =
-      (pdfParseModule as unknown as { default?: (buffer: Buffer) => Promise<{ text: string }> }).default ??
-      (pdfParseModule as unknown as (buffer: Buffer) => Promise<{ text: string }>);
-    const parsed = await pdfParse(Buffer.from(remoteObject.body));
-    const text = String(parsed.text || "").replace(/\s+/g, " ");
-    const match =
-      /Total Geral\s*[:\-]?\s*R?\$?\s*([\d.]+,\d{2})/i.exec(text) ||
-      /Total\s*[:\-]?\s*R?\$?\s*([\d.]+,\d{2})/i.exec(text);
-
-    return match?.[1] ? parseMoneyNumber(match[1]) : null;
-  } catch {
-    return null;
-  }
 }
 
 function sanitizeFileSegment(value: string) {
@@ -510,7 +467,10 @@ async function buildAptosPreviewRows(rows: CandidateRow[]) {
 
     const valorTotalPdf =
       coerceDecimalValue(upload.valorTotalPdf) ??
-      (await extractPaymentTotalValue(mirrorReceipt?.caminhoArquivo || upload.caminhoArquivo));
+      (await extractTotalGeralValueFromSource({
+        caminhoArquivo: mirrorReceipt?.caminhoArquivo || upload.caminhoArquivo,
+        content: mirrorReceipt?.content || upload.content || null
+      }));
 
     if (missing.length > 0) {
       inconsistencias.push({
@@ -562,6 +522,7 @@ async function buildCandidateRows(periodId: string, baseId?: string | null) {
           basePagamentoId: true,
           substituiUploadId: true,
           caminhoArquivo: true,
+          content: true,
           criadoEm: true,
           status: true,
           statusPagamento: true,
@@ -685,10 +646,11 @@ async function buildCandidateRows(periodId: string, baseId?: string | null) {
       uploadEm: true,
       enviadoAoMotoristaEm: true,
       visualizadoEm: true,
-      aprovadoEm: true,
-      rejeitadoEm: true,
-      caminhoArquivo: true,
-      nomeArquivo: true,
+        aprovadoEm: true,
+        rejeitadoEm: true,
+        caminhoArquivo: true,
+        content: true,
+        nomeArquivo: true,
       motorista: {
         select: {
           nome: true,
