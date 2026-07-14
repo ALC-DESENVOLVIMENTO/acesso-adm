@@ -403,7 +403,7 @@ async function fetchDriverRegistryById(id: string) {
   const tableRef = `${quoteDriverRegistryIdentifier(metadata.schema)}.${quoteDriverRegistryIdentifier(
     DRIVER_REGISTRY_TABLE
   )}`;
-  const sql = `SELECT * FROM ${tableRef} WHERE ${quoteDriverRegistryIdentifier(idColumn)} = $1 LIMIT 1`;
+  const sql = `SELECT * FROM ${tableRef} WHERE ${quoteDriverRegistryIdentifier(idColumn)}::text = $1 LIMIT 1`;
   const rows = await prisma.$queryRawUnsafe<DriverRegistryRawRow[]>(sql, id);
 
   return rows[0] || null;
