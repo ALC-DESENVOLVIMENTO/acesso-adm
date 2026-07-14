@@ -461,7 +461,9 @@ async function buildAptosPreviewRows(rows: CandidateRow[]) {
       )
     );
     const baseMotorista = upload.basePagamento?.nome?.trim() || registryMatch?.base?.trim() || "";
-    const valorTotalPdf = await extractPaymentTotalValue(mirrorReceipt?.caminhoArquivo || upload.caminhoArquivo);
+    const valorTotalPdf = await extractPaymentTotalValue(
+      noteReceipt?.caminhoArquivo || mirrorReceipt?.caminhoArquivo || upload.caminhoArquivo
+    );
 
     const missing: Array<{ field: string; reason: string }> = [];
 
