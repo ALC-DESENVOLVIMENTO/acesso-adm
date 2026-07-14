@@ -1,4 +1,4 @@
-import { DocumentTypeCode, Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma.js";
 import { fetchObjectBuffer } from "./storage.js";
 
@@ -155,7 +155,9 @@ async function resolveAdditionalMirrorSource(
                 motoristaId,
                 periodoPagamentoId,
                 basePagamentoId,
-                documentType: DocumentTypeCode.espelho
+                caminhoArquivo: {
+                  startsWith: "uploads/"
+                }
               }
             ]
           : [])
