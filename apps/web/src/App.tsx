@@ -2363,13 +2363,13 @@ function DashboardScreen({
               <svg viewBox="0 0 520 280" className="chart__svg" role="img" aria-label="Grafico resumido">
                 <defs>
                   <linearGradient id="chartFill" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="rgba(255, 95, 83, 0.35)" />
-                    <stop offset="100%" stopColor="rgba(255, 95, 83, 0.02)" />
+                    <stop offset="0%" stopColor="rgba(235, 0, 0, 0.35)" />
+                    <stop offset="100%" stopColor="rgba(235, 0, 0, 0.02)" />
                   </linearGradient>
                 </defs>
                 <polyline
                   fill="none"
-                  stroke="#ff5f53"
+                  stroke="#eb0000"
                   strokeWidth="4"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -2379,13 +2379,13 @@ function DashboardScreen({
                   fill="url(#chartFill)"
                   points="18,240 18,210 96,174 174,156 252,128 330,100 408,138 486,84 486,240"
                 />
-                <circle cx="18" cy="210" r="5" fill="#ff5f53" />
-                <circle cx="96" cy="174" r="5" fill="#ff5f53" />
-                <circle cx="174" cy="156" r="5" fill="#ff5f53" />
-                <circle cx="252" cy="128" r="5" fill="#ff5f53" />
-                <circle cx="330" cy="100" r="5" fill="#ff5f53" />
-                <circle cx="408" cy="138" r="5" fill="#ff5f53" />
-                <circle cx="486" cy="84" r="5" fill="#ff5f53" />
+                <circle cx="18" cy="210" r="5" fill="#eb0000" />
+                <circle cx="96" cy="174" r="5" fill="#eb0000" />
+                <circle cx="174" cy="156" r="5" fill="#eb0000" />
+                <circle cx="252" cy="128" r="5" fill="#eb0000" />
+                <circle cx="330" cy="100" r="5" fill="#eb0000" />
+                <circle cx="408" cy="138" r="5" fill="#eb0000" />
+                <circle cx="486" cy="84" r="5" fill="#eb0000" />
               </svg>
 
               <div className="chart__days">
