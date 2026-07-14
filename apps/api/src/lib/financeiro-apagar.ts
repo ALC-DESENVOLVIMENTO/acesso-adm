@@ -533,38 +533,6 @@ async function buildCandidateRows(periodId: string, baseId?: string | null) {
             }
           }
         }
-      },
-      pdfsRecebidos: {
-        where: {
-          ...(baseId ? { basePagamentoId: baseId } : {})
-        },
-        select: {
-          id: true,
-          uploadPdfId: true,
-          motoristaId: true,
-          periodoPagamentoId: true,
-          basePagamentoId: true,
-          status: true,
-          documentType: true,
-          uploadEm: true,
-          enviadoAoMotoristaEm: true,
-          visualizadoEm: true,
-          aprovadoEm: true,
-          rejeitadoEm: true,
-          caminhoArquivo: true,
-          nomeArquivo: true,
-          motorista: {
-            select: {
-              nome: true,
-              cpf: true
-            }
-          },
-          basePagamento: {
-            select: {
-              nome: true
-            }
-          }
-        }
       }
     }
   });
@@ -611,7 +579,55 @@ async function buildCandidateRows(periodId: string, baseId?: string | null) {
     registryByCpf.set(key, current);
   }
 
-  const receivedRows = period.pdfsRecebidos.filter((receipt) => (baseId ? receipt.basePagamentoId === baseId : true));
+  const uploadIdsInPeriod = period.uploads.map((upload) => upload.id);
+  const receivedRows = await prisma.driverPdfReceived.findMany({
+    where: {
+      OR: [
+        {
+          uploadPdfId: {
+            in: uploadIdsInPeriod
+          }
+        },
+        {
+          periodoPagamentoId: period.id
+        },
+        ...(baseId
+          ? [
+              {
+                basePagamentoId: baseId
+              }
+            ]
+          : [])
+      ]
+    },
+    select: {
+      id: true,
+      uploadPdfId: true,
+      motoristaId: true,
+      periodoPagamentoId: true,
+      basePagamentoId: true,
+      status: true,
+      documentType: true,
+      uploadEm: true,
+      enviadoAoMotoristaEm: true,
+      visualizadoEm: true,
+      aprovadoEm: true,
+      rejeitadoEm: true,
+      caminhoArquivo: true,
+      nomeArquivo: true,
+      motorista: {
+        select: {
+          nome: true,
+          cpf: true
+        }
+      },
+      basePagamento: {
+        select: {
+          nome: true
+        }
+      }
+    }
+  });
 
   const evaluations: CandidateRow[] = [];
 
