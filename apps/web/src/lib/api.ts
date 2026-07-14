@@ -23,6 +23,7 @@ export type LoginResponse = {
     blocked: boolean;
     firstAccess: boolean;
     modules: string[];
+    permissions: string[];
   };
 };
 
@@ -64,6 +65,7 @@ export type UserSummary = {
   firstAccess: boolean;
   lastLoginAt: string | null;
   modules: string[];
+  permissions?: string[];
 };
 
 type JsonBody = Record<string, unknown>;
@@ -282,6 +284,47 @@ export type FinanceiroHistoricoItem = {
   cpf: string | null;
   periodo: string | null;
   base: string | null;
+};
+
+export type FinanceiroAptosPagamentoRow = {
+  processoId: string;
+  motoristaId: string;
+  nomeMotorista: string;
+  nomeFavorecido: string;
+  cpfFavorecido: string;
+  valorTotalPdf: number;
+  valorTotalPdfFormatado: string;
+  baseMotorista: string;
+  statusProcesso: string;
+  statusNotaFiscal: string;
+  statusPagamento: string;
+};
+
+export type FinanceiroAptosPagamentoExcluido = {
+  processoId: string;
+  motoristaId: string | null;
+  nomeMotorista: string;
+  motivo: string;
+};
+
+export type FinanceiroAptosPagamentoInconsistencia = {
+  processoId: string;
+  motoristaId: string;
+  nomeMotorista: string;
+  periodo: string;
+  motivo: string;
+  campo: string;
+};
+
+export type FinanceiroAptosPagamentoPreview = {
+  periodo_id: string;
+  total_processos: number;
+  total_aptos: number;
+  total_inaptos: number;
+  total_inconsistencias: number;
+  aptos: FinanceiroAptosPagamentoRow[];
+  excluidos: FinanceiroAptosPagamentoExcluido[];
+  inconsistencias: FinanceiroAptosPagamentoInconsistencia[];
 };
 
 export type AtendimentoClassificacao = {
@@ -833,6 +876,42 @@ export function exportFinanceiroNotasFiscais(token: string, periodId: string, ba
   const suffix = params.toString() ? `?${params.toString()}` : "";
 
   return requestBlob(`/financeiro/periods/${periodId}/export${suffix}`, token);
+}
+
+export function fetchFinanceiroAptosPagamento(
+  token: string,
+  periodId: string,
+  baseId?: string | null
+) {
+  const params = new URLSearchParams();
+
+  if (baseId && baseId !== "all") {
+    params.set("baseId", baseId);
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+
+  return request<FinanceiroAptosPagamentoPreview>(`/financeiro/periods/${periodId}/aptos-pagamento${suffix}`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function exportFinanceiroAptosPagamento(
+  token: string,
+  periodId: string,
+  baseId?: string | null
+) {
+  const params = new URLSearchParams();
+
+  if (baseId && baseId !== "all") {
+    params.set("baseId", baseId);
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+
+  return requestBlob(`/financeiro/periods/${periodId}/aptos-pagamento/exportar${suffix}`, token);
 }
 
 export function createPaymentPeriod(token: string, body: CreatePaymentPeriodPayload) {

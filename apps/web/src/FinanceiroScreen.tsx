@@ -17,7 +17,9 @@ import {
   createPaymentPeriod,
   deletePaymentPeriod,
   confirmFinanceiroImport,
+  exportFinanceiroAptosPagamento,
   fetchFinanceiroBases,
+  fetchFinanceiroAptosPagamento,
   fetchFinanceiroImportacao,
   fetchFinanceiroImportacoes,
   fetchFinanceiroHistorico,
@@ -28,6 +30,7 @@ import {
   previewFinanceiroImport,
   reprocessFinanceiroWebhook,
   type FinanceiroBaseCard,
+  type FinanceiroAptosPagamentoPreview,
   type FinanceiroHistoricoItem,
   type FinanceiroMotoristaRow,
   type FinanceiroImportPreviewRow,
@@ -60,7 +63,7 @@ type PeriodFormState = {
   paymentType: PaymentFrequency;
 };
 
-type FinanceTab = "exportacao" | "importacao";
+type FinanceTab = "exportacao" | "apagar" | "importacao";
 type PreviewFilter = "todos" | "validos" | "erros";
 
 const initialSummary: FinanceiroSummary = {
@@ -186,6 +189,13 @@ export function FinanceiroScreen({
   const canAccess =
     Boolean(currentUser) &&
     (currentUser?.modules.includes("financeiro") || currentUser?.level === "N3" || currentUser?.level === "N4");
+  const canAccessAptos =
+    Boolean(currentUser) &&
+    (currentUser?.permissions?.includes("financeiro.apagar.view") ||
+      currentUser?.permissions?.includes("financeiro.apagar.consultar") ||
+      currentUser?.permissions?.includes("financeiro.apagar.export") ||
+      currentUser?.level === "N3" ||
+      currentUser?.level === "N4");
 
   const [summary, setSummary] = useState<FinanceiroSummary>(initialSummary);
   const [baseCards, setBaseCards] = useState<FinanceiroBaseCard[]>([]);
@@ -193,6 +203,7 @@ export function FinanceiroScreen({
   const [importacoes, setImportacoes] = useState<FinanceiroImportacaoSummary[]>([]);
   const [currentImportacao, setCurrentImportacao] = useState<FinanceiroImportacaoDetalhe | null>(null);
   const [previewRows, setPreviewRows] = useState<FinanceiroImportPreviewRow[]>([]);
+  const [apagarPreview, setApagarPreview] = useState<FinanceiroAptosPagamentoPreview | null>(null);
   const [selectedImportFile, setSelectedImportFile] = useState<File | null>(null);
   const [selectedPeriodId, setSelectedPeriodId] = useState("");
   const [selectedBaseId, setSelectedBaseId] = useState("all");
@@ -209,6 +220,8 @@ export function FinanceiroScreen({
   const [importError, setImportError] = useState("");
   const [importBusy, setImportBusy] = useState("");
   const [importacaoConfirmada, setImportacaoConfirmada] = useState(false);
+  const [apagarBusy, setApagarBusy] = useState("");
+  const [apagarError, setApagarError] = useState("");
   const [periodModalOpen, setPeriodModalOpen] = useState(false);
   const [editingPeriod, setEditingPeriod] = useState<PaymentPeriod | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PaymentPeriod | null>(null);
@@ -336,6 +349,11 @@ export function FinanceiroScreen({
       setSelectedBaseId("all");
     }
   }, [allowedBases, selectedBaseId]);
+
+  useEffect(() => {
+    setApagarPreview(null);
+    setApagarError("");
+  }, [selectedBaseId, selectedPeriodId]);
 
   useEffect(() => {
     if (!selectedPeriodId || !selectedBaseId) {
@@ -490,6 +508,55 @@ export function FinanceiroScreen({
       setErrorMessage(error instanceof Error ? error.message : "Falha ao exportar notas fiscais.");
     } finally {
       setBusyMessage("");
+    }
+  };
+
+  const handleConsultarAptosPagamento = async () => {
+    if (!selectedPeriodId) {
+      setApagarError("Selecione um periodo antes de consultar.");
+      return;
+    }
+
+    try {
+      setApagarBusy("Consultando motoristas aptos...");
+      setApagarError("");
+      const data = await fetchFinanceiroAptosPagamento(
+        token,
+        selectedPeriodId,
+        selectedBaseId === "all" ? null : selectedBaseId
+      );
+      setApagarPreview(data);
+    } catch (error) {
+      setApagarError(error instanceof Error ? error.message : "Falha ao consultar aptos para pagamento.");
+    } finally {
+      setApagarBusy("");
+    }
+  };
+
+  const handleExportAptosPagamento = async () => {
+    if (!selectedPeriodId) {
+      setApagarError("Selecione um periodo antes de exportar.");
+      return;
+    }
+
+    try {
+      setApagarBusy("Gerando Excel dos aptos para pagamento...");
+      setApagarError("");
+      const { blob, filename } = await exportFinanceiroAptosPagamento(
+        token,
+        selectedPeriodId,
+        selectedBaseId === "all" ? null : selectedBaseId
+      );
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename || `aptos_pagamento_${selectedPeriodId}.xlsx`;
+      anchor.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+    } catch (error) {
+      setApagarError(error instanceof Error ? error.message : "Falha ao exportar aptos para pagamento.");
+    } finally {
+      setApagarBusy("");
     }
   };
 
@@ -707,6 +774,15 @@ export function FinanceiroScreen({
           >
             Exportacao de notas fiscais
           </button>
+          {canAccessAptos ? (
+            <button
+              className={`period-tab ${financeTab === "apagar" ? "period-tab--active" : ""}`}
+              type="button"
+              onClick={() => setFinanceTab("apagar")}
+            >
+              A pagar
+            </button>
+          ) : null}
           <button
             className={`period-tab ${financeTab === "importacao" ? "period-tab--active" : ""}`}
             type="button"
@@ -718,7 +794,9 @@ export function FinanceiroScreen({
         <span className="finance-tab-hint">
           {financeTab === "exportacao"
             ? "Selecione um periodo e exporte apenas as notas fiscais vinculadas."
-            : "Importe a planilha da coluna Resumido e confirme a atualização dos status."}
+            : financeTab === "apagar"
+              ? "Consulte somente os motoristas aptos a receber pagamento e exporte o Excel."
+              : "Importe a planilha da coluna Resumido e confirme a atualização dos status."}
         </span>
       </section>
 
@@ -1007,6 +1085,165 @@ export function FinanceiroScreen({
             </div>
             </article>
           </div>
+        </section>
+      ) : financeTab === "apagar" ? (
+        <section className="finance-layout finance-layout--import">
+          <article className="panel finance-panel">
+            <div className="panel__header">
+              <div>
+                <h3>A pagar</h3>
+                <p>Exporta somente os motoristas que estao realmente aptos a receber pagamento.</p>
+              </div>
+            </div>
+
+            <div className="finance-period-hero">
+              <div>
+                <p className="eyebrow">Periodo selecionado</p>
+                <h4>{selectedPeriod?.name || "Selecione um periodo"}</h4>
+                <p>
+                  {selectedPeriod
+                    ? `${formatDateOnly(selectedPeriod.startDate)} ate ${formatDateOnly(selectedPeriod.endDate)}`
+                    : "Escolha um periodo para consultar os aptos"}
+                </p>
+              </div>
+              <div className="finance-period-hero__meta">
+                <span>{selectedBase ? selectedBase.name : "Todas as bases"}</span>
+                <small>Filtro seguro por periodo/base</small>
+              </div>
+            </div>
+
+            <div className="filters-row finance-filters">
+              <label className="filter-select">
+                <CalendarBlank size={18} />
+                <select
+                  value={selectedPeriodId}
+                  onChange={(event) => {
+                    setSelectedPeriodId(event.target.value);
+                    setSelectedBaseId("all");
+                  }}
+                >
+                  <option value="">Selecione um periodo</option>
+                  {visiblePeriods.map((period) => (
+                    <option key={period.id} value={period.id}>
+                      {period.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                className="primary-button primary-button--inline"
+                type="button"
+                onClick={() => void handleConsultarAptosPagamento()}
+                disabled={!selectedPeriodId || Boolean(apagarBusy)}
+              >
+                {apagarBusy || "Consultar"}
+                <ArrowRight size={18} weight="bold" />
+              </button>
+              <button
+                className="ghost-button ghost-button--small"
+                type="button"
+                onClick={() => void handleExportAptosPagamento()}
+                disabled={!selectedPeriodId || Boolean(apagarBusy)}
+              >
+                Exportar Excel
+              </button>
+            </div>
+
+            {apagarBusy ? <p className="loading-note">{apagarBusy}</p> : null}
+            {apagarError ? <p className="finance-alert finance-alert--error">{apagarError}</p> : null}
+
+            <div className="finance-import-summary">
+              <article className="finance-import-card">
+                <strong>{apagarPreview?.total_aptos || 0}</strong>
+                <span>Aptos</span>
+              </article>
+              <article className="finance-import-card">
+                <strong>{apagarPreview?.total_inaptos || 0}</strong>
+                <span>Excluidos</span>
+              </article>
+              <article className="finance-import-card">
+                <strong>{apagarPreview?.total_inconsistencias || 0}</strong>
+                <span>Inconsistencias</span>
+              </article>
+              <article className="finance-import-card">
+                <strong>{apagarPreview?.total_processos || 0}</strong>
+                <span>Processos analisados</span>
+              </article>
+            </div>
+
+            <div className="table-wrap finance-table">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Motorista</th>
+                    <th>Favorecido</th>
+                    <th>CPF</th>
+                    <th>Valor total</th>
+                    <th>Base</th>
+                    <th>Status processo</th>
+                    <th>Status NF</th>
+                    <th>Status pagamento</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(apagarPreview?.aptos || []).length > 0 ? (
+                    apagarPreview!.aptos.map((row) => (
+                      <tr key={row.processoId}>
+                        <td>{row.nomeMotorista}</td>
+                        <td>{row.nomeFavorecido}</td>
+                        <td>{row.cpfFavorecido}</td>
+                        <td>{row.valorTotalPdfFormatado}</td>
+                        <td>{row.baseMotorista}</td>
+                        <td>{row.statusProcesso}</td>
+                        <td>{row.statusNotaFiscal}</td>
+                        <td>{row.statusPagamento}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={8}>
+                        <div className="crm-empty">
+                          <strong>Nenhum motorista apto localizado</strong>
+                          <p>Execute a consulta em um periodo ja processado para visualizar os aptos para pagamento.</p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="finance-import-summary">
+              <article className="finance-import-card finance-import-card--history">
+                <strong>Motoristas excluidos</strong>
+                {(apagarPreview?.excluidos || []).length > 0 ? (
+                  <div className="finance-import-history__list">
+                    {apagarPreview!.excluidos.slice(0, 5).map((item) => (
+                      <p key={`${item.processoId}-${item.motoristaId || "sem"}`}>
+                        {item.nomeMotorista}: {item.motivo}
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p>Sem exclusoes para o periodo atual.</p>
+                )}
+              </article>
+              <article className="finance-import-card finance-import-card--history">
+                <strong>Inconsistencias</strong>
+                {(apagarPreview?.inconsistencias || []).length > 0 ? (
+                  <div className="finance-import-history__list">
+                    {apagarPreview!.inconsistencias.slice(0, 5).map((item) => (
+                      <p key={`${item.processoId}-${item.campo}`}>
+                        {item.nomeMotorista}: {item.motivo}
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p>Sem inconsistencias para o periodo atual.</p>
+                )}
+              </article>
+            </div>
+          </article>
         </section>
       ) : (
         <section className="finance-layout finance-layout--import">

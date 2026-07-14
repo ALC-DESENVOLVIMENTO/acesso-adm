@@ -2,7 +2,11 @@ import { Router } from "express";
 import multer from "multer";
 import { z } from "zod";
 import { comparePassword, generateSessionToken, hashPassword } from "../../lib/auth.js";
-import { getUserAccessInclude, resolveEffectiveModules } from "../../lib/access.js";
+import {
+  getUserAccessInclude,
+  resolveEffectiveModules,
+  resolveEffectivePermissions
+} from "../../lib/access.js";
 import { requireAuth } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
 import {
@@ -29,7 +33,7 @@ function resolvePhotoUrl(photoPath: string | null) {
 }
 
 function serializeSessionUser(
-  account: {
+  account: Parameters<typeof resolveEffectivePermissions>[0] & {
     id: string;
     nome: string;
     email: string;
@@ -52,6 +56,7 @@ function serializeSessionUser(
     active: account.ativo,
     blocked: account.bloqueado,
     firstAccess: account.primeiroAcesso,
+    permissions: resolveEffectivePermissions(account),
     modules
   };
 }

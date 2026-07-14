@@ -54,6 +54,26 @@ export function resolveEffectiveModules(user: UserAccessPayload) {
   return Array.from(modules).sort();
 }
 
+export function resolveEffectivePermissions(user: UserAccessPayload) {
+  const permissions = new Set(
+    user.nivel.permissoesPorNivel.map((item) => item.permissao.codigo)
+  );
+
+  for (const override of user.permissoesPorUsuario) {
+    const permissionCode = override.permissao.codigo;
+
+    if (override.tipo === PermissionOverrideType.grant) {
+      permissions.add(permissionCode);
+    }
+
+    if (override.tipo === PermissionOverrideType.deny) {
+      permissions.delete(permissionCode);
+    }
+  }
+
+  return Array.from(permissions).sort();
+}
+
 export async function syncUserModuleOverrides(params: {
   userId: string;
   levelId: string;

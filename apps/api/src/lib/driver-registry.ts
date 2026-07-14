@@ -271,6 +271,33 @@ export async function searchDriverRegistryMatches(options: {
   return rows.map(mapRegistryRow);
 }
 
+export async function searchDriverRegistryMatchesByCpfDigits(cpfDigitsList: string[]) {
+  const normalizedDigits = Array.from(
+    new Set(cpfDigitsList.map((value) => digitsOnly(value)).filter(Boolean))
+  );
+
+  if (normalizedDigits.length === 0) {
+    return [];
+  }
+
+  const metadata = await getDriverRegistryMetadata();
+  if (!metadata) {
+    return [];
+  }
+
+  const cpfColumn = getColumn(metadata, [...DRIVER_REGISTRY_CPF_CANDIDATES, "cpf_numero", "cpf_cnpj"]);
+
+  if (!cpfColumn) {
+    return [];
+  }
+
+  const tableRef = buildTableRef(metadata.schema);
+  const sql = `SELECT * FROM ${tableRef} WHERE regexp_replace(COALESCE(${quoteIdentifier(cpfColumn)}, ''), '\\D', '', 'g') = ANY($1)`;
+  const rows = await prisma.$queryRawUnsafe<DriverRegistryRow[]>(sql, normalizedDigits);
+
+  return rows.map(mapRegistryRow);
+}
+
 export async function resolveDriverRegistryByIdentity(options: {
   fileName?: string;
   name?: string;

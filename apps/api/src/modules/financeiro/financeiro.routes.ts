@@ -4,7 +4,7 @@ import { FinanceiroImportacaoItemResultado, FinanceiroImportacaoStatus, Financei
 import { Router } from "express";
 import multer from "multer";
 import { z } from "zod";
-import { requireAuth, requireModuleAccess } from "../../middlewares/auth.middleware.js";
+import { requireAuth, requireModuleAccess, requirePermission } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
 import { buildStorageObjectUrl, fetchObjectBuffer, isPaymentMirrorStorageKey } from "../../lib/storage.js";
 import { loadDriverPdfReceivedContent } from "../../lib/driver-pdf-received-content.js";
@@ -19,6 +19,7 @@ import {
   listFinanceiroHistorico,
   listFinanceiroImportacoes
 } from "./financeiro-import.js";
+import { buildAptosPagamentoPreview, buildAptosPagamentoWorkbook } from "../../lib/financeiro-apagar.js";
 import { notifyPaymentStatusToPdfOnline } from "../../lib/pdfonline-bridge.js";
 
 const router = Router();
@@ -1606,5 +1607,117 @@ router.get("/periods/:periodId/export", (req, res) => {
     res.destroy(error instanceof Error ? error : new Error("Falha ao exportar notas fiscais."));
   });
 });
+
+router.get(
+  "/periods/:periodId/aptos-pagamento",
+  requirePermission("financeiro.apagar.consultar"),
+  (req, res) => {
+    void (async () => {
+      const parsed = z
+        .object({
+          periodId: z.string().uuid(),
+          baseId: z.string().uuid().optional().nullable()
+        })
+        .safeParse({
+          periodId: req.params.periodId,
+          baseId: req.query.baseId || null
+        });
+
+      if (!parsed.success) {
+        res.status(400).json({
+          message: "Periodo ou base invalida.",
+          issues: parsed.error.flatten()
+        });
+        return;
+      }
+
+      const preview = await buildAptosPagamentoPreview(parsed.data.periodId, parsed.data.baseId || null);
+
+      res.json({
+        periodo_id: preview.periodoId,
+        total_processos: preview.totalProcessos,
+        total_aptos: preview.totalAptos,
+        total_inaptos: preview.totalInaptos,
+        total_inconsistencias: preview.totalInconsistencias,
+        aptos: preview.aptos,
+        excluidos: preview.excluidos,
+        inconsistencias: preview.inconsistencias
+      });
+    })().catch((error) => {
+      res.status(500).json({
+        message: "Falha ao consultar aptos para pagamento.",
+        detail: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    });
+  }
+);
+
+router.get(
+  "/periods/:periodId/aptos-pagamento/exportar",
+  requirePermission("financeiro.apagar.export"),
+  (req, res) => {
+    void (async () => {
+      const parsed = z
+        .object({
+          periodId: z.string().uuid(),
+          baseId: z.string().uuid().optional().nullable()
+        })
+        .safeParse({
+          periodId: req.params.periodId,
+          baseId: req.query.baseId || null
+        });
+
+      if (!parsed.success) {
+        res.status(400).json({
+          message: "Periodo ou base invalida para exportacao.",
+          issues: parsed.error.flatten()
+        });
+        return;
+      }
+
+      const { preview, buffer } = await buildAptosPagamentoWorkbook(parsed.data.periodId, parsed.data.baseId || null);
+      const period = await prisma.periodoPagamento.findUnique({
+        where: {
+          id: parsed.data.periodId
+        },
+        select: {
+          nome: true
+        }
+      });
+      const periodName = sanitizeArchiveSegment(period?.nome || "periodo");
+      const nowStamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const filename = `aptos_pagamento_${periodName}_${nowStamp}.xlsx`;
+
+      await prisma.logAuditoria.create({
+        data: {
+          usuarioId: req.auth?.userId || null,
+          acao: "financeiro_apagar_exportar",
+          entidade: "importacoes_financeiras",
+          entidadeId: parsed.data.periodId,
+          detalhes: {
+            periodoId: parsed.data.periodId,
+            baseId: parsed.data.baseId || null,
+            totalProcessos: preview.totalProcessos,
+            totalAptos: preview.totalAptos,
+            totalInconsistencias: preview.totalInconsistencias,
+            arquivo: filename
+          },
+          ipOrigem: req.ip,
+          userAgent: req.get("user-agent") || null
+        }
+      });
+
+      res.status(200);
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.end(buffer);
+    })().catch((error) => {
+      res.status(500).json({
+        message: "Falha ao exportar aptos para pagamento.",
+        detail: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    });
+  }
+);
 
 export default router;

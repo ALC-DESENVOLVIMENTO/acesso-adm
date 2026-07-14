@@ -38,6 +38,10 @@ const permissions = [
   { codigo: "financeiro.confirm", nome: "Confirmar importacao financeira", moduloCodigo: "financeiro" },
   { codigo: "financeiro.history", nome: "Consultar historico financeiro", moduloCodigo: "financeiro" },
   { codigo: "financeiro.reprocess", nome: "Reprocessar webhook financeiro", moduloCodigo: "financeiro" },
+  { codigo: "financeiro.apagar.view", nome: "Visualizar aba A pagar", moduloCodigo: "financeiro" },
+  { codigo: "financeiro.apagar.consultar", nome: "Consultar aptos para pagamento", moduloCodigo: "financeiro" },
+  { codigo: "financeiro.apagar.export", nome: "Exportar A pagar", moduloCodigo: "financeiro" },
+  { codigo: "financeiro.apagar.inconsistencias", nome: "Visualizar inconsistencias de A pagar", moduloCodigo: "financeiro" },
   { codigo: "atendimento.view", nome: "Visualizar atendimento", moduloCodigo: "atendimento" },
   { codigo: "atendimento.manage", nome: "Gerenciar atendimento", moduloCodigo: "atendimento" }
 ];
@@ -197,6 +201,10 @@ async function main() {
     "financeiro.confirm",
     "financeiro.history",
     "financeiro.reprocess",
+    "financeiro.apagar.view",
+    "financeiro.apagar.consultar",
+    "financeiro.apagar.export",
+    "financeiro.apagar.inconsistencias",
     "atendimento.view",
     "atendimento.manage"
   ],
@@ -214,6 +222,10 @@ async function main() {
     "financeiro.confirm",
     "financeiro.history",
     "financeiro.reprocess",
+    "financeiro.apagar.view",
+    "financeiro.apagar.consultar",
+    "financeiro.apagar.export",
+    "financeiro.apagar.inconsistencias",
     "atendimento.view",
     "atendimento.manage"
   ]
