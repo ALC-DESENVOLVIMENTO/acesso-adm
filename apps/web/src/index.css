@@ -930,10 +930,10 @@ button {
 }
 
 .sidebar {
-  position: sticky;
+  position: fixed;
   top: 0;
-  align-self: start;
-  z-index: 10;
+  left: 0;
+  z-index: 25;
   height: 100dvh;
   max-height: 100dvh;
   overflow: hidden;
