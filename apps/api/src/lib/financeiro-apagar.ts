@@ -12,7 +12,7 @@ import {
   searchDriverRegistryMatchesByCpfDigits,
   type DriverRegistryMatch
 } from "./driver-registry.js";
-import { fetchObjectBuffer, isPaymentMirrorStorageKey } from "./storage.js";
+import { fetchObjectBuffer } from "./storage.js";
 
 const APPROVED_NOTE_STATUSES: Set<DriverPdfReceivedStatus> = new Set([
   DriverPdfReceivedStatus.nota_fiscal_aprovada,
@@ -571,13 +571,12 @@ async function buildCandidateRows(periodId: string, baseId?: string | null) {
       .filter((value): value is string => Boolean(value))
   );
 
-  const visibleUploads = period.uploads
-    .filter((upload) => isPaymentMirrorStorageKey(upload.caminhoArquivo))
+  const scopedUploads = period.uploads
     .filter((upload) => !childReferences.has(upload.id))
     .sort((left, right) => right.criadoEm.getTime() - left.criadoEm.getTime());
 
   const latestUploads = new Map<string, AptoPagamentoUpload>();
-  for (const upload of visibleUploads) {
+  for (const upload of scopedUploads) {
     if (!upload.motoristaId || !upload.basePagamentoId) {
       continue;
     }
