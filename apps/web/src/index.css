@@ -1812,6 +1812,8 @@ button {
 
 .upload-chooser {
   position: relative;
+  isolation: isolate;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1826,17 +1828,66 @@ button {
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 14px 28px rgba(235, 0, 0, 0.22);
+  transition:
+    transform 0.28s ease,
+    box-shadow 0.28s ease,
+    border-color 0.28s ease;
+}
+
+.upload-chooser::before {
+  content: "";
+  position: absolute;
+  inset: -70% auto -70% -38%;
+  z-index: -1;
+  width: 34%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.46), transparent);
+  transform: skewX(-18deg) translateX(-130%);
+  opacity: 0;
+}
+
+.upload-chooser::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  z-index: -1;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 11px;
+  opacity: 0.64;
+}
+
+.upload-chooser svg,
+.upload-chooser span {
+  position: relative;
+  z-index: 1;
+}
+
+.upload-chooser:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.42);
+  box-shadow: 0 18px 34px rgba(235, 0, 0, 0.34), 0 0 0 4px rgba(235, 0, 0, 0.1);
+}
+
+.upload-chooser:hover::before,
+.upload-chooser--loading::before {
+  opacity: 1;
+  animation: upload-scan 1.15s ease-in-out infinite;
+}
+
+.upload-chooser:hover svg,
+.upload-chooser--loading svg {
+  animation: upload-icon-lift 0.82s ease-in-out infinite;
 }
 
 .upload-chooser input {
   position: absolute;
   inset: 0;
+  z-index: 2;
   opacity: 0;
   cursor: pointer;
 }
 
 .upload-chooser--loading {
-  animation: upload-chooser-loading 1.05s ease-in-out infinite;
+  animation: upload-chooser-pulse 1.05s ease-in-out infinite;
 }
 
 .upload-chooser__filename {
@@ -1846,7 +1897,26 @@ button {
   font-weight: 700;
 }
 
-@keyframes upload-chooser-loading {
+@keyframes upload-scan {
+  0% {
+    transform: skewX(-18deg) translateX(-130%);
+  }
+  100% {
+    transform: skewX(-18deg) translateX(520%);
+  }
+}
+
+@keyframes upload-icon-lift {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  45% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes upload-chooser-pulse {
   0%,
   100% {
     box-shadow: 0 14px 28px rgba(235, 0, 0, 0.2);

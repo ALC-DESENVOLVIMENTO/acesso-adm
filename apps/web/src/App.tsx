@@ -2044,7 +2044,7 @@ function App() {
                   </div>
                   <div className="field">
                     <span>Foto</span>
-                    <label className="upload-chooser cta-motion">
+                    <label className="upload-chooser">
                       <FileArrowUp size={18} weight="bold" />
                       <span>Escolher foto</span>
                       <input name="photo" type="file" accept="image/*" required />
@@ -4942,7 +4942,7 @@ function AtendimentoScreen({
               </label>
               <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <span>Anexos opcionais</span>
-                <label className="upload-chooser cta-motion">
+                <label className="upload-chooser">
                   <FileArrowUp size={18} weight="bold" />
                   <span>Escolher arquivos</span>
                   <input type="file" multiple onChange={(event) => setTicketFiles(Array.from(event.target.files || []))} />

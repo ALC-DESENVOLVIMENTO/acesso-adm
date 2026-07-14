@@ -1261,7 +1261,7 @@ export function FinanceiroScreen({
             <div className="filters-row finance-filters">
               <div className="field">
                 <span>Arquivo Excel</span>
-                <label className={`upload-chooser cta-motion ${importBusy ? "upload-chooser--loading" : ""}`}>
+                <label className={`upload-chooser ${importBusy ? "upload-chooser--loading" : ""}`}>
                   <FileArrowUp size={18} weight="bold" />
                   <span>Escolher arquivo</span>
                   <input
