@@ -74,6 +74,12 @@ type AptoPagamentoReceipt = Prisma.DriverPdfReceivedGetPayload<{
   };
 }>;
 
+type AptoPagamentoReceiptScope = {
+  motoristaId: string | null;
+  periodoPagamentoId: string | null;
+  basePagamentoId: string | null;
+};
+
 export type AptosPagamentoRow = {
   processoId: string;
   motoristaId: string;
@@ -293,6 +299,19 @@ function deriveNoteReceipt(
     }) ||
     null
   );
+}
+
+function resolveReceiptScope(
+  receipt: AptoPagamentoReceipt,
+  uploadById: Map<string, AptoPagamentoUpload>
+): AptoPagamentoReceiptScope {
+  const source = receipt.uploadPdfId ? uploadById.get(receipt.uploadPdfId) || null : null;
+
+  return {
+    motoristaId: receipt.motoristaId || source?.motoristaId || null,
+    periodoPagamentoId: receipt.periodoPagamentoId || source?.periodoPagamentoId || null,
+    basePagamentoId: receipt.basePagamentoId || source?.basePagamentoId || null
+  };
 }
 
 export function evaluateAptidao(params: {
@@ -542,6 +561,10 @@ async function buildCandidateRows(periodId: string, baseId?: string | null) {
   }
 
   const uploadById = new Map(period.uploads.map((upload) => [upload.id, upload] as const));
+  const uploadIdsInPeriod = period.uploads.map((upload) => upload.id);
+  const motoristaIdsInPeriod = Array.from(
+    new Set(period.uploads.map((upload) => upload.motoristaId).filter((value): value is string => Boolean(value)))
+  );
   const childReferences = new Set(
     period.uploads
       .map((upload) => upload.substituiUploadId)
@@ -579,13 +602,17 @@ async function buildCandidateRows(periodId: string, baseId?: string | null) {
     registryByCpf.set(key, current);
   }
 
-  const uploadIdsInPeriod = period.uploads.map((upload) => upload.id);
   const receivedRows = await prisma.driverPdfReceived.findMany({
     where: {
       OR: [
         {
           uploadPdfId: {
             in: uploadIdsInPeriod
+          }
+        },
+        {
+          motoristaId: {
+            in: motoristaIdsInPeriod
           }
         },
         {
@@ -598,7 +625,20 @@ async function buildCandidateRows(periodId: string, baseId?: string | null) {
               }
             ]
           : [])
-      ]
+      ],
+      status: {
+        in: [
+          DriverPdfReceivedStatus.pdf_aguardando_envio,
+          DriverPdfReceivedStatus.pdf_enviado_ao_motorista,
+          DriverPdfReceivedStatus.motorista_visualizou,
+          DriverPdfReceivedStatus.aguardando_envio_nota_fiscal,
+          DriverPdfReceivedStatus.nota_fiscal_recebida,
+          DriverPdfReceivedStatus.nota_fiscal_em_analise,
+          DriverPdfReceivedStatus.nota_fiscal_aprovada,
+          DriverPdfReceivedStatus.nota_fiscal_rejeitada,
+          DriverPdfReceivedStatus.processo_concluido
+        ]
+      }
     },
     select: {
       id: true,
@@ -630,10 +670,25 @@ async function buildCandidateRows(periodId: string, baseId?: string | null) {
   });
 
   const evaluations: CandidateRow[] = [];
+  const receiptByScope = new Map<string, AptoPagamentoReceipt[]>();
+
+  for (const receipt of receivedRows) {
+    const scope = resolveReceiptScope(receipt, uploadById);
+    if (!scope.motoristaId || !scope.periodoPagamentoId || !scope.basePagamentoId) {
+      continue;
+    }
+
+    const key = `${scope.motoristaId}|${scope.periodoPagamentoId}|${scope.basePagamentoId}`;
+    const current = receiptByScope.get(key) || [];
+    current.push(receipt);
+    receiptByScope.set(key, current);
+  }
 
   for (const upload of latestUploads.values()) {
-    const mirrorReceipt = deriveMirrorReceipt(upload, receivedRows, uploadById);
-    const noteReceipt = deriveNoteReceipt(upload, receivedRows, uploadById);
+    const scopeKey = `${upload.motoristaId}|${upload.periodoPagamentoId}|${upload.basePagamentoId}`;
+    const scopedReceipts = receiptByScope.get(scopeKey) || receivedRows;
+    const mirrorReceipt = deriveMirrorReceipt(upload, scopedReceipts, uploadById);
+    const noteReceipt = deriveNoteReceipt(upload, scopedReceipts, uploadById);
     const registryMatch = findRegistryMatch(registryByCpf, upload.motorista?.cpf || "", upload.basePagamento?.nome || null);
 
     evaluations.push({
