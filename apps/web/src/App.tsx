@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowRight,
   Camera,
   CaretDown,
@@ -3875,18 +3875,18 @@ function AtendimentoScreen({
       return detail.historicoPagamentos;
     }
 
-    return detail.historicoPagamentos.filter((item) => {
-      const haystack = [
-        item.periodoPagamento,
-        item.basePagamento,
-        item.statusProcesso,
-        item.pdfStatus,
-        item.notaFiscalStatus,
-        item.pago ? "pago" : "em aberto",
-        item.pdfEnviadoEm,
-        item.pdfVisualizadoEm,
-        item.notaFiscalEnviadaEm,
-        item.notaFiscalRecebidaEm
+      return detail.historicoPagamentos.filter((item) => {
+        const haystack = [
+          item.periodoPagamento,
+          item.basePagamento,
+          item.statusProcesso,
+          item.pdfStatus,
+          item.notaFiscalStatus,
+          item.pago ? "pago" : "em aberto",
+          item.pdfEnviadoEm,
+          item.pdfVisualizadoEm,
+          item.notaFiscalEnviadaEm,
+          item.notaFiscalRecebidaEm
       ]
         .filter(Boolean)
         .join(" ")
@@ -4588,16 +4588,15 @@ function AtendimentoScreen({
                               <span>{item.basePagamento || "Base nao informada"}</span>
                             </div>
                             <div className="crm-payment-card__badges">
-                              <span className="status-pill">{item.pago ? "Pago" : item.statusProcesso}</span>
                               <span className={`status-pill ${item.pago ? "status-pill--active" : ""}`}>
-                                {item.pago ? "Pago" : "Em aberto"}
+                                {item.statusProcesso}
                               </span>
                             </div>
                           </div>
 
                           <div className="crm-payment-card__grid">
-                            <div><strong>PDF enviado</strong><span>{item.pdfEnviadoEm ? new Date(item.pdfEnviadoEm).toLocaleString("pt-BR") : "Nao informado"}</span></div>
-                            <div><strong>PDF visualizado</strong><span>{item.pdfVisualizadoEm ? new Date(item.pdfVisualizadoEm).toLocaleString("pt-BR") : "Nao informado"}</span></div>
+                            <div><strong>Espelho de pagamento enviado</strong><span>{item.pdfEnviadoEm ? new Date(item.pdfEnviadoEm).toLocaleString("pt-BR") : "Nao informado"}</span></div>
+                            <div><strong>Espelho de pagamento visualizado</strong><span>{item.pdfVisualizadoEm ? new Date(item.pdfVisualizadoEm).toLocaleString("pt-BR") : "Nao informado"}</span></div>
                             <div><strong>NF enviada</strong><span>{item.notaFiscalEnviadaEm ? new Date(item.notaFiscalEnviadaEm).toLocaleString("pt-BR") : "Nao informado"}</span></div>
                             <div><strong>NF recebida</strong><span>{item.notaFiscalRecebidaEm ? new Date(item.notaFiscalRecebidaEm).toLocaleString("pt-BR") : "Nao informado"}</span></div>
                             <div><strong>Data de pagamento</strong><span>{item.dataPagamento ? new Date(item.dataPagamento).toLocaleString("pt-BR") : "Nao informado"}</span></div>
@@ -4611,7 +4610,7 @@ function AtendimentoScreen({
                                 type="button"
                                 onClick={() => window.open(item.pdfDownloadUrl || "", "_blank", "noopener,noreferrer")}
                               >
-                                Abrir PDF
+                                Abrir Espelho
                               </button>
                             ) : null}
                             {item.notaFiscalDownloadUrl ? (

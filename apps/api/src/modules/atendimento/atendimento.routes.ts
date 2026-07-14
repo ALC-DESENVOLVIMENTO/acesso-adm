@@ -903,6 +903,13 @@ async function loadMotoristaDetail(motoristaId: string) {
     Array.from(paymentHistoryByKey.values()).map(async (upload) => {
       const mirrorReceipt =
         paymentReceipts.find((item) => item.uploadPdfId && item.uploadPdfId === upload.id && !isNoteStatus(item.status)) ||
+        paymentReceipts.find(
+          (item) =>
+            item.motoristaId === motorista.id &&
+            item.periodoPagamentoId === upload.periodoPagamentoId &&
+            item.basePagamentoId === upload.basePagamentoId &&
+            !isNoteStatus(item.status)
+        ) ||
         null;
       const noteReceiptByUpload =
         paymentReceipts.find((item) => item.uploadPdfId && item.uploadPdfId === upload.id && isNoteStatus(item.status)) ||
@@ -924,6 +931,7 @@ async function loadMotoristaDetail(motoristaId: string) {
       const noteReceivedAt = noteReceipt?.aprovadoEm || noteReceipt?.rejeitadoEm || null;
       const noteStatus = noteReceipt?.status || "aguardando_envio_nota_fiscal";
       const paymentStatus = upload.statusPagamento === "PAGO" ? "pago" : null;
+      const paymentDate = upload.statusPagamentoAtualizadoEm || noteReceivedAt || pdfViewedAt || pdfSentAt || null;
       const currentStatus =
         paymentStatus
           ? paymentStatus
@@ -936,8 +944,8 @@ async function loadMotoristaDetail(motoristaId: string) {
               : pdfSentAt
                 ? "pdf_enviado_ao_motorista"
                 : "pdf_aguardando_envio";
-      const paid = currentStatus === "processo_concluido" || currentStatus === "pago";
-      const valorPagamento = await extractTotalGeralValue(upload.caminhoArquivo).catch(() => null);
+      const paid = currentStatus === "pago";
+      const valorPagamento = await extractTotalGeralValue(mirrorReceipt?.caminhoArquivo || upload.caminhoArquivo).catch(() => null);
 
       return {
         id: noteReceipt?.id || mirrorReceipt?.id || upload.id,
@@ -945,7 +953,7 @@ async function loadMotoristaDetail(motoristaId: string) {
         periodoPagamento: period?.nome || null,
         basePagamentoId: upload.basePagamentoId || noteReceipt?.basePagamentoId || null,
         basePagamento: base?.nome || null,
-        dataPagamento: null,
+        dataPagamento: toIso(paymentDate),
         valorPagamento,
         statusProcesso: formatPaymentStatusLabel(currentStatus),
         pdfStatus: formatPaymentStatusLabel(currentStatus),
