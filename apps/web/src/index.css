@@ -964,6 +964,12 @@ button {
 .sidebar__nav {
   display: grid;
   gap: 10px;
+  position: fixed;
+  top: 24px;
+  left: 18px;
+  z-index: 30;
+  width: 74px;
+  transition: width 0.28s ease;
 }
 
 .sidebar__item,
@@ -977,6 +983,20 @@ button {
   background: transparent;
   color: #2b3445;
   white-space: nowrap;
+}
+
+.sidebar__logout {
+  position: fixed;
+  left: 18px;
+  bottom: 24px;
+  z-index: 30;
+  width: 74px;
+  transition: width 0.28s ease, transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.sidebar:hover .sidebar__nav,
+.sidebar:hover .sidebar__logout {
+  width: 252px;
 }
 
 .sidebar__item span,
@@ -3352,6 +3372,14 @@ button {
   .sidebar__logout {
     justify-content: flex-start;
     padding: 14px 16px;
+  }
+
+  .sidebar__nav,
+  .sidebar__logout,
+  .sidebar:hover .sidebar__nav,
+  .sidebar:hover .sidebar__logout {
+    position: static;
+    width: 100%;
   }
 
   .sidebar__item span,
