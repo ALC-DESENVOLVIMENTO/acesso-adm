@@ -86,7 +86,7 @@ export type AptosPagamentoRow = {
   nomeMotorista: string;
   nomeFavorecido: string;
   cpfFavorecido: string;
-  valorTotalPdf: number;
+  valorTotalPdf: number | null;
   valorTotalPdfFormatado: string;
   baseMotorista: string;
   statusProcesso: string;
@@ -461,9 +461,6 @@ async function buildAptosPreviewRows(rows: CandidateRow[]) {
       )
     );
     const baseMotorista = upload.basePagamento?.nome?.trim() || registryMatch?.base?.trim() || "";
-    const valorTotalPdf = await extractPaymentTotalValue(
-      noteReceipt?.caminhoArquivo || mirrorReceipt?.caminhoArquivo || upload.caminhoArquivo
-    );
 
     const missing: Array<{ field: string; reason: string }> = [];
 
@@ -483,10 +480,6 @@ async function buildAptosPreviewRows(rows: CandidateRow[]) {
       missing.push({ field: "base", reason: "Base do motorista nao cadastrada" });
     }
 
-    if (valorTotalPdf === null || valorTotalPdf <= 0) {
-      missing.push({ field: "valor_total_pdf", reason: "Valor total nao encontrado" });
-    }
-
     if (missing.length > 0) {
       inconsistencias.push({
         processoId: upload.id,
@@ -499,16 +492,14 @@ async function buildAptosPreviewRows(rows: CandidateRow[]) {
       continue;
     }
 
-    const valorTotalPdfNumero = valorTotalPdf as number;
-
     aptos.push({
       processoId: upload.id,
       motoristaId: upload.motoristaId || "",
       nomeMotorista: upload.motorista?.nome || "Nao informado",
       nomeFavorecido,
       cpfFavorecido,
-      valorTotalPdf: valorTotalPdfNumero,
-      valorTotalPdfFormatado: formatMoney(valorTotalPdfNumero),
+      valorTotalPdf: null,
+      valorTotalPdfFormatado: "Nao informado",
       baseMotorista,
       statusProcesso: evaluation.statusProcesso,
       statusNotaFiscal: evaluation.statusNotaFiscal,
@@ -733,7 +724,7 @@ export function buildWorkbook(preview: AptosPagamentoPreview) {
     "Nome Motorista": row.nomeMotorista,
     "Nome Favorecido": row.nomeFavorecido,
     "CPF do Favorecido": row.cpfFavorecido,
-    "Valor Total do PDF": row.valorTotalPdf,
+    "Valor Total do PDF": row.valorTotalPdf ?? "",
     "Base do Motorista": row.baseMotorista
   }));
 
