@@ -102,6 +102,7 @@ type FlashMessage = {
 };
 
 type ProfileModalMode = "name" | "photo" | "password" | null;
+type ThemeMode = "light" | "dark";
 
 type UploadHistoryState = {
   uploadId: string;
@@ -151,6 +152,7 @@ const userModuleOptions = [
 const loginPreviewImages = ["/login-preview-dashboard.png", "/login-preview-pdfs.png"];
 
 const quickActionStorageKey = "portal-adm.quick-actions";
+const themeStorageKey = "portal-adm.theme";
 const quickActionLabels: Record<RouteView, { title: string; description: string; icon: typeof FileArrowUp }> = {
   dashboard: { title: "Dashboard", description: "Visao geral do portal.", icon: HouseLine },
   pdfs: { title: "Enviar PDF", description: "Faca o envio de novos documentos.", icon: FileArrowUp },
@@ -159,6 +161,14 @@ const quickActionLabels: Record<RouteView, { title: string; description: string;
   financeiro: { title: "Financeiro", description: "Acompanhe notas fiscais, espelho e importacao financeira.", icon: FilePdf },
   atendimento: { title: "Atendimento", description: "Abra o CRM do motorista.", icon: ChatCenteredDots }
 };
+
+function readStoredTheme(): ThemeMode {
+  try {
+    return window.localStorage.getItem(themeStorageKey) === "dark" ? "dark" : "light";
+  } catch {
+    return "light";
+  }
+}
 
 const activities: Activity[] = [
   {
@@ -307,6 +317,7 @@ function App() {
   const [flashMessage, setFlashMessage] = useState<FlashMessage | null>(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [profileModalMode, setProfileModalMode] = useState<ProfileModalMode>(null);
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => readStoredTheme());
   const [profileActionError, setProfileActionError] = useState("");
   const [profileActionLoading, setProfileActionLoading] = useState(false);
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
@@ -342,6 +353,7 @@ function App() {
   const [periodDataLoaded, setPeriodDataLoaded] = useState(false);
   const requestedRouteRef = useRef<RouteView | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
+  const shouldUseDarkTheme = Boolean(currentUser) && themeMode === "dark";
 
   const allowedMenu = useMemo(() => {
     if (!currentUser) {
@@ -360,6 +372,22 @@ function App() {
       return currentUser.modules.includes(item.key);
     });
   }, [currentUser]);
+
+  useEffect(() => {
+    document.body.classList.toggle("theme-dark", shouldUseDarkTheme);
+
+    return () => {
+      document.body.classList.remove("theme-dark");
+    };
+  }, [shouldUseDarkTheme]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(themeStorageKey, themeMode);
+    } catch {
+      // Ignore storage restrictions and keep the selected theme in memory.
+    }
+  }, [themeMode]);
 
   useEffect(() => {
     if (!currentUser) {
@@ -1675,6 +1703,19 @@ function App() {
                   >
                     <PencilSimple size={18} />
                     <span>Alterar nome</span>
+                  </button>
+                  <button
+                    className="profile-menu__item"
+                    type="button"
+                    role="menuitem"
+                    aria-pressed={themeMode === "dark"}
+                    onClick={() => {
+                      setThemeMode((current) => (current === "dark" ? "light" : "dark"));
+                      setProfileMenuOpen(false);
+                    }}
+                  >
+                    <GearSix size={18} />
+                    <span>{themeMode === "dark" ? "Alterar modo para claro" : "Alterar modo para escuro"}</span>
                   </button>
                   <button
                     className="profile-menu__item"

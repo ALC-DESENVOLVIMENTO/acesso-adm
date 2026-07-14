@@ -3062,7 +3062,7 @@ button {
 }
 
 /* Global dark shell inspired by the ALC administrative panel reference. */
-:root {
+body.theme-dark {
   color-scheme: dark;
   --bg: #07090d;
   --panel: rgba(18, 22, 29, 0.82);
@@ -3080,10 +3080,10 @@ button {
     linear-gradient(180deg, #090b10 0%, #05070a 100%);
 }
 
-body,
-.shell-page,
-.auth-page,
-.first-access-page {
+body.theme-dark,
+body.theme-dark .shell-page,
+body.theme-dark .auth-page,
+body.theme-dark .first-access-page{
   background:
     radial-gradient(circle at 16% 0%, rgba(235, 0, 0, 0.16), transparent 24%),
     radial-gradient(circle at 88% 10%, rgba(255, 255, 255, 0.045), transparent 30%),
@@ -3091,7 +3091,7 @@ body,
   color: var(--text);
 }
 
-.shell-page::before {
+body.theme-dark .shell-page::before{
   content: "";
   position: fixed;
   inset: 0;
@@ -3103,16 +3103,16 @@ body,
   z-index: 0;
 }
 
-.shell-content,
-.sidebar,
-.topbar,
-.screen,
-.modal-overlay {
+body.theme-dark .shell-content,
+body.theme-dark .sidebar,
+body.theme-dark .topbar,
+body.theme-dark .screen,
+body.theme-dark .modal-overlay{
   position: relative;
   z-index: 1;
 }
 
-.sidebar {
+body.theme-dark .sidebar{
   background:
     linear-gradient(180deg, rgba(235, 0, 0, 0.09), transparent 38%),
     rgba(5, 8, 12, 0.96) !important;
@@ -3120,18 +3120,18 @@ body,
   box-shadow: 16px 0 42px rgba(0, 0, 0, 0.28);
 }
 
-.sidebar__item,
-.sidebar__logout {
+body.theme-dark .sidebar__item,
+body.theme-dark .sidebar__logout{
   color: #dfe5ef;
 }
 
-.sidebar__item:hover,
-.sidebar__logout:hover {
+body.theme-dark .sidebar__item:hover,
+body.theme-dark .sidebar__logout:hover{
   background: rgba(255, 255, 255, 0.06);
   color: #ffffff;
 }
 
-.sidebar__item--active {
+body.theme-dark .sidebar__item--active{
   background: linear-gradient(135deg, rgba(235, 0, 0, 0.86), rgba(122, 0, 0, 0.82)) !important;
   color: #ffffff !important;
   box-shadow:
@@ -3139,32 +3139,32 @@ body,
     inset 3px 0 0 rgba(255, 255, 255, 0.74) !important;
 }
 
-.topbar,
-.profile-menu,
-.auth-card,
-.first-access-card,
-.panel,
-.stat-card,
-.quick-action-card,
-.finance-base-card,
-.finance-period-card,
-.finance-period-hero,
-.finance-period-card--active,
-.crm-card,
-.crm-search-card,
-.crm-empty,
-.crm-empty-screen,
-.crm-driver__hero,
-.crm-driver__panel,
-.crm-payment-card,
-.crm-ticket-card,
-.timeline-item,
-.upload-batch,
-.upload-batch__file,
-.period-card,
-.base-card,
-.modal-card,
-.duplicate-review-card {
+body.theme-dark .topbar,
+body.theme-dark .profile-menu,
+body.theme-dark .auth-card,
+body.theme-dark .first-access-card,
+body.theme-dark .panel,
+body.theme-dark .stat-card,
+body.theme-dark .quick-action-card,
+body.theme-dark .finance-base-card,
+body.theme-dark .finance-period-card,
+body.theme-dark .finance-period-hero,
+body.theme-dark .finance-period-card--active,
+body.theme-dark .crm-card,
+body.theme-dark .crm-search-card,
+body.theme-dark .crm-empty,
+body.theme-dark .crm-empty-screen,
+body.theme-dark .crm-driver__hero,
+body.theme-dark .crm-driver__panel,
+body.theme-dark .crm-payment-card,
+body.theme-dark .crm-ticket-card,
+body.theme-dark .timeline-item,
+body.theme-dark .upload-batch,
+body.theme-dark .upload-batch__file,
+body.theme-dark .period-card,
+body.theme-dark .base-card,
+body.theme-dark .modal-card,
+body.theme-dark .duplicate-review-card{
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)),
     rgba(17, 21, 28, 0.9) !important;
@@ -3173,248 +3173,261 @@ body,
   color: var(--text);
 }
 
-.panel,
-.stat-card,
-.quick-action-card,
-.finance-base-card,
-.finance-period-card,
-.crm-search-card,
-.upload-batch,
-.modal-card {
+body.theme-dark .profile-menu__item{
+  color: #f7f8fb !important;
+}
+
+body.theme-dark .profile-menu__item svg{
+  color: #eb0000 !important;
+}
+
+body.theme-dark .profile-menu__item:hover{
+  background: rgba(235, 0, 0, 0.14) !important;
+  color: #ffffff !important;
+}
+
+body.theme-dark .panel,
+body.theme-dark .stat-card,
+body.theme-dark .quick-action-card,
+body.theme-dark .finance-base-card,
+body.theme-dark .finance-period-card,
+body.theme-dark .crm-search-card,
+body.theme-dark .upload-batch,
+body.theme-dark .modal-card{
   border-radius: 18px !important;
 }
 
-.screen__intro h1,
-.panel__header h3,
-.panel__header h2,
-.auth-card h2,
-.first-access-card h2,
-.stat-card strong,
-.quick-action-card strong,
-.finance-base-card strong,
-.finance-period-card strong,
-.crm-card strong,
-.data-table strong,
-.upload-batch strong,
-.upload-batch__file strong {
+body.theme-dark .screen__intro h1,
+body.theme-dark .panel__header h3,
+body.theme-dark .panel__header h2,
+body.theme-dark .auth-card h2,
+body.theme-dark .first-access-card h2,
+body.theme-dark .stat-card strong,
+body.theme-dark .quick-action-card strong,
+body.theme-dark .finance-base-card strong,
+body.theme-dark .finance-period-card strong,
+body.theme-dark .crm-card strong,
+body.theme-dark .data-table strong,
+body.theme-dark .upload-batch strong,
+body.theme-dark .upload-batch__file strong{
   color: #ffffff;
 }
 
-.screen__intro p,
-.auth-copy,
-.panel-copy,
-.stat-card span,
-.stat-card small,
-.quick-action-card span,
-.quick-action-card small,
-.finance-base-card span,
-.finance-base-card small,
-.finance-period-card span,
-.finance-period-card small,
-.crm-card span,
-.crm-card small,
-.upload-batch span,
-.upload-batch small,
-.data-table td,
-.data-table th,
-.profile-chip small,
-.activity-list span,
-.activity-list small {
+body.theme-dark .screen__intro p,
+body.theme-dark .auth-copy,
+body.theme-dark .panel-copy,
+body.theme-dark .stat-card span,
+body.theme-dark .stat-card small,
+body.theme-dark .quick-action-card span,
+body.theme-dark .quick-action-card small,
+body.theme-dark .finance-base-card span,
+body.theme-dark .finance-base-card small,
+body.theme-dark .finance-period-card span,
+body.theme-dark .finance-period-card small,
+body.theme-dark .crm-card span,
+body.theme-dark .crm-card small,
+body.theme-dark .upload-batch span,
+body.theme-dark .upload-batch small,
+body.theme-dark .data-table td,
+body.theme-dark .data-table th,
+body.theme-dark .profile-chip small,
+body.theme-dark .activity-list span,
+body.theme-dark .activity-list small{
   color: var(--muted);
 }
 
-.eyebrow,
-.auth-brand__title,
-.brand-mark__title,
-.quick-action-card__icon,
-.stat-card__icon,
-.activity-icon,
-.finance-card-icon,
-.finance-status-pill--danger,
-.ghost-button--danger,
-.duplicate-review-card .ghost-button--danger {
+body.theme-dark .eyebrow,
+body.theme-dark .auth-brand__title,
+body.theme-dark .brand-mark__title,
+body.theme-dark .quick-action-card__icon,
+body.theme-dark .stat-card__icon,
+body.theme-dark .activity-icon,
+body.theme-dark .finance-card-icon,
+body.theme-dark .finance-status-pill--danger,
+body.theme-dark .ghost-button--danger,
+body.theme-dark .duplicate-review-card .ghost-button--danger{
   color: var(--accent) !important;
 }
 
-.quick-action-card__icon,
-.stat-card__icon,
-.activity-icon,
-.finance-card-icon,
-.sidebar__item--active svg,
-.primary-button,
-.primary-button--inline,
-.file-picker {
+body.theme-dark .quick-action-card__icon,
+body.theme-dark .stat-card__icon,
+body.theme-dark .activity-icon,
+body.theme-dark .finance-card-icon,
+body.theme-dark .sidebar__item--active svg,
+body.theme-dark .primary-button,
+body.theme-dark .primary-button--inline,
+body.theme-dark .file-picker{
   background: linear-gradient(135deg, rgba(235, 0, 0, 0.92), rgba(120, 0, 0, 0.9)) !important;
   color: #ffffff !important;
   box-shadow: 0 14px 32px rgba(235, 0, 0, 0.26) !important;
 }
 
-.ghost-button,
-.period-tab,
-.crm-detail-tab,
-.quick-meta__chip,
-.profile-chip,
-.search-field,
-.field input,
-.field select,
-.field textarea,
-.field .field__select,
-.admin-form--motorista-edit .field input,
-.admin-form--motorista-edit .field select,
-.admin-form--motorista-edit .field textarea,
-.user-form--modal .field input,
-.user-form--modal .field select,
-.user-form--modal .field .field__select,
-.finance-period-form input,
-.finance-period-form select,
-.finance-filters input,
-.finance-filters select,
-.filters-row input,
-.filters-row select,
-.filters-row .field__select {
+body.theme-dark .ghost-button,
+body.theme-dark .period-tab,
+body.theme-dark .crm-detail-tab,
+body.theme-dark .quick-meta__chip,
+body.theme-dark .profile-chip,
+body.theme-dark .search-field,
+body.theme-dark .field input,
+body.theme-dark .field select,
+body.theme-dark .field textarea,
+body.theme-dark .field .field__select,
+body.theme-dark .admin-form--motorista-edit .field input,
+body.theme-dark .admin-form--motorista-edit .field select,
+body.theme-dark .admin-form--motorista-edit .field textarea,
+body.theme-dark .user-form--modal .field input,
+body.theme-dark .user-form--modal .field select,
+body.theme-dark .user-form--modal .field .field__select,
+body.theme-dark .finance-period-form input,
+body.theme-dark .finance-period-form select,
+body.theme-dark .finance-filters input,
+body.theme-dark .finance-filters select,
+body.theme-dark .filters-row input,
+body.theme-dark .filters-row select,
+body.theme-dark .filters-row .field__select{
   background: rgba(255, 255, 255, 0.055) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   color: var(--text) !important;
   box-shadow: none !important;
 }
 
-.ghost-button:hover,
-.period-tab:hover,
-.crm-detail-tab:hover,
-.quick-meta__chip:hover,
-.quick-action-card:hover,
-.crm-search-card:hover {
+body.theme-dark .ghost-button:hover,
+body.theme-dark .period-tab:hover,
+body.theme-dark .crm-detail-tab:hover,
+body.theme-dark .quick-meta__chip:hover,
+body.theme-dark .quick-action-card:hover,
+body.theme-dark .crm-search-card:hover{
   background: rgba(235, 0, 0, 0.12) !important;
   border-color: rgba(235, 0, 0, 0.36) !important;
   color: #ffffff !important;
 }
 
-.period-tab--active,
-.crm-detail-tab--active,
-.quick-meta__chip--active,
-.finance-tab--active,
-.checkbox-chip--active {
+body.theme-dark .period-tab--active,
+body.theme-dark .crm-detail-tab--active,
+body.theme-dark .quick-meta__chip--active,
+body.theme-dark .finance-tab--active,
+body.theme-dark .checkbox-chip--active{
   background: linear-gradient(135deg, rgba(235, 0, 0, 0.9), rgba(123, 0, 0, 0.78)) !important;
   border-color: rgba(235, 0, 0, 0.78) !important;
   color: #ffffff !important;
   box-shadow: 0 12px 28px rgba(235, 0, 0, 0.22) !important;
 }
 
-input::placeholder,
-textarea::placeholder {
+body.theme-dark input::placeholder,
+body.theme-dark textarea::placeholder{
   color: rgba(210, 218, 230, 0.54) !important;
 }
 
-select option {
+body.theme-dark select option{
   background: #11151c;
   color: var(--text);
 }
 
-.table-wrap,
-.data-table,
-.base-management-table,
-.finance-preview-table {
+body.theme-dark .table-wrap,
+body.theme-dark .data-table,
+body.theme-dark .base-management-table,
+body.theme-dark .finance-preview-table{
   background: rgba(10, 13, 18, 0.5) !important;
   color: var(--text);
 }
 
-.data-table th,
-.base-management-table th,
-.finance-preview-table th {
+body.theme-dark .data-table th,
+body.theme-dark .base-management-table th,
+body.theme-dark .finance-preview-table th{
   background: rgba(255, 255, 255, 0.045) !important;
   color: #d8deea !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.09) !important;
 }
 
-.data-table td,
-.base-management-table td,
-.finance-preview-table td {
+body.theme-dark .data-table td,
+body.theme-dark .base-management-table td,
+body.theme-dark .finance-preview-table td{
   border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
 }
 
-.status-pill,
-.finance-status-pill {
+body.theme-dark .status-pill,
+body.theme-dark .finance-status-pill{
   background: rgba(255, 255, 255, 0.07) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   color: #d9e0ec !important;
 }
 
-.status-pill--active,
-.finance-status-pill--success {
+body.theme-dark .status-pill--active,
+body.theme-dark .finance-status-pill--success{
   background: rgba(34, 197, 94, 0.16) !important;
   border-color: rgba(34, 197, 94, 0.24) !important;
   color: #8ff0b6 !important;
 }
 
-.finance-status-pill--danger,
-.toast-message--error {
+body.theme-dark .finance-status-pill--danger,
+body.theme-dark .toast-message--error{
   background: rgba(235, 0, 0, 0.14) !important;
   border-color: rgba(235, 0, 0, 0.28) !important;
   color: #ffb4b4 !important;
 }
 
-.finance-status-pill--warning {
+body.theme-dark .finance-status-pill--warning{
   background: rgba(245, 158, 11, 0.16) !important;
   border-color: rgba(245, 158, 11, 0.26) !important;
   color: #ffd27a !important;
 }
 
-.finance-status-pill--info {
+body.theme-dark .finance-status-pill--info{
   background: rgba(96, 165, 250, 0.16) !important;
   border-color: rgba(96, 165, 250, 0.26) !important;
   color: #a9cbff !important;
 }
 
-.finance-period-hero,
-.finance-period-hero--compact,
-.screen__intro--crm,
-.crm-driver__hero {
+body.theme-dark .finance-period-hero,
+body.theme-dark .finance-period-hero--compact,
+body.theme-dark .screen__intro--crm,
+body.theme-dark .crm-driver__hero{
   background:
     linear-gradient(135deg, rgba(235, 0, 0, 0.11), rgba(255, 255, 255, 0.025)),
     rgba(16, 20, 27, 0.78) !important;
 }
 
-.chart text,
-.chart__labels span {
+body.theme-dark .chart text,
+body.theme-dark .chart__labels span{
   fill: var(--muted);
   color: var(--muted);
 }
 
-.chart line {
+body.theme-dark .chart line{
   stroke: rgba(255, 255, 255, 0.08);
 }
 
-.modal-overlay,
-.shell-mobile-backdrop {
+body.theme-dark .modal-overlay,
+body.theme-dark .shell-mobile-backdrop{
   background: rgba(0, 0, 0, 0.68) !important;
 }
 
-.toast-message {
+body.theme-dark .toast-message{
   background: rgba(18, 22, 29, 0.96) !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
   color: var(--text) !important;
 }
 
-.toast-message--success {
+body.theme-dark .toast-message--success{
   border-color: rgba(34, 197, 94, 0.28) !important;
 }
 
-.auth-hero::before,
-.hero-preview,
-.hero-preview__window,
-.hero-preview__sidebar,
-.hero-preview__content--image,
-.hero-preview__card,
-.auth-panel {
+body.theme-dark .auth-hero::before,
+body.theme-dark .hero-preview,
+body.theme-dark .hero-preview__window,
+body.theme-dark .hero-preview__sidebar,
+body.theme-dark .hero-preview__content--image,
+body.theme-dark .hero-preview__card,
+body.theme-dark .auth-panel{
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)),
     rgba(12, 15, 21, 0.86) !important;
   border-color: rgba(255, 255, 255, 0.09) !important;
 }
 
-.auth-brand__subtitle,
-.brand-mark__caption,
-.auth-copy--muted {
+body.theme-dark .auth-brand__subtitle,
+body.theme-dark .brand-mark__caption,
+body.theme-dark .auth-copy--muted{
   color: var(--muted) !important;
 }
 
