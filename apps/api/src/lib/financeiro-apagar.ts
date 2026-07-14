@@ -480,6 +480,10 @@ async function buildAptosPreviewRows(rows: CandidateRow[]) {
       missing.push({ field: "base", reason: "Base do motorista nao cadastrada" });
     }
 
+    const valorTotalPdf = await extractPaymentTotalValue(
+      mirrorReceipt?.caminhoArquivo || upload.caminhoArquivo
+    );
+
     if (missing.length > 0) {
       inconsistencias.push({
         processoId: upload.id,
@@ -498,8 +502,8 @@ async function buildAptosPreviewRows(rows: CandidateRow[]) {
       nomeMotorista: upload.motorista?.nome || "Nao informado",
       nomeFavorecido,
       cpfFavorecido,
-      valorTotalPdf: null,
-      valorTotalPdfFormatado: "Nao informado",
+      valorTotalPdf,
+      valorTotalPdfFormatado: valorTotalPdf === null ? "Nao informado" : formatMoney(valorTotalPdf),
       baseMotorista,
       statusProcesso: evaluation.statusProcesso,
       statusNotaFiscal: evaluation.statusNotaFiscal,

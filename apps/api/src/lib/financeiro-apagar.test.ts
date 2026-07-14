@@ -121,4 +121,5 @@ test("buildWorkbook creates the expected sheets and headers", () => {
   const sheet = workbook.Sheets["Aptos para Pagamento"];
   assert.equal(sheet.A1?.v, "Nome Motorista");
   assert.equal(sheet.E1?.v, "Base do Motorista");
+  assert.equal(sheet.D2?.v, 1500.5);
 });
