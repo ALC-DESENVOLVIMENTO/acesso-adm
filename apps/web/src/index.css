@@ -904,9 +904,8 @@ button {
 
 .shell-page {
   min-height: 100vh;
-  display: block;
-  padding-left: 110px;
-  transition: padding-left 0.28s ease;
+  display: grid;
+  grid-template-columns: 110px 1fr;
 }
 
 .shell-mobile-toggle {
@@ -931,11 +930,12 @@ button {
 }
 
 .sidebar {
-  position: fixed;
+  position: sticky;
   top: 0;
-  left: 0;
-  z-index: 25;
-  height: 100vh;
+  align-self: start;
+  z-index: 10;
+  height: 100dvh;
+  max-height: 100dvh;
   overflow: hidden;
   width: 110px;
   padding: 24px 18px;
@@ -950,7 +950,7 @@ button {
 }
 
 .shell-page:has(.sidebar:hover) {
-  padding-left: 288px;
+  grid-template-columns: 288px 1fr;
 }
 
 .sidebar:hover {
@@ -3313,7 +3313,7 @@ button {
 
   .shell-page,
   .shell-page:has(.sidebar:hover) {
-    padding-left: 0;
+    grid-template-columns: 1fr;
   }
 
   .shell-mobile-toggle {
