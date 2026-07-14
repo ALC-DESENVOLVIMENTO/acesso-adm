@@ -1174,7 +1174,8 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
           : resolvePdfStatus(upload.periodoPagamento?.status || null, upload.status);
       const pdfSentAt = mirrorReceipt?.enviadoAoMotoristaEm || upload.criadoEm;
       const noteSentAt = noteReceipt?.uploadEm || null;
-      const noteDownloadUrl = noteReceipt?.id ? `/api/financeiro/driver-pdfs/${noteReceipt.id}/content` : null;
+      const mirrorDownloadUrl = buildStorageObjectUrl(mirrorReceipt?.caminhoArquivo || upload.caminhoArquivo);
+      const noteDownloadUrl = buildStorageObjectUrl(noteReceipt?.caminhoArquivo);
 
       return {
         id: noteReceipt?.id || mirrorReceipt?.id || upload.id,
@@ -1217,7 +1218,7 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
                   : currentStatus === "pdf_enviado_ao_motorista"
                     ? "Pendente"
                     : "Pendente",
-        caminhoArquivo: buildStorageObjectUrl(upload.caminhoArquivo),
+        caminhoArquivo: mirrorDownloadUrl,
         notaFiscalDownloadUrl: noteDownloadUrl
       };
     });

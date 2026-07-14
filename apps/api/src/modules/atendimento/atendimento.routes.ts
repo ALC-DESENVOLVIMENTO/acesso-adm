@@ -964,8 +964,8 @@ async function loadMotoristaDetail(motoristaId: string) {
         notaFiscalRecebidaEm: noteReceivedAt ? toIso(noteReceivedAt) : null,
         pago: paid,
         atualizadoEm: toIso(noteReceivedAt || pdfViewedAt || pdfSentAt || noteReceipt?.uploadEm || upload.criadoEm),
-        pdfDownloadUrl: upload.caminhoArquivo ? buildStorageObjectUrl(upload.caminhoArquivo) : null,
-        notaFiscalDownloadUrl: noteReceipt?.id ? `/api/financeiro/driver-pdfs/${noteReceipt.id}/content` : null
+        pdfDownloadUrl: buildStorageObjectUrl(mirrorReceipt?.caminhoArquivo || upload.caminhoArquivo),
+        notaFiscalDownloadUrl: buildStorageObjectUrl(noteReceipt?.caminhoArquivo)
       };
     })
   );
