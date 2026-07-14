@@ -2048,7 +2048,7 @@ function App() {
                 <button className="ghost-button" type="button" onClick={closeProfileModal}>
                   Cancelar
                 </button>
-                <button className="primary-button primary-button--inline" type="submit" disabled={profileActionLoading}>
+                <button className="primary-button primary-button--inline cta-motion" type="submit" disabled={profileActionLoading}>
                   Salvar alteracoes
                 </button>
               </div>
@@ -2081,7 +2081,7 @@ function App() {
                 Cancelar
               </button>
               <button
-                className="primary-button primary-button--inline"
+                className="primary-button primary-button--inline cta-motion"
                 type="button"
                 onClick={async () => {
                   const target = deleteUserTarget;
@@ -2123,7 +2123,7 @@ function App() {
                 Cancelar
               </button>
               <button
-                className="primary-button primary-button--inline"
+                className="primary-button primary-button--inline cta-motion"
                 type="button"
                 onClick={async () => {
                   const target = deleteUploadTarget;
@@ -2165,7 +2165,7 @@ function App() {
                 Cancelar
               </button>
               <button
-                className="primary-button primary-button--inline"
+                className="primary-button primary-button--inline cta-motion"
                 type="button"
                 onClick={async () => {
                   const target = deletePeriodTarget;
@@ -3251,7 +3251,7 @@ function PdfsScreen({
           </label>
 
           <button
-            className="primary-button primary-button--inline file-picker"
+            className="primary-button primary-button--inline file-picker cta-motion"
             type="button"
             onClick={() => uploadInputRef.current?.click()}
             disabled={!selectedPeriodId || !selectedBaseId}
@@ -3388,7 +3388,7 @@ function PdfsScreen({
                           >
                             Historico
                           </button>
-                          <label className="ghost-button ghost-button--small file-picker file-picker--ghost">
+                          <label className="ghost-button ghost-button--small file-picker file-picker--ghost cta-motion cta-motion--ghost">
                             Substituir
                             <input
                               type="file"

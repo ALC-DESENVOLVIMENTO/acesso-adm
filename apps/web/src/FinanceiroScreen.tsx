@@ -1277,11 +1277,11 @@ export function FinanceiroScreen({
             </div>
 
             <div className="admin-form__actions">
-              <button className="primary-button primary-button--inline" type="button" onClick={handlePreviewFinanceiroImport} disabled={!selectedImportFile || !selectedPeriodId || Boolean(importBusy)}>
+              <button className="primary-button primary-button--inline cta-motion" type="button" onClick={handlePreviewFinanceiroImport} disabled={!selectedImportFile || !selectedPeriodId || Boolean(importBusy)}>
                 {importBusy || "Gerar pre-visualizacao"}
                 <ArrowRight size={18} weight="bold" />
               </button>
-              <button className="ghost-button ghost-button--small" type="button" onClick={handleConfirmFinanceiroImport} disabled={!currentImportacao || importacaoConfirmada}>
+              <button className="ghost-button ghost-button--small cta-motion cta-motion--ghost" type="button" onClick={handleConfirmFinanceiroImport} disabled={!currentImportacao || importacaoConfirmada}>
                 Confirmar importacao
               </button>
             </div>
