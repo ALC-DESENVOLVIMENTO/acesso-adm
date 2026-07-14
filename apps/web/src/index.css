@@ -3106,10 +3106,13 @@ body.theme-dark .shell-page::before{
 body.theme-dark .shell-content,
 body.theme-dark .sidebar,
 body.theme-dark .topbar,
-body.theme-dark .screen,
-body.theme-dark .modal-overlay{
+body.theme-dark .screen{
   position: relative;
   z-index: 1;
+}
+
+body.theme-dark .topbar{
+  z-index: 25;
 }
 
 body.theme-dark .sidebar{
@@ -3173,6 +3176,14 @@ body.theme-dark .duplicate-review-card{
   color: var(--text);
 }
 
+body.theme-dark .topbar{
+  box-shadow: none !important;
+}
+
+body.theme-dark .profile-menu{
+  z-index: 90;
+}
+
 body.theme-dark .profile-menu__item{
   color: #f7f8fb !important;
 }
@@ -3197,6 +3208,19 @@ body.theme-dark .modal-card{
   border-radius: 18px !important;
 }
 
+body.theme-dark .modal-overlay{
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 80 !important;
+  display: grid !important;
+  place-items: center !important;
+  background: rgba(0, 0, 0, 0.68) !important;
+}
+
+body.theme-dark .modal-card{
+  color: var(--text) !important;
+}
+
 body.theme-dark .screen__intro h1,
 body.theme-dark .panel__header h3,
 body.theme-dark .panel__header h2,
@@ -3209,7 +3233,15 @@ body.theme-dark .finance-period-card strong,
 body.theme-dark .crm-card strong,
 body.theme-dark .data-table strong,
 body.theme-dark .upload-batch strong,
-body.theme-dark .upload-batch__file strong{
+body.theme-dark .upload-batch__file strong,
+body.theme-dark .period-card h4,
+body.theme-dark .period-card__metric strong,
+body.theme-dark .period-tile strong,
+body.theme-dark .base-summary-chip__name,
+body.theme-dark .finance-base-card__top strong,
+body.theme-dark .modal-card__header h3,
+body.theme-dark .quick-actions-editor__text strong,
+body.theme-dark .crm-driver__grid strong{
   color: #ffffff;
 }
 
@@ -3232,7 +3264,17 @@ body.theme-dark .data-table td,
 body.theme-dark .data-table th,
 body.theme-dark .profile-chip small,
 body.theme-dark .activity-list span,
-body.theme-dark .activity-list small{
+body.theme-dark .activity-list small,
+body.theme-dark .period-card__metric small,
+body.theme-dark .period-tile span,
+body.theme-dark .period-tile small,
+body.theme-dark .base-summary-chip__count,
+body.theme-dark .finance-base-card__top span,
+body.theme-dark .finance-base-card__metrics span,
+body.theme-dark .table-cell-subtle,
+body.theme-dark .quick-actions-editor__text small,
+body.theme-dark .modal-card__header p,
+body.theme-dark .crm-driver__grid div span{
   color: var(--muted);
 }
 
@@ -3268,6 +3310,7 @@ body.theme-dark .crm-detail-tab,
 body.theme-dark .quick-meta__chip,
 body.theme-dark .profile-chip,
 body.theme-dark .search-field,
+body.theme-dark .filter-select,
 body.theme-dark .field input,
 body.theme-dark .field select,
 body.theme-dark .field textarea,
@@ -3284,7 +3327,16 @@ body.theme-dark .finance-filters input,
 body.theme-dark .finance-filters select,
 body.theme-dark .filters-row input,
 body.theme-dark .filters-row select,
-body.theme-dark .filters-row .field__select{
+body.theme-dark .filters-row .field__select,
+body.theme-dark .admin-form.period-form .field input,
+body.theme-dark .admin-form.period-form .field select,
+body.theme-dark .admin-form.period-form .field__select,
+body.theme-dark .base-summary-chip,
+body.theme-dark .period-tile,
+body.theme-dark .quick-actions-editor__item,
+body.theme-dark .checkbox-chip,
+body.theme-dark .crm-driver__grid div,
+body.theme-dark .empty-state{
   background: rgba(255, 255, 255, 0.055) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   color: var(--text) !important;
@@ -3296,7 +3348,8 @@ body.theme-dark .period-tab:hover,
 body.theme-dark .crm-detail-tab:hover,
 body.theme-dark .quick-meta__chip:hover,
 body.theme-dark .quick-action-card:hover,
-body.theme-dark .crm-search-card:hover{
+body.theme-dark .crm-search-card:hover,
+body.theme-dark .checkbox-chip:hover:not(.checkbox-chip--active){
   background: rgba(235, 0, 0, 0.12) !important;
   border-color: rgba(235, 0, 0, 0.36) !important;
   color: #ffffff !important;
@@ -3311,6 +3364,15 @@ body.theme-dark .checkbox-chip--active{
   border-color: rgba(235, 0, 0, 0.78) !important;
   color: #ffffff !important;
   box-shadow: 0 12px 28px rgba(235, 0, 0, 0.22) !important;
+}
+
+body.theme-dark .period-tabs{
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+body.theme-dark .finance-section-tabs{
+  background: linear-gradient(180deg, rgba(7, 9, 13, 0.96), rgba(7, 9, 13, 0.78)) !important;
 }
 
 body.theme-dark input::placeholder,
@@ -3397,7 +3459,6 @@ body.theme-dark .chart line{
   stroke: rgba(255, 255, 255, 0.08);
 }
 
-body.theme-dark .modal-overlay,
 body.theme-dark .shell-mobile-backdrop{
   background: rgba(0, 0, 0, 0.68) !important;
 }
