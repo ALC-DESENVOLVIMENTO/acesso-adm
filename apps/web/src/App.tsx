@@ -1688,7 +1688,7 @@ function App() {
             </button>
             <div className="topbar__profile" ref={profileMenuRef}>
               <button
-                className="profile-chip"
+                className="profile-chip cta-motion cta-motion--profile"
                 type="button"
                 aria-expanded={profileMenuOpen}
                 aria-haspopup="menu"
@@ -2682,7 +2682,7 @@ function PeriodsScreen({
             <p>Abra o pop-up para criar um novo periodo com o mesmo fluxo visual ja usado no sistema.</p>
           </div>
           <button
-            className="primary-button primary-button--inline"
+            className="primary-button primary-button--inline cta-motion"
             type="button"
             onClick={() => setIsCreatePeriodModalOpen(true)}
           >
@@ -2697,7 +2697,7 @@ function PeriodsScreen({
             <p>Edite nome, tipo e status das bases sem sair do modulo de periodos.</p>
           </div>
           <div className="period-launch-card__actions">
-            <button className="ghost-button" type="button" onClick={() => setIsBasePanelOpen(true)}>
+            <button className="ghost-button cta-motion cta-motion--ghost" type="button" onClick={() => setIsBasePanelOpen(true)}>
               Gerenciar bases
               <ArrowRight size={16} />
             </button>
@@ -3609,7 +3609,7 @@ function UsersScreen({
           <h1>Cadastro de Usuarios</h1>
           <p>Gestao de niveis, status, modulos liberados e historico operacional.</p>
         </div>
-        <button className="primary-button primary-button--inline" type="button" onClick={openCreateModal}>
+        <button className="primary-button primary-button--inline cta-motion" type="button" onClick={openCreateModal}>
           Novo usuario
           <UserCirclePlus size={18} weight="bold" />
         </button>

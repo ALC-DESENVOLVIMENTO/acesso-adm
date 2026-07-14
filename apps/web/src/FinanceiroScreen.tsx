@@ -848,7 +848,7 @@ export function FinanceiroScreen({
                 </button>
               </div>
               <button
-                className="ghost-button ghost-button--small finance-export-button"
+                className="ghost-button ghost-button--small finance-export-button cta-motion cta-motion--ghost"
                 type="button"
                 onClick={handleExportNotasFiscais}
                 disabled={!selectedPeriodId}
@@ -1119,7 +1119,7 @@ export function FinanceiroScreen({
                 </select>
               </label>
               <button
-                className="primary-button primary-button--inline"
+                className="primary-button primary-button--inline cta-motion"
                 type="button"
                 onClick={() => void handleConsultarAptosPagamento()}
                 disabled={!selectedPeriodId || Boolean(apagarBusy)}
@@ -1128,7 +1128,7 @@ export function FinanceiroScreen({
                 <ArrowRight size={18} weight="bold" />
               </button>
               <button
-                className="ghost-button ghost-button--small"
+                className="ghost-button ghost-button--small cta-motion cta-motion--ghost"
                 type="button"
                 onClick={() => void handleExportAptosPagamento()}
                 disabled={!selectedPeriodId || Boolean(apagarBusy)}

@@ -774,7 +774,7 @@ button {
 }
 
 .cta-motion::after {
-  content: "›››";
+  content: ">>>";
   position: absolute;
   right: 16px;
   top: 50%;
@@ -806,6 +806,14 @@ button {
 
 .cta-motion--ghost:hover:not(:disabled) {
   box-shadow: 5px 5px 0 rgba(235, 0, 0, 0.24);
+}
+
+.cta-motion--profile:hover:not(:disabled) {
+  padding-right: 12px;
+}
+
+.cta-motion--profile::after {
+  content: none;
 }
 
 @keyframes cta-arrow-pulse {
