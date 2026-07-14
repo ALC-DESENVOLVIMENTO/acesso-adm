@@ -5,6 +5,7 @@ import {
   ChartLineUp,
   ClockCounterClockwise,
   Eye,
+  FileArrowUp,
   FilePdf,
   FunnelSimple,
   MagnifyingGlass,
@@ -1258,14 +1259,21 @@ export function FinanceiroScreen({
             </div>
 
             <div className="filters-row finance-filters">
-              <label className="field">
+              <div className="field">
                 <span>Arquivo Excel</span>
-                <input
-                  type="file"
-                  accept=".xlsx,.xls"
-                  onChange={(event) => setSelectedImportFile(event.target.files?.[0] || null)}
-                />
-              </label>
+                <label className={`upload-chooser cta-motion ${importBusy ? "upload-chooser--loading" : ""}`}>
+                  <FileArrowUp size={18} weight="bold" />
+                  <span>Escolher arquivo</span>
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={(event) => setSelectedImportFile(event.target.files?.[0] || null)}
+                  />
+                </label>
+                <small className="upload-chooser__filename">
+                  {selectedImportFile?.name || "Nenhum arquivo escolhido"}
+                </small>
+              </div>
               <label className="filter-select">
                 <FunnelSimple size={18} />
                 <select value={previewFilter} onChange={(event) => setPreviewFilter(event.target.value as PreviewFilter)}>

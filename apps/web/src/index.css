@@ -1810,6 +1810,54 @@ button {
   justify-content: center;
 }
 
+.upload-chooser {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: fit-content;
+  min-height: 44px;
+  padding: 12px 18px;
+  border: 1px solid rgba(235, 0, 0, 0.16);
+  border-radius: 14px;
+  background: linear-gradient(135deg, #eb0000, #b90000);
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 14px 28px rgba(235, 0, 0, 0.22);
+}
+
+.upload-chooser input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.upload-chooser--loading {
+  animation: upload-chooser-loading 1.05s ease-in-out infinite;
+}
+
+.upload-chooser__filename {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+@keyframes upload-chooser-loading {
+  0%,
+  100% {
+    box-shadow: 0 14px 28px rgba(235, 0, 0, 0.2);
+    transform: translateY(0);
+  }
+  50% {
+    box-shadow: 0 18px 34px rgba(235, 0, 0, 0.38);
+    transform: translateY(-1px);
+  }
+}
+
 .panel--compact {
   padding: 18px 20px;
 }
@@ -3780,7 +3828,8 @@ body.theme-dark .finance-card-icon,
 body.theme-dark .sidebar__item--active svg,
 body.theme-dark .primary-button,
 body.theme-dark .primary-button--inline,
-body.theme-dark .file-picker{
+body.theme-dark .file-picker,
+body.theme-dark .upload-chooser{
   background: linear-gradient(135deg, rgba(235, 0, 0, 0.92), rgba(120, 0, 0, 0.9)) !important;
   color: #ffffff !important;
   box-shadow: 0 14px 32px rgba(235, 0, 0, 0.26) !important;
@@ -3872,8 +3921,13 @@ body.theme-dark .checkbox-chip--active{
 
 body.theme-dark .primary-button,
 body.theme-dark .primary-button--inline,
-body.theme-dark .file-picker{
+body.theme-dark .file-picker,
+body.theme-dark .upload-chooser{
   box-shadow: none !important;
+}
+
+body.theme-dark .upload-chooser__filename{
+  color: #d9e2f0 !important;
 }
 
 body.theme-dark .cta-motion:hover:not(:disabled){

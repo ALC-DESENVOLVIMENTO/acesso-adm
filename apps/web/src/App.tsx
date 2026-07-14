@@ -2042,13 +2042,15 @@ function App() {
                       <span>{currentUser?.name.slice(0, 2).toUpperCase()}</span>
                     )}
                   </div>
-                  <label className="field">
+                  <div className="field">
                     <span>Foto</span>
-                    <span className="field__control">
-                      <Camera size={18} />
+                    <label className="upload-chooser cta-motion">
+                      <FileArrowUp size={18} weight="bold" />
+                      <span>Escolher foto</span>
                       <input name="photo" type="file" accept="image/*" required />
-                    </span>
-                  </label>
+                    </label>
+                    <small className="upload-chooser__filename">Selecione uma imagem do perfil</small>
+                  </div>
                 </>
               ) : null}
 
@@ -4938,10 +4940,19 @@ function AtendimentoScreen({
                 <span>Texto da atualizacao</span>
                 <textarea className="crm-textarea" name="description" placeholder="Atualizacao do chamado" required />
               </label>
-              <label className="field" style={{ gridColumn: "1 / -1" }}>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <span>Anexos opcionais</span>
-                <input className="field__select" type="file" multiple onChange={(event) => setTicketFiles(Array.from(event.target.files || []))} />
-              </label>
+                <label className="upload-chooser cta-motion">
+                  <FileArrowUp size={18} weight="bold" />
+                  <span>Escolher arquivos</span>
+                  <input type="file" multiple onChange={(event) => setTicketFiles(Array.from(event.target.files || []))} />
+                </label>
+                <small className="upload-chooser__filename">
+                  {ticketFiles.length > 0
+                    ? `${ticketFiles.length} arquivo(s) selecionado(s)`
+                    : "Nenhum arquivo escolhido"}
+                </small>
+              </div>
               <div className="admin-form__actions">
                 <button className="ghost-button" type="button" onClick={() => setTicketAction(null)}>
                   Cancelar
