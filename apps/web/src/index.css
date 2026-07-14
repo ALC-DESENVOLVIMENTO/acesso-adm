@@ -794,14 +794,21 @@ button {
   box-shadow: 6px 6px 0 rgba(12, 14, 20, 0.92);
 }
 
-.cta-motion:hover:not(:disabled)::before {
+.cta-motion:hover:not(:disabled)::before,
+.cta-motion--upload:hover::before {
   transform: translateX(120%) skewX(-16deg);
 }
 
-.cta-motion:hover:not(:disabled)::after {
+.cta-motion:hover:not(:disabled)::after,
+.cta-motion--upload:hover::after {
   opacity: 1;
   transform: translate(0, -50%);
   animation: cta-arrow-pulse 1s infinite;
+}
+
+.cta-motion--upload:hover {
+  padding-right: 44px;
+  box-shadow: 6px 6px 0 rgba(12, 14, 20, 0.92);
 }
 
 .cta-motion--ghost:hover:not(:disabled) {

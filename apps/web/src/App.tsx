@@ -3288,7 +3288,7 @@ function PdfsScreen({
           </label>
 
           <button
-            className="primary-button primary-button--inline file-picker cta-motion"
+            className="primary-button primary-button--inline file-picker cta-motion cta-motion--upload"
             type="button"
             onClick={() => uploadInputRef.current?.click()}
             disabled={!selectedPeriodId || !selectedBaseId}
