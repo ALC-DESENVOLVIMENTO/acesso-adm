@@ -4600,7 +4600,6 @@ function AtendimentoScreen({
                             <div><strong>NF enviada</strong><span>{item.notaFiscalEnviadaEm ? new Date(item.notaFiscalEnviadaEm).toLocaleString("pt-BR") : "Nao informado"}</span></div>
                             <div><strong>NF recebida</strong><span>{item.notaFiscalRecebidaEm ? new Date(item.notaFiscalRecebidaEm).toLocaleString("pt-BR") : "Nao informado"}</span></div>
                             <div><strong>Data de pagamento</strong><span>{item.dataPagamento ? new Date(item.dataPagamento).toLocaleString("pt-BR") : "Nao informado"}</span></div>
-                            <div><strong>Valor</strong><span>{item.valorPagamento || "Nao informado"}</span></div>
                           </div>
 
                           <div className="crm-payment-card__actions">
