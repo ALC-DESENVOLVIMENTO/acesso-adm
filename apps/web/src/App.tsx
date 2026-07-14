@@ -5,6 +5,9 @@ import {
   Bell,
   CalendarBlank,
   ChatCenteredDots,
+  ChartBar,
+  Coins,
+  Database,
   EnvelopeSimple,
   ChartLineUp,
   ClockCounterClockwise,
@@ -18,6 +21,7 @@ import {
   LockSimple,
   MagnifyingGlass,
   PencilSimple,
+  Receipt,
   List,
   SignOut,
   TrashSimple,
@@ -1445,35 +1449,63 @@ function App() {
     return (
       <main className="auth-page">
         <section className="auth-hero">
-          <div className="auth-brand">
+          <div className="auth-dot-grid" aria-hidden="true" />
+          <div className="auth-truck-glow" aria-hidden="true" />
+
+          <div className="auth-headline auth-headline--login">
             <img className="auth-brand__logo" src={logoSrc} alt="ALC Pereira Filho Transportes" />
-            <div className="auth-brand__copy">
-              <span className="auth-brand__title">Portal Administrativo</span>
-              <span className="auth-brand__subtitle">Administracao simplificada</span>
+            <h1>
+              <span>Portal</span>
+              <strong>Administrativo</strong>
+            </h1>
+            <div className="auth-headline__copy-row">
+              <span className="auth-red-line" aria-hidden="true" />
+              <p className="auth-copy">
+                Gerencie documentos, usuarios, bases e rotinas operacionais em um unico ambiente.
+              </p>
             </div>
           </div>
 
-          <div className="auth-headline">
-            <h1>Bem-vindo ao Portal Administrativo!</h1>
-            <p className="auth-copy">
-              Acesse sua conta para gerenciar operacoes, acompanhar informacoes e utilizar os
-              recursos do sistema com seguranca.
-            </p>
-            <p className="auth-copy auth-copy--muted">
-              Este ambiente e exclusivo para usuarios autorizados.
-            </p>
+          <div className="auth-feature-grid" aria-label="Modulos do portal administrativo">
+            <article className="auth-feature-card">
+              <Receipt size={34} />
+              <div>
+                <strong>Documentos</strong>
+                <span>Upload, gestao e compartilhamento de arquivos.</span>
+              </div>
+            </article>
+            <article className="auth-feature-card">
+              <Coins size={34} />
+              <div>
+                <strong>Financeiro</strong>
+                <span>Contas, recebimentos e movimentacoes financeiras.</span>
+              </div>
+            </article>
+            <article className="auth-feature-card">
+              <UsersThree size={34} />
+              <div>
+                <strong>Usuarios</strong>
+                <span>Gerencie perfis, permissoes e acessos ao sistema.</span>
+              </div>
+            </article>
+            <article className="auth-feature-card">
+              <ChartBar size={34} />
+              <div>
+                <strong>Relatorios</strong>
+                <span>Indicadores, graficos e performance operacional.</span>
+              </div>
+            </article>
+            <article className="auth-feature-card">
+              <Database size={34} />
+              <div>
+                <strong>Bases</strong>
+                <span>Gerencie bases de dados e cadastros da operacao.</span>
+              </div>
+            </article>
           </div>
 
           <div className="hero-preview">
             <div className="hero-preview__window">
-              <div className="hero-preview__sidebar">
-                <img className="hero-preview__mini-logo" src={logoSrc} alt="Logo da ALC Pereira Filho Transportes" />
-                <div className="hero-preview__menu">
-                  <span className="hero-preview__menu-item hero-preview__menu-item--active" />
-                  <span className="hero-preview__menu-item" />
-                  <span className="hero-preview__menu-item" />
-                </div>
-              </div>
               <div className="hero-preview__content hero-preview__content--image">
                 {loginPreviewImages.map((src, index) => (
                   <img
@@ -1488,19 +1520,14 @@ function App() {
               </div>
             </div>
           </div>
-
-          <div className="hero-watermark" aria-hidden="true">
-            <img className="hero-watermark__image" src={logoSrc} alt="" />
-          </div>
         </section>
 
         <section className="auth-panel">
           <div className="auth-card auth-card--login">
             <img className="auth-card__logo" src={logoSrc} alt="ALC Pereira Filho Transportes" />
-            <p className="eyebrow">Acesso seguro</p>
-            <h2>Entrar no sistema</h2>
-            <p className="panel-copy">
-              Use um dos e-mails cadastrados na base inicial e a senha temporaria `0000`.
+            <h2>Acessar Portal Administrativo</h2>
+            <p className="auth-copy">
+              Acesso ao sistema
             </p>
 
             <form className="form-stack" onSubmit={handleLogin}>
@@ -1516,21 +1543,31 @@ function App() {
                 <span className="field__control">
                   <LockSimple size={18} />
                   <input name="password" type="password" placeholder="Digite sua senha" required />
+                  <Eye size={18} />
                 </span>
               </label>
+
+              <div className="auth-form-row">
+                <label className="auth-remember">
+                  <input type="checkbox" />
+                  <span>Lembrar acesso</span>
+                </label>
+                <button className="auth-forgot-button" type="button">
+                  Esqueci minha senha
+                </button>
+              </div>
 
               {loadingMessage ? <p className="loading-note">{loadingMessage}</p> : null}
               {loginError ? <p className="form-error">{loginError}</p> : null}
 
-              <button className="primary-button" type="submit">
-                Acessar
-                <ArrowRight size={18} weight="bold" />
+              <button className="primary-button auth-login-button cta-motion" type="submit">
+                Entrar
               </button>
             </form>
 
             <div className="auth-note">
               <LockKey size={18} />
-              <span>Primeiro login com troca de senha obrigatoria e controle por perfil.</span>
+              <span>Ambiente restrito a usuarios autorizados</span>
             </div>
           </div>
         </section>
