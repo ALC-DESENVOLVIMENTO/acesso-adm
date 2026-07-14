@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ensureFinanceiroCompatibilitySchema } from "./lib/financeiro-schema.js";
 import { backfillPaidStatusesFromExistingGroups } from "./lib/financeiro-status-backfill.js";
+import { backfillPaymentTotalsFromMirrorPdfs } from "./lib/financeiro-total-backfill.js";
 import { ensureDriverRegistryColumns } from "./lib/driver-registry-schema.js";
 import { ensureDatabaseCompatibilityColumns } from "./lib/database-compatibility.js";
 import { reconcileStorageReferences } from "./lib/storage-migration.js";
@@ -51,6 +52,10 @@ async function main() {
   const backfilledRows = await backfillPaidStatusesFromExistingGroups();
   if (backfilledRows > 0) {
     console.log(`[financeiro] Backfill de status pago aplicado em ${backfilledRows} registro(s).`);
+  }
+  const backfilledTotals = await backfillPaymentTotalsFromMirrorPdfs();
+  if (backfilledTotals > 0) {
+    console.log(`[financeiro] Backfill de valor total aplicado em ${backfilledTotals} registro(s).`);
   }
   await ensureDriverRegistryColumns();
   await reconcileStorageReferences();

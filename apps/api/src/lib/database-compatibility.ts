@@ -17,6 +17,12 @@ const REQUIRED_UPLOAD_TABLE_COLUMNS: CompatibilityColumn[] = [
     comment: "Adicionar coluna content em uploads_pdf"
   },
   {
+    table: "uploads_pdf",
+    column: "valor_total_pdf",
+    typeSql: "NUMERIC(14,2)",
+    comment: "Adicionar coluna valor_total_pdf em uploads_pdf"
+  },
+  {
     table: "driver_pdf_received",
     column: "content",
     typeSql: "BYTEA",

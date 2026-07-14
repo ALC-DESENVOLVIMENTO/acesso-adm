@@ -298,6 +298,7 @@ model UploadPdf {
   statusPagamentoMotivo String?     @map("status_pagamento_motivo")
   statusPagamentoOrigem String?     @map("status_pagamento_origem")
   codigoObb          String?       @map("codigo_obb") @db.VarChar(80)
+  valorTotalPdf      Decimal?      @map("valor_total_pdf") @db.Decimal(14, 2)
   usuarioAtualizacaoId String?      @map("usuario_atualizacao_id") @db.Uuid
   criadoEm           DateTime      @default(now()) @map("criado_em")
   usuario            Usuario       @relation(fields: [usuarioId], references: [id])

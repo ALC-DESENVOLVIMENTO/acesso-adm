@@ -20,7 +20,17 @@ const APPROVED_NOTE_STATUSES: Set<DriverPdfReceivedStatus> = new Set([
 ]);
 
 type AptoPagamentoUpload = Prisma.UploadPdfGetPayload<{
-  include: {
+  select: {
+    id: true;
+    motoristaId: true;
+    periodoPagamentoId: true;
+    basePagamentoId: true;
+    substituiUploadId: true;
+    caminhoArquivo: true;
+    criadoEm: true;
+    status: true;
+    statusPagamento: true;
+    valorTotalPdf: true;
     motorista: {
       select: {
         id: true;
@@ -167,6 +177,24 @@ function parseMoneyNumber(value: string | number | null | undefined) {
     .replace(",", ".");
 
   const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function coerceDecimalValue(value: unknown) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === "object" && value && "toNumber" in value && typeof (value as { toNumber?: unknown }).toNumber === "function") {
+    const decimalValue = (value as { toNumber: () => number }).toNumber();
+    return Number.isFinite(decimalValue) ? decimalValue : null;
+  }
+
+  const parsed = Number(String(value));
   return Number.isFinite(parsed) ? parsed : null;
 }
 
@@ -480,9 +508,9 @@ async function buildAptosPreviewRows(rows: CandidateRow[]) {
       missing.push({ field: "base", reason: "Base do motorista nao cadastrada" });
     }
 
-    const valorTotalPdf = await extractPaymentTotalValue(
-      mirrorReceipt?.caminhoArquivo || upload.caminhoArquivo
-    );
+    const valorTotalPdf =
+      coerceDecimalValue(upload.valorTotalPdf) ??
+      (await extractPaymentTotalValue(mirrorReceipt?.caminhoArquivo || upload.caminhoArquivo));
 
     if (missing.length > 0) {
       inconsistencias.push({
@@ -527,7 +555,17 @@ async function buildCandidateRows(periodId: string, baseId?: string | null) {
           },
           ...(baseId ? { basePagamentoId: baseId } : {})
         },
-        include: {
+        select: {
+          id: true,
+          motoristaId: true,
+          periodoPagamentoId: true,
+          basePagamentoId: true,
+          substituiUploadId: true,
+          caminhoArquivo: true,
+          criadoEm: true,
+          status: true,
+          statusPagamento: true,
+          valorTotalPdf: true,
           motorista: {
             select: {
               id: true,
