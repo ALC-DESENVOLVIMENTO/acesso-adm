@@ -201,7 +201,7 @@ export async function uploadObject(params: {
   cacheControl?: string;
 }) {
   if (!client) {
-    throw new Error("Configuracao de storage nao encontrada.");
+    throw new Error("Configuração de storage não encontrada.");
   }
 
   await client.send(

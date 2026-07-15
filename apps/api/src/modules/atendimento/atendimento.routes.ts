@@ -1322,7 +1322,7 @@ router.get("/motoristas/:id", (req, res) => {
 
     if (!detail) {
       res.status(404).json({
-        message: "Motorista nao encontrado."
+        message: "Motorista não encontrado."
       });
       return;
     }
@@ -1345,7 +1345,7 @@ router.patch("/motoristas/:id", (req, res) => {
 
     const motoristaId = await resolveMotoristaId(routeParam(req.params.id));
     if (!motoristaId) {
-      res.status(404).json({ message: "Motorista nao encontrado." });
+      res.status(404).json({ message: "Motorista não encontrado." });
       return;
     }
 
@@ -1449,7 +1449,7 @@ router.patch("/motoristas/:id/classificacoes", (req, res) => {
   void (async () => {
     const motoristaId = await resolveMotoristaId(routeParam(req.params.id));
     if (!motoristaId) {
-      res.status(404).json({ message: "Motorista nao encontrado." });
+      res.status(404).json({ message: "Motorista não encontrado." });
       return;
     }
 
@@ -1507,7 +1507,7 @@ router.post("/motoristas/:id/notas", (req, res) => {
 
     const motoristaId = await resolveMotoristaId(routeParam(req.params.id));
     if (!motoristaId) {
-      res.status(404).json({ message: "Motorista nao encontrado." });
+      res.status(404).json({ message: "Motorista não encontrado." });
       return;
     }
     const body = req.body as Record<string, unknown>;
@@ -1564,7 +1564,7 @@ router.patch("/motoristas/:id/notas/:notaId", (req, res) => {
 
     const motoristaId = await resolveMotoristaId(routeParam(req.params.id));
     if (!motoristaId) {
-      res.status(404).json({ message: "Motorista nao encontrado." });
+      res.status(404).json({ message: "Motorista não encontrado." });
       return;
     }
     const notaId = routeParam(req.params.notaId);
@@ -1623,7 +1623,7 @@ router.delete("/motoristas/:id/notas/:notaId", requireAdmin, (req, res) => {
 
     const motoristaId = await resolveMotoristaId(routeParam(req.params.id));
     if (!motoristaId) {
-      res.status(404).json({ message: "Motorista nao encontrado." });
+      res.status(404).json({ message: "Motorista não encontrado." });
       return;
     }
     const notaId = routeParam(req.params.notaId);
@@ -1663,7 +1663,7 @@ router.post("/motoristas/:id/atendimentos", upload.array("attachments", 6), (req
 
     const motoristaId = await resolveMotoristaId(routeParam(req.params.id));
     if (!motoristaId) {
-      res.status(404).json({ message: "Motorista nao encontrado." });
+      res.status(404).json({ message: "Motorista não encontrado." });
       return;
     }
     const body = req.body as Record<string, unknown>;
@@ -1729,7 +1729,7 @@ router.post("/motoristas/:id/chamados", upload.array("attachments", 10), (req, r
 
     const motoristaId = await resolveMotoristaId(routeParam(req.params.id));
     if (!motoristaId) {
-      res.status(404).json({ message: "Motorista nao encontrado." });
+      res.status(404).json({ message: "Motorista não encontrado." });
       return;
     }
     const body = req.body as Record<string, unknown>;
@@ -1742,7 +1742,7 @@ router.post("/motoristas/:id/chamados", upload.array("attachments", 10), (req, r
 
     if (!assunto || !categoria || !descricao) {
       res.status(400).json({
-        message: "Preencha assunto, categoria e descricao."
+        message: "Preencha assunto, categoria e descrição."
       });
       return;
     }
@@ -1839,7 +1839,7 @@ router.post("/chamados/:id/movimentos", upload.array("attachments", 10), (req, r
 
     if (!descricao) {
       res.status(400).json({
-        message: "Informe a movimentacao do chamado."
+        message: "Informe a movimentação do chamado."
       });
       return;
     }
@@ -1852,7 +1852,7 @@ router.post("/chamados/:id/movimentos", upload.array("attachments", 10), (req, r
 
     if (!chamado) {
       res.status(404).json({
-        message: "Chamado nao encontrado."
+        message: "Chamado não encontrado."
       });
       return;
     }
@@ -1908,7 +1908,7 @@ router.post("/chamados/:id/movimentos", upload.array("attachments", 10), (req, r
     });
   })().catch((error) => {
     res.status(500).json({
-      message: "Falha ao registrar movimentacao.",
+      message: "Falha ao registrar movimentação.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });
@@ -1935,7 +1935,7 @@ router.post("/chamados/:id/encerrar", (req, res) => {
 
     if (!chamado) {
       res.status(404).json({
-        message: "Chamado nao encontrado."
+        message: "Chamado não encontrado."
       });
       return;
     }
@@ -2027,7 +2027,7 @@ router.get("/chamados/:id", (req, res) => {
 
     if (!chamado) {
       res.status(404).json({
-        message: "Chamado nao encontrado."
+        message: "Chamado não encontrado."
       });
       return;
     }

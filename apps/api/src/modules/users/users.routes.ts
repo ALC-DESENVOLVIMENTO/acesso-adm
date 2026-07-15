@@ -107,7 +107,7 @@ router.post("/", (req, res) => {
     });
 
     res.status(201).json({
-      message: "Usuario criado com senha temporaria 0000."
+      message: "Usuário criado com senha temporária 0000."
     });
   })().catch((error) => {
     res.status(500).json({
@@ -176,7 +176,7 @@ router.patch("/:id", (req, res) => {
     });
 
     res.json({
-      message: "Usuario atualizado com sucesso."
+      message: "Usuário atualizado com sucesso."
     });
   })().catch((error) => {
     res.status(500).json({
@@ -252,7 +252,7 @@ router.delete("/:id", (req, res) => {
 
     if (!user) {
       res.status(404).json({
-        message: "Usuario nao encontrado."
+        message: "Usuário não encontrado."
       });
       return;
     }
@@ -313,7 +313,7 @@ router.delete("/:id", (req, res) => {
     ]);
 
     res.json({
-      message: "Usuario excluido permanentemente."
+      message: "Usuário excluído permanentemente."
     });
   })().catch((error) => {
     res.status(500).json({

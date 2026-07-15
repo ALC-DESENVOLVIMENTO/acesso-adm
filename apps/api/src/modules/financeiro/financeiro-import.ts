@@ -769,7 +769,7 @@ export async function confirmFinanceiroImport(importacaoId: string, userId: stri
           where: { id: item.id },
           data: {
             resultado: FinanceiroImportacaoItemResultado.pagamento_nao_encontrado,
-            mensagem: "Pagamento nao encontrado ao confirmar importacao."
+            mensagem: "Pagamento não encontrado ao confirmar importação."
           }
         });
         continue;

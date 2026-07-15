@@ -473,7 +473,7 @@ router.patch("/bases/:id", requireAdmin, (req, res) => {
 
     if (!existing) {
       res.status(404).json({
-        message: "Base nao encontrada."
+        message: "Base não encontrada."
       });
       return;
     }
@@ -536,7 +536,7 @@ router.delete("/bases/:id", requireAdmin, (req, res) => {
 
     if (!existing) {
       res.status(404).json({
-        message: "Base nao encontrada."
+        message: "Base não encontrada."
       });
       return;
     }
@@ -1082,7 +1082,7 @@ router.patch("/uploads/:uploadId/review", requireAdmin, (req, res) => {
 
     if (!upload) {
       res.status(404).json({
-        message: "Upload nao encontrado."
+        message: "Upload não encontrado."
       });
       return;
     }
@@ -1136,7 +1136,7 @@ router.patch("/uploads/:uploadId/review", requireAdmin, (req, res) => {
 
     if (!targetBase) {
       res.status(404).json({
-        message: "Base de destino nao encontrada."
+        message: "Base de destino não encontrada."
       });
       return;
     }

@@ -1152,7 +1152,7 @@ export function FinanceiroScreen({
               </article>
               <article className="finance-import-card">
                 <strong>{apagarPreview?.total_inconsistencias || 0}</strong>
-                <span>Inconsistencias</span>
+                <span>Inconsistências</span>
               </article>
               <article className="finance-import-card">
                 <strong>{apagarPreview?.total_processos || 0}</strong>
@@ -1218,7 +1218,7 @@ export function FinanceiroScreen({
                 )}
               </article>
               <article className="finance-import-card finance-import-card--history">
-                <strong>Inconsistencias</strong>
+                <strong>Inconsistências</strong>
                 {(apagarPreview?.inconsistencias || []).length > 0 ? (
                   <div className="finance-import-history__list">
                     {apagarPreview!.inconsistencias.slice(0, 5).map((item) => (

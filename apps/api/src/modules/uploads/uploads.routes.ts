@@ -362,7 +362,7 @@ router.get("/:id/history", (req, res) => {
     res.json(history);
   })().catch((error) => {
     res.status(500).json({
-      message: "Falha ao carregar historico do PDF.",
+      message: "Falha ao carregar histórico do PDF.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });
@@ -547,7 +547,7 @@ router.post("/", upload.array("files", 20), (req, res) => {
     });
 
     res.status(201).json({
-      message: "Upload concluido com sucesso."
+      message: "Upload concluído com sucesso."
     });
   })().catch((error) => {
     res.status(500).json({
@@ -589,14 +589,14 @@ router.delete("/:id", (req, res) => {
 
     if (!upload) {
       res.status(404).json({
-        message: "Upload nao encontrado."
+        message: "Upload não encontrado."
       });
       return;
     }
 
     if (!isPaymentMirrorUpload(upload)) {
       res.status(404).json({
-        message: "Upload nao encontrado."
+        message: "Upload não encontrado."
       });
       return;
     }
@@ -690,14 +690,14 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
 
     if (!currentUpload) {
       res.status(404).json({
-        message: "Upload nao encontrado."
+        message: "Upload não encontrado."
       });
       return;
     }
 
     if (!isPaymentMirrorUpload(currentUpload)) {
       res.status(404).json({
-        message: "Upload nao encontrado."
+        message: "Upload não encontrado."
       });
       return;
     }
@@ -804,14 +804,14 @@ router.get("/:id/download", (req, res) => {
 
     if (!upload) {
       res.status(404).json({
-        message: "Arquivo nao encontrado."
+        message: "Arquivo não encontrado."
       });
       return;
     }
 
     if (!isPaymentMirrorUpload(upload)) {
       res.status(404).json({
-        message: "Arquivo nao encontrado."
+        message: "Arquivo não encontrado."
       });
       return;
     }
@@ -820,7 +820,7 @@ router.get("/:id/download", (req, res) => {
 
     if (!downloadUrl) {
       res.status(404).json({
-        message: "Arquivo nao encontrado."
+        message: "Arquivo não encontrado."
       });
       return;
     }

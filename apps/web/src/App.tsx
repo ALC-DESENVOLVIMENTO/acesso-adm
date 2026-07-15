@@ -2485,7 +2485,7 @@ function DashboardScreen({
           <div className="panel__header">
             <div>
               <h3>Atividades Recentes</h3>
-              <p>Ultimas acoes auditadas no sistema</p>
+              <p>Últimas ações auditadas no sistema</p>
             </div>
           </div>
 
@@ -3671,7 +3671,7 @@ function UsersScreen({
           <label className="filter-select">
             <FunnelSimple size={18} />
             <select value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)}>
-              <option value="todos">Todos os niveis</option>
+              <option value="todos">Todos os níveis</option>
               <option value="N1">N1</option>
               <option value="N2">N2</option>
               <option value="N3">N3</option>

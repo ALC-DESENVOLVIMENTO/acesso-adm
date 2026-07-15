@@ -100,7 +100,7 @@ router.post("/login", (req, res) => {
       });
 
       res.status(401).json({
-        message: "Usuario sem acesso liberado."
+        message: "Usuário sem acesso liberado."
       });
       return;
     }
@@ -199,7 +199,7 @@ router.post("/first-access/change-password", (req, res) => {
 
     if (!account) {
       res.status(404).json({
-        message: "Usuario nao encontrado."
+        message: "Usuário não encontrado."
       });
       return;
     }
@@ -264,7 +264,7 @@ router.get("/me", requireAuth, (req, res) => {
 
     if (!account) {
       res.status(404).json({
-        message: "Usuario nao encontrado."
+        message: "Usuário não encontrado."
       });
       return;
     }
@@ -358,7 +358,7 @@ router.patch("/me/profile", requireAuth, profilePhotoUpload.single("photo"), (re
 
     if (!account) {
       res.status(404).json({
-        message: "Usuario nao encontrado."
+        message: "Usuário não encontrado."
       });
       return;
     }
@@ -411,7 +411,7 @@ router.patch("/me/profile", requireAuth, profilePhotoUpload.single("photo"), (re
 
     if (!updates.nome && !updates.senhaHash && updates.fotoPerfil === undefined) {
       res.status(400).json({
-        message: "Nenhuma alteracao foi enviada."
+        message: "Nenhuma alteração foi enviada."
       });
       return;
     }

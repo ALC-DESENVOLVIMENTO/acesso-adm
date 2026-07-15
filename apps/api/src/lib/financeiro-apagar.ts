@@ -373,7 +373,7 @@ export function evaluateAptidao(params: {
       statusProcesso: "Aguardando nota fiscal",
       statusNotaFiscal: "Não enviada",
       statusPagamento: paymentStatus || FinanceiroStatusPagamento.PENDENTE,
-      motivoExclusao: "Nota fiscal nao enviada"
+      motivoExclusao: "Nota fiscal não enviada"
     };
   }
 
@@ -390,10 +390,10 @@ export function evaluateAptidao(params: {
   if (!isApprovedNoteStatus(noteReceipt.status)) {
     return {
       apto: false,
-      statusProcesso: "Nota fiscal em validacao",
+      statusProcesso: "Nota fiscal em validação",
       statusNotaFiscal: noteReceipt.status || "Sem status",
       statusPagamento: paymentStatus || FinanceiroStatusPagamento.PENDENTE,
-      motivoExclusao: "Nota fiscal pendente de validacao"
+      motivoExclusao: "Nota fiscal pendente de validação"
     };
   }
 

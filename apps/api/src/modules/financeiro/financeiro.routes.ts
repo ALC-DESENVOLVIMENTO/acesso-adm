@@ -411,7 +411,7 @@ async function dispatchWebhookEvent(eventId: string) {
   });
 
   if (!event) {
-    throw new Error("Evento de webhook nao encontrado.");
+    throw new Error("Evento de webhook não encontrado.");
   }
 
   const payload = event.payload as Record<string, unknown>;
@@ -687,7 +687,7 @@ router.get("/historico-status", (req, res) => {
     );
   })().catch((error) => {
     res.status(500).json({
-      message: "Falha ao consultar historico financeiro.",
+      message: "Falha ao consultar histórico financeiro.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });
@@ -1267,7 +1267,7 @@ router.get("/driver-pdfs/:receivedId/content", (req, res) => {
 
     if (!received) {
       res.status(404).json({
-        message: "Nota fiscal nao encontrada."
+        message: "Nota fiscal não encontrada."
       });
       return;
     }
@@ -1281,8 +1281,8 @@ router.get("/driver-pdfs/:receivedId/content", (req, res) => {
           received.status === "nota_fiscal_em_analise" ||
           received.status === "nota_fiscal_aprovada" ||
           received.status === "nota_fiscal_rejeitada"
-            ? "Arquivo da nota fiscal nao encontrado no bucket."
-            : "Nota fiscal ainda nao enviada."
+            ? "Arquivo da nota fiscal não encontrado no bucket."
+            : "Nota fiscal ainda não enviada."
       });
       return;
     }
@@ -1537,7 +1537,7 @@ router.get("/periods/:periodId/export", (req, res) => {
             escapeCsv(baseName),
             escapeCsv(motoristaName),
             escapeCsv(motoristaCpf),
-            escapeCsv("Nota fiscal ainda nao enviada")
+            escapeCsv("Nota fiscal ainda não enviada")
           ].join(",")
         );
         continue;
@@ -1550,7 +1550,7 @@ router.get("/periods/:periodId/export", (req, res) => {
             escapeCsv(baseName),
             escapeCsv(motoristaName),
             escapeCsv(motoristaCpf),
-            escapeCsv("Nota fiscal ainda nao enviada")
+            escapeCsv("Nota fiscal ainda não enviada")
           ].join(",")
         );
         continue;
@@ -1563,7 +1563,7 @@ router.get("/periods/:periodId/export", (req, res) => {
             escapeCsv(baseName),
             escapeCsv(motoristaName),
             escapeCsv(motoristaCpf),
-            escapeCsv("Arquivo da nota fiscal nao encontrado no bucket")
+            escapeCsv("Arquivo da nota fiscal não encontrado no bucket")
           ].join(",")
         );
         continue;
@@ -1577,7 +1577,7 @@ router.get("/periods/:periodId/export", (req, res) => {
             escapeCsv(baseName),
             escapeCsv(motoristaName),
             escapeCsv(motoristaCpf),
-            escapeCsv("Arquivo da nota fiscal nao encontrado no bucket")
+            escapeCsv("Arquivo da nota fiscal não encontrado no bucket")
           ].join(",")
         );
         continue;

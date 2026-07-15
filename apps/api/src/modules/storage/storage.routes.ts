@@ -32,7 +32,7 @@ router.get("/*", async (req, res) => {
     const objectResponse = await fetchObjectStream(key);
 
     if (!objectResponse?.Body) {
-      res.status(404).json({ message: "Arquivo nao encontrado." });
+      res.status(404).json({ message: "Arquivo não encontrado." });
       return;
     }
 
@@ -68,7 +68,7 @@ router.get("/*", async (req, res) => {
     }
   } catch (error) {
     if (error instanceof Error && isNotFoundStorageError(error)) {
-      res.status(404).json({ message: "Arquivo nao encontrado." });
+      res.status(404).json({ message: "Arquivo não encontrado." });
       return;
     }
 
