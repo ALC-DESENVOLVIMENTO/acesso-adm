@@ -1277,6 +1277,72 @@ button {
   gap: 20px;
 }
 
+.panel--period-summary {
+  min-height: 100%;
+}
+
+.dashboard-period-list {
+  display: grid;
+  gap: 14px;
+}
+
+.dashboard-period-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(250, 241, 241, 0.86));
+  border: 1px solid rgba(31, 36, 48, 0.08);
+  box-shadow: 0 16px 36px rgba(31, 36, 48, 0.06);
+}
+
+.dashboard-period-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.dashboard-period-card__header div {
+  display: grid;
+  gap: 4px;
+}
+
+.dashboard-period-card__header strong {
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.dashboard-period-card__header span:not(.status-pill) {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.dashboard-period-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dashboard-period-card__metrics span {
+  display: grid;
+  gap: 2px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(235, 0, 0, 0.06);
+  border: 1px solid rgba(235, 0, 0, 0.08);
+}
+
+.dashboard-period-card__metrics strong {
+  font-size: 1.55rem;
+  color: var(--text);
+}
+
+.dashboard-period-card__metrics small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
 .panel {
   padding: 24px;
 }
@@ -3553,6 +3619,14 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .dashboard-period-card__header {
+    flex-direction: column;
+  }
+
+  .dashboard-period-card__metrics {
+    grid-template-columns: 1fr;
+  }
+
   .upload-batch__header,
   .upload-batch__file {
     flex-direction: column;
@@ -3834,6 +3908,19 @@ body.theme-dark .shell-mobile-toggle{
   border-color: rgba(255, 255, 255, 0.1) !important;
   color: var(--text) !important;
   box-shadow: none !important;
+}
+
+body.theme-dark .dashboard-period-card {
+  background:
+    linear-gradient(135deg, rgba(235, 0, 0, 0.12), rgba(255, 255, 255, 0.025)),
+    rgba(18, 22, 29, 0.92) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: none !important;
+}
+
+body.theme-dark .dashboard-period-card__metrics span {
+  background: rgba(255, 255, 255, 0.055) !important;
+  border-color: rgba(255, 255, 255, 0.09) !important;
 }
 
 body.theme-dark .base-management-list::-webkit-scrollbar-track{

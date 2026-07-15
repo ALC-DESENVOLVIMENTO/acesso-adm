@@ -93,14 +93,6 @@ type AuthView = "login" | "first-access";
 type ViewState = AuthView | RouteView;
 type RouteView = "dashboard" | "pdfs" | "users" | "periods" | "financeiro" | "atendimento";
 
-type Activity = {
-  icon: "pdf" | "user" | "view";
-  title: string;
-  subtitle: string;
-  date: string;
-  time: string;
-};
-
 type SessionUser = LoginResponse["user"];
 
 type FlashMessage = {
@@ -177,7 +169,13 @@ function readStoredTheme(): ThemeMode {
   }
 }
 
-const activities: Activity[] = [
+const activities: Array<{
+  icon: "pdf" | "user" | "view";
+  title: string;
+  subtitle: string;
+  date: string;
+  time: string;
+}> = [
   {
     icon: "pdf",
     title: "PDF enviado: Conhecimento_12345.pdf",
@@ -215,7 +213,9 @@ const initialSummary: DashboardSummary = {
   pendingInvoices: 0,
   ticketsWaiting: 0,
   closedTickets: 0,
-  usersCount: 0
+  usersCount: 0,
+  periodSummaries: [],
+  recentActivities: []
 };
 
 const logoSrc = "/alc-logotipo-dark.png";
@@ -226,11 +226,45 @@ function formatStatusLabel(status: string) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function formatDateOnly(dateValue: string) {
+function formatDateOnly(dateValue?: string | null) {
+  if (!dateValue) {
+    return "Data nao informada";
+  }
+
   const datePart = dateValue.includes("T") ? dateValue.split("T")[0] : dateValue;
   const [year, month, day] = datePart.split("-");
 
+  if (!year || !month || !day) {
+    return "Data nao informada";
+  }
+
   return `${day}/${month}/${year}`;
+}
+
+function formatDateTimeParts(dateValue?: string | null) {
+  if (!dateValue) {
+    return {
+      date: "Data nao informada",
+      time: "--:--"
+    };
+  }
+
+  const date = new Date(dateValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return {
+      date: "Data nao informada",
+      time: "--:--"
+    };
+  }
+
+  return {
+    date: new Intl.DateTimeFormat("pt-BR").format(date),
+    time: new Intl.DateTimeFormat("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit"
+    }).format(date)
+  };
 }
 
 function getRouteViewFromPath(pathname: string): RouteView {
@@ -734,6 +768,46 @@ function App() {
     usersLoaded,
     view
   ]);
+
+  useEffect(() => {
+    if (!token || !currentUser || view !== "dashboard" || activeView !== "dashboard") {
+      return;
+    }
+
+    if (!canAccessRoute(currentUser, "dashboard")) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const refreshDashboard = async () => {
+      try {
+        const summary = await fetchDashboardSummary(token);
+
+        if (!cancelled) {
+          setDashboardSummary(summary);
+          setDashboardLoaded(true);
+        }
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        if (isSessionExpiredError(error)) {
+          clearSessionAndGoLogin("Sua sessao expirou. Faca login novamente para continuar.");
+        }
+      }
+    };
+
+    const intervalId = window.setInterval(() => {
+      void refreshDashboard();
+    }, 30000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [activeView, currentUser, token, view]);
 
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
@@ -2446,66 +2520,53 @@ function DashboardScreen({
       </section>
 
       <section className="dashboard-grid">
-        <article className="panel panel--chart">
+        <article className="panel panel--period-summary">
           <div className="panel__header">
             <div>
-              <h3>Resumo Geral</h3>
-              <p>Evolucao operacional da ultima semana</p>
+              <h3>Resumo dos periodos</h3>
+              <p>Status operacional dos periodos de pagamento mais recentes</p>
             </div>
-            <button className="ghost-button" type="button">
-              Ultimos 7 dias
+            <button className="ghost-button" type="button" onClick={() => onNavigate("financeiro")}>
+              Ver financeiro
             </button>
           </div>
 
-          <div className="chart">
-            <div className="chart__labels">
-              <span>100</span>
-              <span>80</span>
-              <span>60</span>
-              <span>40</span>
-              <span>20</span>
-              <span>0</span>
-            </div>
+          <div className="dashboard-period-list">
+            {summary.periodSummaries.length > 0 ? (
+              summary.periodSummaries.map((period) => (
+                <article className="dashboard-period-card" key={period.id}>
+                  <div className="dashboard-period-card__header">
+                    <div>
+                      <strong>{period.name}</strong>
+                      <span>
+                        {formatDateOnly(period.startDate)} ate {formatDateOnly(period.endDate)}
+                      </span>
+                    </div>
+                    <span className="status-pill">{formatStatusLabel(period.status)}</span>
+                  </div>
 
-            <div className="chart__plot">
-              <svg viewBox="0 0 520 280" className="chart__svg" role="img" aria-label="Grafico resumido">
-                <defs>
-                  <linearGradient id="chartFill" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="rgba(235, 0, 0, 0.35)" />
-                    <stop offset="100%" stopColor="rgba(235, 0, 0, 0.02)" />
-                  </linearGradient>
-                </defs>
-                <polyline
-                  fill="none"
-                  stroke="#eb0000"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  points="18,210 96,174 174,156 252,128 330,100 408,138 486,84"
-                />
-                <polygon
-                  fill="url(#chartFill)"
-                  points="18,240 18,210 96,174 174,156 252,128 330,100 408,138 486,84 486,240"
-                />
-                <circle cx="18" cy="210" r="5" fill="#eb0000" />
-                <circle cx="96" cy="174" r="5" fill="#eb0000" />
-                <circle cx="174" cy="156" r="5" fill="#eb0000" />
-                <circle cx="252" cy="128" r="5" fill="#eb0000" />
-                <circle cx="330" cy="100" r="5" fill="#eb0000" />
-                <circle cx="408" cy="138" r="5" fill="#eb0000" />
-                <circle cx="486" cy="84" r="5" fill="#eb0000" />
-              </svg>
-
-              <div className="chart__days">
-                <span>01 Mai</span>
-                <span>02 Mai</span>
-                <span>03 Mai</span>
-                <span>04 Mai</span>
-                <span>05 Mai</span>
-                <span>06 Mai</span>
-                <span>07 Mai</span>
+                  <div className="dashboard-period-card__metrics">
+                    <span>
+                      <strong>{period.pdfsSent}</strong>
+                      <small>PDFs enviados</small>
+                    </span>
+                    <span>
+                      <strong>{period.notesReceived}</strong>
+                      <small>Notas fiscais recebidas</small>
+                    </span>
+                    <span>
+                      <strong>{period.notesPending}</strong>
+                      <small>Notas fiscais pendentes</small>
+                    </span>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <div className="empty-state">
+                <strong>Nenhum periodo com movimentacao</strong>
+                <span>Crie um periodo ou envie PDFs para acompanhar o resumo aqui.</span>
               </div>
-            </div>
+            )}
           </div>
         </article>
 
@@ -2518,23 +2579,34 @@ function DashboardScreen({
           </div>
 
           <div className="activity-list">
-            {activities.map((item) => (
-              <div className="activity-item" key={`${item.title}-${item.time}`}>
-                <div className="activity-item__icon">
-                  {item.icon === "pdf" ? <FilePdf size={22} /> : null}
-                  {item.icon === "user" ? <UserCirclePlus size={22} /> : null}
-                  {item.icon === "view" ? <Eye size={22} /> : null}
-                </div>
-                <div className="activity-item__body">
-                  <strong>{item.title}</strong>
-                  <span>{item.subtitle}</span>
-                </div>
-                <div className="activity-item__meta">
-                  <span>{item.date}</span>
-                  <small>{item.time}</small>
-                </div>
+            {summary.recentActivities.length > 0 ? (
+              summary.recentActivities.map((item) => {
+                const occurredAt = formatDateTimeParts(item.occurredAt);
+
+                return (
+                  <div className="activity-item" key={item.id}>
+                    <div className="activity-item__icon">
+                      {item.icon === "pdf" ? <FilePdf size={22} /> : null}
+                      {item.icon === "user" ? <UserCirclePlus size={22} /> : null}
+                      {item.icon === "view" ? <Eye size={22} /> : null}
+                    </div>
+                    <div className="activity-item__body">
+                      <strong>{item.title}</strong>
+                      <span>{item.subtitle}</span>
+                    </div>
+                    <div className="activity-item__meta">
+                      <span>{occurredAt.date}</span>
+                      <small>{occurredAt.time}</small>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="empty-state">
+                <strong>Nenhuma atividade recente</strong>
+                <span>As proximas acoes auditadas do sistema vao aparecer aqui.</span>
               </div>
-            ))}
+            )}
           </div>
         </article>
       </section>

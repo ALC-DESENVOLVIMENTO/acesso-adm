@@ -45,6 +45,23 @@ export type DashboardSummary = {
   ticketsWaiting: number;
   closedTickets: number;
   usersCount: number;
+  periodSummaries: Array<{
+    id: string;
+    name: string;
+    startDate: string | null;
+    endDate: string | null;
+    status: string;
+    pdfsSent: number;
+    notesReceived: number;
+    notesPending: number;
+  }>;
+  recentActivities: Array<{
+    id: string;
+    icon: "pdf" | "user" | "view";
+    title: string;
+    subtitle: string;
+    occurredAt: string | null;
+  }>;
 };
 
 export type UploadRow = {

@@ -6,9 +6,45 @@ const router = Router();
 
 router.use(requireAuth, requireModuleAccess("dashboard"));
 
+function toIso(value: Date | null | undefined) {
+  return value ? value.toISOString() : null;
+}
+
+function resolveActivityIcon(entity: string, action: string) {
+  const normalized = `${entity} ${action}`.toLowerCase();
+
+  if (normalized.includes("usuario")) {
+    return "user";
+  }
+
+  if (normalized.includes("visualiz") || normalized.includes("driver_pdf_received")) {
+    return "view";
+  }
+
+  return "pdf";
+}
+
+function resolveActivityTitle(entity: string, action: string, details: unknown) {
+  const parsedDetails = details && typeof details === "object" ? (details as Record<string, unknown>) : {};
+  const fileName =
+    typeof parsedDetails.arquivo === "string"
+      ? parsedDetails.arquivo
+      : typeof parsedDetails.fileName === "string"
+        ? parsedDetails.fileName
+        : typeof parsedDetails.nomeArquivo === "string"
+          ? parsedDetails.nomeArquivo
+          : null;
+
+  if (fileName) {
+    return `${action}: ${fileName}`;
+  }
+
+  return `${action} em ${entity}`;
+}
+
 router.get("/summary", (_req, res) => {
   void (async () => {
-    const [uploads, processedPdfs, pendingPdfs, pendingInvoices, ticketsWaiting, closedTickets, usersCount] =
+    const [uploads, processedPdfs, pendingPdfs, pendingInvoices, ticketsWaiting, closedTickets, usersCount, recentPeriods, recentLogs] =
       await Promise.all([
         prisma.uploadPdf.count({
           where: {
@@ -33,8 +69,99 @@ router.get("/summary", (_req, res) => {
         }),
         prisma.chamado.count({ where: { status: "aguardando" } }),
         prisma.chamado.count({ where: { status: "concluido" } }),
-        prisma.usuario.count()
+        prisma.usuario.count(),
+        prisma.periodoPagamento.findMany({
+          orderBy: {
+            atualizadoEm: "desc"
+          },
+          take: 6,
+          select: {
+            id: true,
+            nome: true,
+            dataInicio: true,
+            dataFim: true,
+            status: true
+          }
+        }),
+        prisma.logAuditoria.findMany({
+          orderBy: {
+            criadoEm: "desc"
+          },
+          take: 8,
+          include: {
+            usuario: {
+              select: {
+                nome: true
+              }
+            }
+          }
+        })
       ]);
+
+    const periodSummaries = await Promise.all(
+      recentPeriods.map(async (period) => {
+        const [pdfsSent, notesReceived] = await Promise.all([
+          prisma.uploadPdf.count({
+            where: {
+              periodoPagamentoId: period.id,
+              status: {
+                not: "removido"
+              },
+              OR: [
+                {
+                  documentType: null
+                },
+                {
+                  documentType: {
+                    not: "nota_fiscal"
+                  }
+                }
+              ]
+            }
+          }),
+          prisma.driverPdfReceived.count({
+            where: {
+              periodoPagamentoId: period.id,
+              OR: [
+                {
+                  documentType: "nota_fiscal"
+                },
+                {
+                  status: {
+                    in: [
+                      "nota_fiscal_recebida",
+                      "nota_fiscal_em_analise",
+                      "nota_fiscal_aprovada",
+                      "nota_fiscal_rejeitada",
+                      "processo_concluido"
+                    ]
+                  }
+                }
+              ]
+            }
+          })
+        ]);
+
+        return {
+          id: period.id,
+          name: period.nome,
+          startDate: toIso(period.dataInicio),
+          endDate: toIso(period.dataFim),
+          status: period.status,
+          pdfsSent,
+          notesReceived,
+          notesPending: Math.max(pdfsSent - notesReceived, 0)
+        };
+      })
+    );
+
+    const recentActivities = recentLogs.map((log) => ({
+      id: log.id,
+      icon: resolveActivityIcon(log.entidade, log.acao),
+      title: resolveActivityTitle(log.entidade, log.acao, log.detalhes),
+      subtitle: log.usuario?.nome ? `Executado por ${log.usuario.nome}` : "Registro do sistema",
+      occurredAt: toIso(log.criadoEm)
+    }));
 
     res.json({
       pdfsSent: uploads,
@@ -43,7 +170,9 @@ router.get("/summary", (_req, res) => {
       pendingInvoices,
       ticketsWaiting,
       closedTickets,
-      usersCount
+      usersCount,
+      periodSummaries,
+      recentActivities
     });
   })().catch((error) => {
     res.status(500).json({
