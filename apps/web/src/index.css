@@ -4180,7 +4180,7 @@ body.theme-dark .auth-copy--muted{
   color: var(--muted) !important;
 }
 
-/* Responsive, accessibility and device hardening layer. Keep this at the end. */
+/* Safe accessibility and device hardening layer. Keep this near the end. */
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
@@ -4205,23 +4205,6 @@ textarea {
   font: inherit;
 }
 
-a,
-button,
-input,
-select,
-textarea,
-[role="button"] {
-  touch-action: manipulation;
-}
-
-button:not(.shell-mobile-backdrop),
-a,
-input,
-select,
-textarea {
-  min-height: 44px;
-}
-
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 3px solid rgba(235, 0, 0, 0.52);
   outline-offset: 3px;
@@ -4231,24 +4214,6 @@ textarea {
   appearance: none;
   border: 0;
   padding: 0;
-}
-
-.shell-content,
-.auth-page,
-.modal,
-.panel,
-.metric-card,
-.quick-action-card,
-.finance-card,
-.period-card,
-.upload-item,
-.crm-driver-card {
-  min-width: 0;
-}
-
-.shell-content {
-  width: min(100%, 1920px);
-  margin-inline: auto;
 }
 
 .screen,
@@ -4309,207 +4274,6 @@ textarea {
 .toast-stack,
 .toast-message {
   max-width: min(420px, calc(100vw - 24px));
-}
-
-@media (hover: none) and (pointer: coarse) and (min-width: 1181px) {
-  .shell-page,
-  .shell-page:has(.sidebar:hover) {
-    grid-template-columns: 110px 1fr;
-  }
-
-  .sidebar:hover {
-    width: 110px;
-  }
-
-  .sidebar:hover .sidebar__nav,
-  .sidebar:hover .sidebar__logout {
-    width: 74px;
-  }
-
-  .sidebar:hover .sidebar__item span,
-  .sidebar:hover .sidebar__logout span,
-  .sidebar:hover .sidebar__brand-caption {
-    opacity: 0;
-    max-width: 0;
-  }
-}
-
-@media (min-width: 2200px) {
-  .shell-content {
-    width: min(100%, 2100px);
-  }
-
-  .auth-page {
-    max-width: 2200px;
-    margin-inline: auto;
-  }
-}
-
-@media (min-width: 3000px) {
-  body {
-    font-size: 18px;
-  }
-
-  .shell-content {
-    width: min(100%, 2400px);
-  }
-}
-
-@media (max-width: 1024px) {
-  .screen__header,
-  .panel,
-  .finance-panel,
-  .crm-panel,
-  .upload-panel {
-    border-radius: 22px;
-  }
-
-  .metric-grid,
-  .quick-actions-grid,
-  .period-grid,
-  .finance-grid {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
-  }
-}
-
-@media (max-width: 720px) {
-  .shell-content {
-    padding-inline: max(14px, env(safe-area-inset-left));
-    padding-right: max(14px, env(safe-area-inset-right));
-  }
-
-  .screen__header h1,
-  .auth-brand h1 {
-    font-size: clamp(2rem, 11vw, 3rem);
-    line-height: 0.98;
-  }
-
-  .panel,
-  .finance-panel,
-  .crm-panel,
-  .upload-panel,
-  .period-card,
-  .metric-card,
-  .quick-action-card {
-    padding: clamp(16px, 5vw, 24px);
-  }
-
-  .topbar__actions,
-  .filters-row,
-  .finance-actions,
-  .period-actions,
-  .upload-actions,
-  .form-actions {
-    gap: 10px;
-  }
-
-  .primary-button,
-  .primary-button--inline,
-  .ghost-button,
-  .danger-button,
-  .cta-motion {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .topbar .profile-chip,
-  .topbar .icon-button {
-    width: auto;
-  }
-}
-
-@media (max-width: 480px) {
-  .shell-content {
-    padding-top: 16px;
-  }
-
-  .topbar {
-    gap: 10px;
-    padding: 8px 10px;
-  }
-
-  .topbar__brand img {
-    max-height: 42px;
-  }
-
-  .profile-chip {
-    padding: 8px 10px;
-  }
-
-  .profile-chip__meta small {
-    display: none;
-  }
-
-  .screen__eyebrow {
-    letter-spacing: 0.22em;
-  }
-
-  .finance-section-tabs,
-  .period-tabs,
-  .crm-detail-tabs {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-  }
-
-  .finance-section-tabs > *,
-  .period-tabs > *,
-  .crm-detail-tabs > * {
-    flex: 0 0 auto;
-  }
-
-  .modal,
-  .base-management-modal {
-    width: calc(100vw - 18px);
-    border-radius: 18px;
-  }
-
-  .toast-stack {
-    left: 10px;
-    right: 10px;
-  }
-}
-
-@media (max-width: 380px) {
-  .shell-content {
-    padding-inline: 10px;
-  }
-
-  .panel,
-  .finance-panel,
-  .crm-panel,
-  .upload-panel,
-  .period-card,
-  .metric-card,
-  .quick-action-card {
-    padding: 14px;
-    border-radius: 18px;
-  }
-
-  .screen__header h1,
-  .auth-brand h1 {
-    font-size: clamp(1.8rem, 12vw, 2.6rem);
-  }
-}
-
-@media (orientation: landscape) and (max-height: 540px) {
-  .shell-content {
-    padding-top: 12px;
-  }
-
-  .topbar {
-    min-height: 56px;
-  }
-
-  .sidebar__nav {
-    top: 10px;
-    max-height: calc(100dvh - 20px);
-    overflow-y: auto;
-  }
-
-  .sidebar__logout {
-    display: none;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
