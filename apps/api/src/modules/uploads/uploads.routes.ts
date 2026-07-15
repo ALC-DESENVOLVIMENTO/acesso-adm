@@ -464,9 +464,10 @@ router.post("/", upload.array("files", MAX_UPLOAD_FILES_PER_REQUEST), (req, res)
       return;
     }
 
-    const period = await prisma.periodoPagamento.findUnique({
+    const period = await prisma.periodoPagamento.findFirst({
       where: {
-        id: periodId
+        id: periodId,
+        ativo: true
       },
       include: {
         bases: {
@@ -479,7 +480,7 @@ router.post("/", upload.array("files", MAX_UPLOAD_FILES_PER_REQUEST), (req, res)
 
     if (!period) {
       res.status(404).json({
-        message: "Período de pagamento não encontrado."
+        message: "Período de pagamento não encontrado ou finalizado."
       });
       return;
     }

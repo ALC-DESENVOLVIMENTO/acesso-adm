@@ -521,6 +521,23 @@ router.post("/importacoes/preview", financeImportUpload.single("file"), (req, re
       return;
     }
 
+    const activePeriod = await prisma.periodoPagamento.findFirst({
+      where: {
+        id: parsed.data.periodId,
+        ativo: true
+      },
+      select: {
+        id: true
+      }
+    });
+
+    if (!activePeriod) {
+      res.status(409).json({
+        message: "O período selecionado está finalizado e não aceita atualizações financeiras."
+      });
+      return;
+    }
+
     const preview = await createFinanceiroImportPreview({
       userId: req.auth?.userId || "",
       fileName: req.file.originalname,
@@ -547,6 +564,26 @@ router.post("/importacoes/:importacaoId/confirmar", (req, res) => {
     if (!importacaoId) {
       res.status(400).json({
         message: "Importação inválida."
+      });
+      return;
+    }
+
+    const importacao = await prisma.importacaoFinanceira.findUnique({
+      where: {
+        id: importacaoId
+      },
+      select: {
+        periodoPagamento: {
+          select: {
+            ativo: true
+          }
+        }
+      }
+    });
+
+    if (importacao?.periodoPagamento && !importacao.periodoPagamento.ativo) {
+      res.status(409).json({
+        message: "O período desta importação está finalizado. Reative-o antes de confirmar."
       });
       return;
     }
@@ -725,6 +762,9 @@ router.get("/summary", (_req, res) => {
   void (async () => {
     const [periods, bases, uploads] = await Promise.all([
       prisma.periodoPagamento.findMany({
+        where: {
+          ativo: true
+        },
         select: {
           id: true,
           status: true,
@@ -744,6 +784,9 @@ router.get("/summary", (_req, res) => {
         where: {
           status: {
             not: "removido"
+          },
+          periodoPagamento: {
+            ativo: true
           }
         },
         select: {
@@ -812,7 +855,7 @@ router.get("/summary", (_req, res) => {
     const concludedStatuses = new Set(["processo_concluido", "pago"]);
 
     res.json({
-      activePeriods: periods.filter((period) => period.status !== "aprovado").length,
+      activePeriods: periods.length,
       bases,
       motoristas: countUnique([...visibleUploads.map((item) => item.motoristaId), ...filteredReceivedRows.map((item) => item.motoristaId)]),
       pdfsSent: sentMotoristas,
@@ -835,9 +878,10 @@ router.get("/periods/:periodId/bases", (req, res) => {
   void (async () => {
     const periodId = String(req.params.periodId || "").trim();
 
-    const period = await prisma.periodoPagamento.findUnique({
+    const period = await prisma.periodoPagamento.findFirst({
       where: {
-        id: periodId
+        id: periodId,
+        ativo: true
       },
       include: {
         bases: {
@@ -981,6 +1025,23 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
     if (scopeBaseId && !/^[0-9a-fA-F-]{36}$/.test(scopeBaseId)) {
       res.status(400).json({
         message: "Base inválida para listar motoristas do período."
+      });
+      return;
+    }
+
+    const activePeriod = await prisma.periodoPagamento.findFirst({
+      where: {
+        id: periodId,
+        ativo: true
+      },
+      select: {
+        id: true
+      }
+    });
+
+    if (!activePeriod) {
+      res.status(404).json({
+        message: "Período não encontrado ou finalizado."
       });
       return;
     }
@@ -1330,9 +1391,10 @@ router.get("/periods/:periodId/export", (req, res) => {
       return;
     }
 
-    const period = await prisma.periodoPagamento.findUnique({
+    const period = await prisma.periodoPagamento.findFirst({
       where: {
-        id: periodId
+        id: periodId,
+        ativo: true
       },
       select: {
         id: true,

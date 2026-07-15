@@ -503,8 +503,11 @@ async function buildAptosPreviewRows(rows: CandidateRow[]) {
 }
 
 async function buildCandidateRows(periodId: string, baseId?: string | null) {
-  const period = await prisma.periodoPagamento.findUnique({
-    where: { id: periodId },
+  const period = await prisma.periodoPagamento.findFirst({
+    where: {
+      id: periodId,
+      ativo: true
+    },
     select: {
       id: true,
       nome: true,
@@ -553,7 +556,7 @@ async function buildCandidateRows(periodId: string, baseId?: string | null) {
   });
 
   if (!period) {
-    throw new Error("Período não encontrado para exportação.");
+    throw new Error("Período não encontrado ou finalizado.");
   }
 
   const uploadById = new Map(period.uploads.map((upload) => [upload.id, upload] as const));

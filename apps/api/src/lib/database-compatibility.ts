@@ -11,6 +11,12 @@ type CompatibilityColumn = {
 
 const REQUIRED_UPLOAD_TABLE_COLUMNS: CompatibilityColumn[] = [
   {
+    table: "periodos_pagamento",
+    column: "ativo",
+    typeSql: "BOOLEAN NOT NULL DEFAULT TRUE",
+    comment: "Adicionar controle de periodo ativo em periodos_pagamento"
+  },
+  {
     table: "uploads_pdf",
     column: "content",
     typeSql: "BYTEA",

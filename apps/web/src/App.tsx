@@ -54,6 +54,7 @@ import {
   logoutRequest,
   updateCurrentUserProfile,
   updateMotoristaClassificacoes,
+  updatePaymentPeriodLifecycle,
   updatePaymentPeriodStatus,
   updatePaymentBase,
   reviewPeriodBaseUpload,
@@ -1510,6 +1511,27 @@ function App() {
     }
   };
 
+  const handleUpdatePeriodLifecycle = async (periodId: string, active: boolean) => {
+    if (!token) {
+      return;
+    }
+
+    setLoadingMessage(active ? "Reativando período..." : "Finalizando período...");
+
+    try {
+      const response = await updatePaymentPeriodLifecycle(token, periodId, active);
+      setFlashMessage({ type: "success", text: response.message });
+      await Promise.all([loadPeriodData(), loadDashboardSummary()]);
+    } catch (error) {
+      setFlashMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Falha ao alterar a situação do período."
+      });
+    } finally {
+      setLoadingMessage("");
+    }
+  };
+
   const handleReviewDuplicateUpload = async (
     uploadId: string,
     action: "aprovar" | "reprovar" | "redirecionar",
@@ -2124,6 +2146,7 @@ function App() {
             onSaveBase={handleSaveBase}
             onOpenBaseEditor={openBaseEditor}
             onToggleBaseActive={handleToggleBaseActive}
+            onUpdatePeriodLifecycle={handleUpdatePeriodLifecycle}
             onUpdatePeriodStatus={handleUpdatePeriodStatus}
             onDeletePeriod={requestDeletePeriod}
             onReviewDuplicateUpload={handleReviewDuplicateUpload}
@@ -2835,6 +2858,7 @@ function PeriodsScreen({
   onSaveBase,
   onOpenBaseEditor,
   onToggleBaseActive,
+  onUpdatePeriodLifecycle,
   onUpdatePeriodStatus,
   onDeletePeriod,
   onReviewDuplicateUpload,
@@ -2853,6 +2877,7 @@ function PeriodsScreen({
   onSaveBase: () => Promise<boolean> | boolean;
   onOpenBaseEditor: (base: PaymentBase | null) => void;
   onToggleBaseActive: (base: PaymentBase) => Promise<boolean> | boolean;
+  onUpdatePeriodLifecycle: (periodId: string, active: boolean) => Promise<void> | void;
   onUpdatePeriodStatus: (
     periodId: string,
     status: "disponivel" | "aguardando_aprovacao" | "aprovado"
@@ -2893,12 +2918,12 @@ function PeriodsScreen({
   );
 
   const activePeriods = useMemo(
-    () => periods.filter((period) => period.status === "disponivel"),
+    () => periods.filter((period) => period.active !== false),
     [periods]
   );
 
   const finishedPeriods = useMemo(
-    () => periods.filter((period) => period.status !== "disponivel"),
+    () => periods.filter((period) => period.active === false),
     [periods]
   );
 
@@ -3085,6 +3110,17 @@ function PeriodsScreen({
                 </div>
 
                 <div className="period-card__actions">
+                  <label className="period-lifecycle-control">
+                    <span>Situação</span>
+                    <select
+                      aria-label={`Situação do período ${period.name}`}
+                      value={period.active !== false ? "active" : "finished"}
+                      onChange={(event) => void onUpdatePeriodLifecycle(period.id, event.target.value === "active")}
+                    >
+                      <option value="active">Ativo</option>
+                      <option value="finished">Finalizado</option>
+                    </select>
+                  </label>
                   <button
                     className="ghost-button ghost-button--small ghost-button--danger"
                     type="button"
@@ -3110,7 +3146,7 @@ function PeriodsScreen({
                       )
                     }
                   >
-                    {period.status === "disponivel" ? "Finalizar período" : "Reabrir período"}
+                    {period.status === "disponivel" ? "Encerrar envios" : "Reabrir envios"}
                   </button>
                   {activeTab === "active" ? (
                     <button
@@ -3489,7 +3525,10 @@ function PdfsScreen({
   const [selectedBaseId, setSelectedBaseId] = useState("");
   const [expandedBatchKey, setExpandedBatchKey] = useState("");
 
-  const availablePeriods = useMemo(() => periods.filter((period) => period.status === "disponivel"), [periods]);
+  const availablePeriods = useMemo(
+    () => periods.filter((period) => period.active !== false && period.status === "disponivel"),
+    [periods]
+  );
   const selectedPeriod = availablePeriods.find((period) => period.id === selectedPeriodId) || null;
   const allowedBases = selectedPeriod
     ? selectedPeriod.paymentType === "mensal"
@@ -5599,4 +5638,3 @@ function AccessDeniedScreen({
 }
 
 export default App;
-

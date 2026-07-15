@@ -163,6 +163,7 @@ export type PaymentPeriod = {
   endDate: string;
   paymentType: PaymentFrequency;
   status: "disponivel" | "aguardando_aprovacao" | "aprovado";
+  active: boolean;
   bases: PeriodBase[];
   uploadedTotal: number;
   uploadedByBase: Record<string, number>;
@@ -1012,6 +1013,16 @@ export function updatePaymentPeriodStatus(
   return request<{ message: string }>(`/periods/${periodId}/status`, {
     method: "PATCH",
     body,
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function updatePaymentPeriodLifecycle(token: string, periodId: string, active: boolean) {
+  return request<{ message: string }>(`/periods/${periodId}/lifecycle`, {
+    method: "PATCH",
+    body: { active },
     headers: {
       Authorization: `Bearer ${token}`
     }

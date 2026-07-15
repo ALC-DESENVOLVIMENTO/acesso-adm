@@ -57,6 +57,10 @@ const periodStatusSchema = z.object({
   status: z.enum(["disponivel", "aguardando_aprovacao", "aprovado"])
 });
 
+const periodLifecycleSchema = z.object({
+  active: z.boolean()
+});
+
 const basePayloadSchema = z.object({
   name: z.string().min(3),
   paymentType: z.enum(["semanal", "quinzenal", "mensal"]),
@@ -276,6 +280,7 @@ function serializePeriod(period: {
   dataFim: Date;
   tipo: string;
   status: string;
+  ativo: boolean;
   criadoEm: Date;
   atualizadoEm: Date;
   criadoPor: {
@@ -344,6 +349,7 @@ function serializePeriod(period: {
     endDate: toDateOnlyString(period.dataFim),
     paymentType: period.tipo,
     status: derivedStatus,
+    active: period.ativo,
     createdAt: period.criadoEm,
     updatedAt: period.atualizadoEm,
     createdBy: period.criadoPor.nome,
@@ -838,6 +844,91 @@ router.patch("/:id", requireAdmin, (req, res) => {
   })().catch((error) => {
     res.status(500).json({
       message: "Falha ao atualizar período.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
+
+router.patch("/:id/lifecycle", requireAdmin, (req, res) => {
+  void (async () => {
+    const parsed = periodLifecycleSchema.safeParse(req.body);
+    const auth = req.auth;
+    const periodId = String(req.params.id || "").trim();
+
+    if (!parsed.success || !auth) {
+      res.status(400).json({
+        message: "Dados invalidos para alterar a situacao do periodo.",
+        issues: parsed.success ? undefined : parsed.error.flatten()
+      });
+      return;
+    }
+
+    const existing = await prisma.periodoPagamento.findUnique({
+      where: { id: periodId },
+      select: { id: true, nome: true, ativo: true }
+    });
+
+    if (!existing) {
+      res.status(404).json({
+        message: "Periodo nao encontrado."
+      });
+      return;
+    }
+
+    if (existing.ativo === parsed.data.active) {
+      res.json({
+        message: parsed.data.active ? "Periodo ja esta ativo." : "Periodo ja esta finalizado."
+      });
+      return;
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const period = await tx.periodoPagamento.update({
+        where: { id: periodId },
+        data: { ativo: parsed.data.active }
+      });
+
+      await tx.logAuditoria.create({
+        data: {
+          usuarioId: auth.userId,
+          acao: parsed.data.active ? "reativar_periodo_pagamento" : "finalizar_periodo_pagamento",
+          entidade: "periodos_pagamento",
+          entidadeId: period.id,
+          ipOrigem: req.ip,
+          userAgent: req.get("user-agent") || null,
+          detalhes: {
+            nome: period.nome,
+            ativo: period.ativo
+          }
+        }
+      });
+
+      return period;
+    });
+
+    void notifyPdfOnline(
+      "portal.period.lifecycle_changed",
+      {
+        periodId: updated.id,
+        name: updated.nome,
+        active: updated.ativo
+      },
+      {
+        userId: auth.userId,
+        periodId: updated.id
+      }
+    ).catch((error) => {
+      console.warn("PDF Online bridge period-lifecycle notify failed:", error instanceof Error ? error.message : error);
+    });
+
+    res.json({
+      message: updated.ativo
+        ? "Periodo reativado e disponivel no Financeiro."
+        : "Periodo finalizado e removido do Financeiro."
+    });
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao alterar a situacao do periodo.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });

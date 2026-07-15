@@ -1657,8 +1657,30 @@ button {
 .period-card__actions {
   display: flex;
   justify-content: flex-end;
+  align-items: flex-end;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.period-lifecycle-control {
+  display: grid;
+  gap: 5px;
+  min-width: 170px;
+  margin-right: auto;
+}
+
+.period-lifecycle-control span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.period-lifecycle-control select {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
 }
 
 .panel__header--split {
