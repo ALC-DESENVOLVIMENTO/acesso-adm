@@ -921,7 +921,7 @@ export function FinanceiroScreen({
                   </div>
                   <div className="finance-base-card__metrics">
                     <span>{base.pdfsSent} PDFs enviados</span>
-                    <span>{base.pdfsPending} PDFs pendentes</span>
+                    <span>{base.paidMotoristas} motoristas pagos</span>
                     <span>{base.notesReceived} NFs recebidas</span>
                     <span>{base.notesPending} NFs pendentes</span>
                   </div>

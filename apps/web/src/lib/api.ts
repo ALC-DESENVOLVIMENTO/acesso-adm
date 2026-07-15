@@ -210,7 +210,7 @@ export type FinanceiroBaseCard = {
   paymentType: PaymentFrequency;
   motoristas: number;
   pdfsSent: number;
-  pdfsPending: number;
+  paidMotoristas: number;
   notesReceived: number;
   notesPending: number;
 };

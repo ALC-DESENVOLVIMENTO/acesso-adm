@@ -914,6 +914,7 @@ router.get("/periods/:periodId/bases", (req, res) => {
             caminhoArquivo: true,
             criadoEm: true,
             status: true,
+            statusPagamento: true,
             substituiUploadId: true
           }
         },
@@ -990,7 +991,11 @@ router.get("/periods/:periodId/bases", (req, res) => {
         ...baseRecebidos.map((item) => resolveReceivedScope(item, uploadById).motoristaId)
       ]);
       const pdfsSent = countUnique(baseUploads.map((item) => item.motoristaId));
-      const pdfsPending = countUnique(baseUploads.filter((item) => item.status === "pendente").map((item) => item.motoristaId));
+      const paidMotoristas = countUnique(
+        baseUploads
+          .filter((item) => item.statusPagamento === FinanceiroStatusPagamento.PAGO)
+          .map((item) => item.motoristaId)
+      );
       const notesReceived = countUnique(
         completedBaseRecebidos.map((item) => resolveReceivedScope(item, uploadById).motoristaId)
       );
@@ -1001,7 +1006,7 @@ router.get("/periods/:periodId/bases", (req, res) => {
         paymentType: periodBase.basePagamento.tipoPadrao,
         motoristas,
         pdfsSent,
-        pdfsPending,
+        paidMotoristas,
         notesReceived,
         notesPending: Math.max(pdfsSent - notesReceived, 0)
       };
