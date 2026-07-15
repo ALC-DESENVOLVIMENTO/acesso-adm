@@ -363,7 +363,7 @@ export function evaluateAptidao(params: {
       statusProcesso: mirrorReceipt ? "Espelho pendente" : "Sem espelho",
       statusNotaFiscal: noteReceipt?.status || "Sem nota",
       statusPagamento: paymentStatus || FinanceiroStatusPagamento.PENDENTE,
-      motivoExclusao: "Espelho de pagamento nao aprovado"
+      motivoExclusao: "Espelho de pagamento não aprovado"
     };
   }
 
@@ -450,11 +450,11 @@ async function buildAptosPreviewRows(rows: CandidateRow[]) {
     const missing: Array<{ field: string; reason: string }> = [];
 
     if (!upload.motoristaId || !upload.motorista?.nome) {
-      missing.push({ field: "motorista", reason: "Motorista nao identificado" });
+      missing.push({ field: "motorista", reason: "Motorista não identificado" });
     }
 
     if (!nomeFavorecido) {
-      missing.push({ field: "favorecido", reason: "Favorecido nao identificado" });
+      missing.push({ field: "favorecido", reason: "Favorecido não identificado" });
     }
 
     if (!cpfFavorecido || !/^\d{11,14}$/.test(cpfFavorecido)) {
@@ -462,7 +462,7 @@ async function buildAptosPreviewRows(rows: CandidateRow[]) {
     }
 
     if (!baseMotorista) {
-      missing.push({ field: "base", reason: "Base do motorista nao cadastrada" });
+      missing.push({ field: "base", reason: "Base do motorista não cadastrada" });
     }
 
     const valorTotalPdf =

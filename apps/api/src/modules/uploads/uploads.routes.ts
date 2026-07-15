@@ -20,11 +20,13 @@ import {
 import { upsertDriverPdfReceivedFromUpload } from "../../lib/driver-pdf-received.js";
 
 const router = Router();
+const MAX_UPLOAD_FILES_PER_REQUEST = 100;
+const STORAGE_UPLOAD_CONCURRENCY = 5;
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 25 * 1024 * 1024,
-    files: 20
+    files: MAX_UPLOAD_FILES_PER_REQUEST
   },
   fileFilter: (_req, file, callback) => {
     const isPdf =
@@ -34,6 +36,28 @@ const upload = multer({
 });
 
 router.use(requireAuth, requireModuleAccess("pdfs"));
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<R>
+) {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await mapper(items[currentIndex], currentIndex);
+    }
+  }
+
+  const workerCount = Math.min(concurrency, items.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+  return results;
+}
 
 function canSeeAllUploads(auth: NonNullable<Express.Request["auth"]>) {
   return auth.level === "N3" || auth.level === "N4";
@@ -319,7 +343,7 @@ router.get("/", (req, res) => {
   void (async () => {
     if (!req.auth) {
       res.status(401).json({
-        message: "SessÃ£o invÃ¡lida."
+        message: "Sessão inválida."
       });
       return;
     }
@@ -373,7 +397,7 @@ router.get("/:id/history", (req, res) => {
   void (async () => {
     if (!req.auth) {
       res.status(401).json({
-        message: "SessÃ£o invÃ¡lida."
+        message: "Sessão inválida."
       });
       return;
     }
@@ -396,7 +420,7 @@ router.get("/:id/history", (req, res) => {
   });
 });
 
-router.post("/", upload.array("files", 20), (req, res) => {
+router.post("/", upload.array("files", MAX_UPLOAD_FILES_PER_REQUEST), (req, res) => {
   void (async () => {
     if (!req.auth) {
       res.status(401).json({
@@ -429,10 +453,10 @@ router.post("/", upload.array("files", 20), (req, res) => {
 
     if (!storageDiagnostics.configured) {
       res.status(503).json({
-        message: "Servico de armazenamento nao configurado.",
+        message: "Serviço de armazenamento não configurado.",
         detail: {
           missing: storageDiagnostics.missing,
-          bucket: storageDiagnostics.bucket ? "definido" : "nao definido",
+          bucket: storageDiagnostics.bucket ? "definido" : "não definido",
           region: storageDiagnostics.region,
           endpoint: storageDiagnostics.endpoint
         }
@@ -502,8 +526,10 @@ router.post("/", upload.array("files", 20), (req, res) => {
     >;
 
     const storageFolder = ["uploads", `periodos/${periodId}`, `bases/${basePaymentId}`].join("/");
-    const preparedFiles = await Promise.all(
-      validFiles.map(async (item) => {
+    const preparedFiles = await mapWithConcurrency(
+      validFiles,
+      STORAGE_UPLOAD_CONCURRENCY,
+      async (item) => {
         const { file, motoristaId, motoristaNome, motoristaCpf, baseName } = item;
         const storageKey = assertPaymentMirrorStorageKey(createStorageKey(storageFolder, file.originalname));
 
@@ -522,7 +548,7 @@ router.post("/", upload.array("files", 20), (req, res) => {
           baseName,
           baseMismatch: normalizeText(baseName || "") !== normalizeText(selectedBase.nome)
         };
-      })
+      }
     );
 
     for (const prepared of preparedFiles) {
@@ -624,7 +650,7 @@ router.delete("/:id", (req, res) => {
 
     if (!req.auth || (!canSeeAllUploads(req.auth) && upload.usuarioId !== req.auth.userId)) {
       res.status(404).json({
-        message: "Arquivo nÃ£o encontrado."
+        message: "Arquivo não encontrado."
       });
       return;
     }
@@ -853,7 +879,7 @@ router.get("/:id/download", (req, res) => {
 
     if (!req.auth || (!canSeeAllUploads(req.auth) && upload.usuarioId !== req.auth.userId)) {
       res.status(404).json({
-        message: "Arquivo nÃ£o encontrado."
+        message: "Arquivo não encontrado."
       });
       return;
     }

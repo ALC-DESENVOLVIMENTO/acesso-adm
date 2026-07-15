@@ -6,7 +6,7 @@
   "scope": "/",
   "display": "standalone",
   "background_color": "#f4f6fa",
-  "theme_color": "#ff5f53",
+  "theme_color": "#eb0000",
   "icons": [
     {
       "src": "/favicon-alc.png",

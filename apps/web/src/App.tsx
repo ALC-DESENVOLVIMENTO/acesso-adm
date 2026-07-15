@@ -94,6 +94,7 @@ type AccessLevel = "N1" | "N2" | "N3" | "N4";
 type AuthView = "login" | "first-access";
 type ViewState = AuthView | RouteView;
 type RouteView = "dashboard" | "pdfs" | "users" | "periods" | "financeiro" | "atendimento";
+type QuickActionRoute = Exclude<RouteView, "dashboard">;
 
 type SessionUser = LoginResponse["user"];
 
@@ -171,6 +172,10 @@ const quickActionLabels: Record<RouteView, { title: string; description: string;
   atendimento: { title: "Atendimento", description: "Abra o CRM do motorista.", icon: ChatCenteredDots }
 };
 
+function isQuickActionRoute(route: RouteView): route is QuickActionRoute {
+  return route !== "dashboard";
+}
+
 function readStoredTheme(): ThemeMode {
   try {
     return window.localStorage.getItem(themeStorageKey) === "dark" ? "dark" : "light";
@@ -178,43 +183,6 @@ function readStoredTheme(): ThemeMode {
     return "light";
   }
 }
-
-const activities: Array<{
-  icon: "pdf" | "user" | "view";
-  title: string;
-  subtitle: string;
-  date: string;
-  time: string;
-}> = [
-  {
-    icon: "pdf",
-    title: "PDF enviado: Conhecimento_12345.pdf",
-    subtitle: "Enviado por Administrador",
-    date: "05/05/2025",
-    time: "10:30"
-  },
-  {
-    icon: "user",
-    title: "Usuário novo cadastrado: joao.silva",
-    subtitle: "Cadastrado por Administrador",
-    date: "05/05/2025",
-    time: "09:15"
-  },
-  {
-    icon: "view",
-    title: "PDF visualizado: Conhecimento_54321.pdf",
-    subtitle: "Visualizado por maria.souza",
-    date: "05/05/2025",
-    time: "08:45"
-  },
-  {
-    icon: "pdf",
-    title: "PDF enviado: Romaneio_98765.pdf",
-    subtitle: "Enviado por Administrador",
-    date: "04/05/2025",
-    time: "17:20"
-  }
-];
 
 const initialSummary: DashboardSummary = {
   pdfsSent: 0,
@@ -239,14 +207,14 @@ function formatStatusLabel(status: string) {
 
 function formatDateOnly(dateValue?: string | null) {
   if (!dateValue) {
-    return "Data nao informada";
+    return "Data não informada";
   }
 
   const datePart = dateValue.includes("T") ? dateValue.split("T")[0] : dateValue;
   const [year, month, day] = datePart.split("-");
 
   if (!year || !month || !day) {
-    return "Data nao informada";
+    return "Data não informada";
   }
 
   return `${day}/${month}/${year}`;
@@ -255,7 +223,7 @@ function formatDateOnly(dateValue?: string | null) {
 function formatDateTimeParts(dateValue?: string | null) {
   if (!dateValue) {
     return {
-      date: "Data nao informada",
+      date: "Data não informada",
       time: "--:--"
     };
   }
@@ -264,7 +232,7 @@ function formatDateTimeParts(dateValue?: string | null) {
 
   if (Number.isNaN(date.getTime())) {
     return {
-      date: "Data nao informada",
+      date: "Data não informada",
       time: "--:--"
     };
   }
@@ -479,14 +447,14 @@ function App() {
       const parsed = raw ? (JSON.parse(raw) as RouteView[]) : [];
       const permitted = allowedMenu
         .map((item) => item.key)
-        .filter((route) => route !== "dashboard");
+        .filter(isQuickActionRoute);
 
-      const normalized = parsed.filter((route) => permitted.includes(route));
+      const normalized = parsed.filter((route) => isQuickActionRoute(route) && permitted.includes(route));
       setQuickActions(normalized.length > 0 ? normalized : permitted.slice(0, 2));
     } catch {
       const permitted = allowedMenu
         .map((item) => item.key)
-        .filter((route) => route !== "dashboard");
+        .filter(isQuickActionRoute);
       setQuickActions(permitted.slice(0, 2));
     }
   }, [allowedMenu, currentUser]);
@@ -899,7 +867,7 @@ function App() {
         }
 
         if (isSessionExpiredError(error)) {
-          clearSessionAndGoLogin("Sua sessao expirou. Faca login novamente para continuar.");
+          clearSessionAndGoLogin("Sua sessão expirou. Faça login novamente para continuar.");
         }
       }
     };
@@ -4152,7 +4120,7 @@ function UsersScreen({
                     <span>{user.email}</span>
                   </div>
                   <span className={`status-pill ${history.activeSessions > 0 ? "status-pill--active" : ""}`}>
-                    {history.activeSessions > 0 ? `${history.activeSessions} ativa(s)` : "Sem sessao ativa"}
+                    {history.activeSessions > 0 ? `${history.activeSessions} ativa(s)` : "Sem sessão ativa"}
                   </span>
                 </div>
 
@@ -4196,7 +4164,7 @@ function UsersScreen({
                       );
                     })
                   ) : (
-                    <p className="empty-state">Nenhuma sessao registrada para este usuario.</p>
+                    <p className="empty-state">Nenhuma sessão registrada para este usuário.</p>
                   )}
                 </div>
 

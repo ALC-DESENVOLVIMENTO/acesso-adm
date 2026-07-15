@@ -33,18 +33,7 @@ function parseAllowedOrigins() {
 }
 
 function isAllowedOrigin(origin: string, allowedOrigins: Set<string>) {
-  if (allowedOrigins.has(origin)) {
-    return true;
-  }
-
-  try {
-    const url = new URL(origin);
-    const isLocalhost = url.hostname === "localhost" || url.hostname === "127.0.0.1";
-    const isRailwayApp = url.protocol === "https:" && url.hostname.endsWith(".up.railway.app");
-    return isLocalhost || isRailwayApp;
-  } catch {
-    return false;
-  }
+  return allowedOrigins.has(origin);
 }
 
 function securityHeaders(_req: express.Request, res: express.Response, next: express.NextFunction) {
@@ -77,6 +66,22 @@ export function createApp() {
   app.disable("x-powered-by");
   app.use(securityHeaders);
 
+  // Do not expose database, storage, or implementation details in 5xx JSON responses.
+  app.use((_req, res, next) => {
+    const sendJson = res.json.bind(res);
+
+    res.json = ((body: unknown) => {
+      if (res.statusCode >= 500 && body && typeof body === "object" && !Array.isArray(body)) {
+        const { detail: _detail, ...safeBody } = body as Record<string, unknown>;
+        return sendJson(safeBody);
+      }
+
+      return sendJson(body);
+    }) as typeof res.json;
+
+    next();
+  });
+
   app.use(
     cors({
       origin: (origin, callback) => {
@@ -85,7 +90,7 @@ export function createApp() {
           return;
         }
 
-        callback(new Error("Origem nao permitida pelo CORS."));
+        callback(new Error("Origem não permitida pelo CORS."));
       },
       credentials: true
     })
@@ -110,6 +115,12 @@ export function createApp() {
   app.use("/api/webhooks", webhooksRoutes);
   app.use("/api/users", usersRoutes);
 
+  app.use("/api", (_req, res) => {
+    res.status(404).json({
+      message: "Rota da API não encontrada."
+    });
+  });
+
   const webDistPath = path.resolve(process.cwd(), "../web/dist");
 
   if (existsSync(webDistPath)) {
@@ -124,6 +135,18 @@ export function createApp() {
       res.sendFile(path.join(webDistPath, "index.html"));
     });
   }
+
+  app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error("Erro não tratado na API:", error instanceof Error ? error.message : error);
+
+    if (res.headersSent) {
+      return;
+    }
+
+    res.status(500).json({
+      message: "Ocorreu um erro interno. Tente novamente."
+    });
+  });
 
   return app;
 }

@@ -127,7 +127,7 @@ router.post("/login", (req, res) => {
       });
 
       res.status(401).json({
-        message: "Credenciais invalidas."
+        message: "Credenciais inválidas."
       });
       return;
     }

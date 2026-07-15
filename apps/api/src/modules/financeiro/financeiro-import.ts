@@ -5,6 +5,8 @@ import { prisma } from "../../lib/prisma.js";
 import { fetchObjectBuffer } from "../../lib/storage.js";
 
 const SUPPORTED_SHEETS = ["Resumido"];
+const MAX_IMPORT_ROWS = 5_000;
+const MAX_IMPORT_COLUMNS = 40;
 
 const BLOCK_CODES = new Set(["BLOQOXPAY", "BLOQ", "BOLQOXPAY"]);
 type ImportContext = {
@@ -188,7 +190,7 @@ function parseWorkbookRows(buffer: Buffer) {
   const sheetName = workbook.SheetNames.find((item) => SUPPORTED_SHEETS.includes(item));
 
   if (!sheetName) {
-    throw new Error('A planilha nao possui a aba obrigatoria "Resumido".');
+    throw new Error('A planilha não possui a aba obrigatória "Resumido".');
   }
 
   const sheet = workbook.Sheets[sheetName];
@@ -197,6 +199,15 @@ function parseWorkbookRows(buffer: Buffer) {
   }
 
   const range = XLSX.utils.decode_range(sheet["!ref"]);
+  const totalRows = range.e.r - range.s.r + 1;
+  const totalColumns = range.e.c - range.s.c + 1;
+
+  if (totalRows > MAX_IMPORT_ROWS || totalColumns > MAX_IMPORT_COLUMNS) {
+    throw new Error(
+      `A aba "Resumido" excede o limite de ${MAX_IMPORT_ROWS.toLocaleString("pt-BR")} linhas e ${MAX_IMPORT_COLUMNS} colunas.`
+    );
+  }
+
   const rows: WorkbookRow[] = [];
 
   for (let rowNumber = Math.max(2, range.s.r + 1); rowNumber <= range.e.r + 1; rowNumber += 1) {
@@ -482,7 +493,7 @@ function determineValidation(row: WorkbookRow) {
   if (!rawStatus) {
     return {
       resultado: FinanceiroImportacaoItemResultado.cor_nao_reconhecida,
-      regraAplicada: "Status nao informado",
+      regraAplicada: "Status não informado",
       statusNovo: null,
       mensagem: "Não foi possível identificar o status na coluna M."
     } as const;
@@ -493,7 +504,7 @@ function determineValidation(row: WorkbookRow) {
   if (!statusFromPlanilha) {
     return {
       resultado: FinanceiroImportacaoItemResultado.cor_nao_reconhecida,
-      regraAplicada: "Status nao reconhecido",
+      regraAplicada: "Status não reconhecido",
       statusNovo: null,
       mensagem: "Não foi possível reconhecer o status da coluna M."
     } as const;

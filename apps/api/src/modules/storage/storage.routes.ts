@@ -18,10 +18,10 @@ router.get("/*", async (req, res) => {
     if (!hasObjectStorage()) {
       const diagnostics = getStorageDiagnostics();
       res.status(503).json({
-        message: "Servico de armazenamento nao configurado.",
+        message: "Serviço de armazenamento não configurado.",
         detail: {
           missing: diagnostics.missing,
-          bucket: diagnostics.bucket ? "definido" : "nao definido",
+          bucket: diagnostics.bucket ? "definido" : "não definido",
           region: diagnostics.region,
           endpoint: diagnostics.endpoint
         }

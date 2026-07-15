@@ -936,7 +936,7 @@ export function FinanceiroScreen({
                   <p>{selectedBase ? selectedBase.paymentType.toUpperCase() : "PERIODO INTEIRO"}</p>
                 </div>
                 <div className="finance-period-hero__meta">
-                  <span>{(selectedBase?.motoristas ?? visibleMotoristas.length) || 0} motoristas</span>
+                  <span>{visibleMotoristas.length} motoristas</span>
                   <small>Base ativa para consulta</small>
                 </div>
               </div>

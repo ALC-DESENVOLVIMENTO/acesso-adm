@@ -561,7 +561,7 @@ export type UploadProgressState = {
   label: string;
 };
 
-async function request<T>(path: string, options?: RequestInit & { body?: JsonBody }) {
+async function request<T>(path: string, options?: Omit<RequestInit, "body"> & { body?: JsonBody }) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
@@ -581,7 +581,7 @@ async function request<T>(path: string, options?: RequestInit & { body?: JsonBod
   return payload as T;
 }
 
-async function requestFormData<T>(path: string, options: RequestInit & { body: FormData }) {
+async function requestFormData<T>(path: string, options: Omit<RequestInit, "body"> & { body: FormData }) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     body: options.body

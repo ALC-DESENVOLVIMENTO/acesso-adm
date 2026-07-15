@@ -227,45 +227,51 @@ router.get("/summary", (_req, res) => {
       fetchOperationalActivities()
     ]);
 
-    const periodSummaries = await Promise.all(
-      recentPeriods.map(async (period) => {
-        const [pdfsSent, notesReceived] = await Promise.all([
-          prisma.uploadPdf.count({
-            where: {
-              periodoPagamentoId: period.id,
-              status: {
-                not: "removido"
-              }
-            }
-          }),
-          prisma.driverPdfReceived.count({
-            where: {
-              periodoPagamentoId: period.id,
-              status: {
-                in: [
-                  "nota_fiscal_recebida",
-                  "nota_fiscal_em_analise",
-                  "nota_fiscal_aprovada",
-                  "nota_fiscal_rejeitada",
-                  "processo_concluido"
-                ]
-              }
-            }
-          })
-        ]);
-
-        return {
-          id: period.id,
-          name: period.nome,
-          startDate: toIso(period.dataInicio),
-          endDate: toIso(period.dataFim),
-          status: period.status,
-          pdfsSent,
-          notesReceived,
-          notesPending: Math.max(pdfsSent - notesReceived, 0)
-        };
+    const periodIds = recentPeriods.map((period) => period.id);
+    const [uploadsByPeriod, notesByPeriod] = await Promise.all([
+      prisma.uploadPdf.groupBy({
+        by: ["periodoPagamentoId"],
+        where: {
+          periodoPagamentoId: { in: periodIds },
+          status: { not: "removido" }
+        },
+        _count: { _all: true }
+      }),
+      prisma.driverPdfReceived.groupBy({
+        by: ["periodoPagamentoId"],
+        where: {
+          periodoPagamentoId: { in: periodIds },
+          status: {
+            in: [
+              "nota_fiscal_recebida",
+              "nota_fiscal_em_analise",
+              "nota_fiscal_aprovada",
+              "nota_fiscal_rejeitada",
+              "processo_concluido"
+            ]
+          }
+        },
+        _count: { _all: true }
       })
-    );
+    ]);
+
+    const pdfsByPeriodId = new Map(uploadsByPeriod.map((item) => [item.periodoPagamentoId, item._count._all]));
+    const notesByPeriodId = new Map(notesByPeriod.map((item) => [item.periodoPagamentoId, item._count._all]));
+    const periodSummaries = recentPeriods.map((period) => {
+      const pdfsSent = pdfsByPeriodId.get(period.id) || 0;
+      const notesReceived = notesByPeriodId.get(period.id) || 0;
+
+      return {
+        id: period.id,
+        name: period.nome,
+        startDate: toIso(period.dataInicio),
+        endDate: toIso(period.dataFim),
+        status: period.status,
+        pdfsSent,
+        notesReceived,
+        notesPending: Math.max(pdfsSent - notesReceived, 0)
+      };
+    });
 
     res.json({
       pdfsSent: uploads,
