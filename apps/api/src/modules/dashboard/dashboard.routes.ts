@@ -132,38 +132,21 @@ router.get("/summary", (_req, res) => {
               periodoPagamentoId: period.id,
               status: {
                 not: "removido"
-              },
-              OR: [
-                {
-                  documentType: null
-                },
-                {
-                  documentType: {
-                    not: "nota_fiscal"
-                  }
-                }
-              ]
+              }
             }
           }),
           prisma.driverPdfReceived.count({
             where: {
               periodoPagamentoId: period.id,
-              OR: [
-                {
-                  documentType: "nota_fiscal"
-                },
-                {
-                  status: {
-                    in: [
-                      "nota_fiscal_recebida",
-                      "nota_fiscal_em_analise",
-                      "nota_fiscal_aprovada",
-                      "nota_fiscal_rejeitada",
-                      "processo_concluido"
-                    ]
-                  }
-                }
-              ]
+              status: {
+                in: [
+                  "nota_fiscal_recebida",
+                  "nota_fiscal_em_analise",
+                  "nota_fiscal_aprovada",
+                  "nota_fiscal_rejeitada",
+                  "processo_concluido"
+                ]
+              }
             }
           })
         ]);
