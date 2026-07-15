@@ -3039,95 +3039,6 @@ button {
   font-weight: 600;
 }
 
-.session-history-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
-  gap: 16px;
-}
-
-.session-history-card {
-  display: grid;
-  gap: 16px;
-  padding: 18px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.78);
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.06);
-}
-
-.session-history-card__header,
-.session-history-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 14px;
-  align-items: flex-start;
-}
-
-.session-history-card__header strong,
-.session-history-card__header span,
-.session-history-row strong,
-.session-history-row span {
-  display: block;
-}
-
-.session-history-card__header > div span,
-.session-history-row span,
-.session-events span {
-  color: var(--muted);
-  font-size: 0.84rem;
-}
-
-.session-history-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.session-history-metrics > div {
-  min-width: 0;
-  padding: 12px;
-  border-radius: 16px;
-  background: rgba(235, 0, 0, 0.08);
-}
-
-.session-history-metrics strong,
-.session-history-metrics span {
-  display: block;
-}
-
-.session-history-metrics strong {
-  overflow-wrap: anywhere;
-}
-
-.session-history-list {
-  display: grid;
-  gap: 10px;
-}
-
-.session-history-row {
-  padding: 12px;
-  border-radius: 16px;
-  background: rgba(244, 246, 250, 0.86);
-}
-
-.session-history-row > span {
-  white-space: nowrap;
-  font-weight: 800;
-  color: var(--text);
-}
-
-.session-events {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.session-events span {
-  padding: 7px 10px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.06);
-}
-
 .modal-card--finance {
   width: min(980px, 100%);
 }
@@ -4076,27 +3987,6 @@ body.theme-dark .profile-menu__item svg{
 body.theme-dark .profile-menu__item:hover{
   background: rgba(235, 0, 0, 0.14) !important;
   color: #ffffff !important;
-}
-
-body.theme-dark .session-history-card{
-  background: rgba(18, 24, 32, 0.9);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: none;
-}
-
-body.theme-dark .session-history-row,
-body.theme-dark .session-events span{
-  background: rgba(255, 255, 255, 0.055);
-}
-
-body.theme-dark .session-history-metrics > div{
-  background: rgba(235, 0, 0, 0.16);
-}
-
-body.theme-dark .session-history-card__header > div span,
-body.theme-dark .session-history-row span,
-body.theme-dark .session-events span{
-  color: rgba(226, 232, 240, 0.72);
 }
 
 body.theme-dark .panel,
