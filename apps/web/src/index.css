@@ -1609,6 +1609,16 @@ button {
   gap: 16px;
 }
 
+.period-list__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.period-list__search {
+  width: min(100%, 380px);
+}
+
 .period-card {
   border-radius: 24px;
   border: 1px solid rgba(235, 0, 0, 0.08);

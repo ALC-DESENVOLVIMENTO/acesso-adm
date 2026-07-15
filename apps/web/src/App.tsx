@@ -2901,7 +2901,8 @@ function PeriodsScreen({
   const [isDuplicateReviewModalOpen, setIsDuplicateReviewModalOpen] = useState(false);
   const [duplicateReviewPeriodId, setDuplicateReviewPeriodId] = useState<string | null>(null);
   const [duplicateReviewPeriodName, setDuplicateReviewPeriodName] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"active" | "finished">("active");
+  const [activeTab, setActiveTab] = useState<"created" | "financeActive" | "financeFinished">("created");
+  const [financeFinishedSearch, setFinanceFinishedSearch] = useState("");
   const [duplicateReviews, setDuplicateReviews] = useState<PeriodBaseReviewItem[]>([]);
   const [duplicateRedirectTargets, setDuplicateRedirectTargets] = useState<Record<string, string>>({});
 
@@ -2917,15 +2918,42 @@ function PeriodsScreen({
     [activeBases]
   );
 
-  const activePeriods = useMemo(
-    () => periods.filter((period) => period.status === "disponivel"),
+  const createdPeriods = useMemo(
+    () => periods.filter((period) => period.status === "disponivel" && period.active !== false),
     [periods]
   );
 
-  const finishedPeriods = useMemo(
-    () => periods.filter((period) => period.status !== "disponivel"),
+  const financeActivePeriods = useMemo(
+    () => periods.filter((period) => period.status !== "disponivel" && period.active !== false),
     [periods]
   );
+
+  const financeFinishedPeriods = useMemo(() => periods.filter((period) => period.active === false), [periods]);
+
+  const filteredFinanceFinishedPeriods = useMemo(() => {
+    const normalizedSearch = financeFinishedSearch.trim().toLowerCase();
+
+    if (!normalizedSearch) {
+      return financeFinishedPeriods;
+    }
+
+    return financeFinishedPeriods.filter((period) => {
+      const dateRange = `${formatDateOnly(period.startDate)} ${formatDateOnly(period.endDate)}`.toLowerCase();
+      return period.name.toLowerCase().includes(normalizedSearch) || dateRange.includes(normalizedSearch);
+    });
+  }, [financeFinishedPeriods, financeFinishedSearch]);
+
+  const visiblePeriods = useMemo(() => {
+    if (activeTab === "created") {
+      return createdPeriods;
+    }
+
+    if (activeTab === "financeActive") {
+      return financeActivePeriods;
+    }
+
+    return filteredFinanceFinishedPeriods;
+  }, [activeTab, createdPeriods, financeActivePeriods, filteredFinanceFinishedPeriods]);
 
   const loadDuplicateReviews = async (periodId?: string | null) => {
     const data = await fetchPeriodBaseReviews(token, periodId || null);
@@ -3048,32 +3076,56 @@ function PeriodsScreen({
         <div className="panel__header panel__header--split">
           <div>
             <h3>Períodos cadastrados</h3>
-            <p>Visualize períodos ativos ou finalizados em abas separadas.</p>
+            <p>Visualize os períodos criados, os períodos ativos no Financeiro e os períodos finalizados em abas separadas.</p>
           </div>
           <div className="period-tabs" role="tablist" aria-label="Filtro de períodos">
             <button
-              className={`period-tab ${activeTab === "active" ? "period-tab--active" : ""}`}
+              className={`period-tab ${activeTab === "created" ? "period-tab--active" : ""}`}
               type="button"
               role="tab"
-              aria-selected={activeTab === "active"}
-              onClick={() => setActiveTab("active")}
+              aria-selected={activeTab === "created"}
+              onClick={() => setActiveTab("created")}
+            >
+              Períodos criados
+            </button>
+            <button
+              className={`period-tab ${activeTab === "financeActive" ? "period-tab--active" : ""}`}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "financeActive"}
+              onClick={() => setActiveTab("financeActive")}
             >
               Períodos ativos
             </button>
             <button
-              className={`period-tab ${activeTab === "finished" ? "period-tab--active" : ""}`}
+              className={`period-tab ${activeTab === "financeFinished" ? "period-tab--active" : ""}`}
               type="button"
               role="tab"
-              aria-selected={activeTab === "finished"}
-              onClick={() => setActiveTab("finished")}
+              aria-selected={activeTab === "financeFinished"}
+              onClick={() => setActiveTab("financeFinished")}
             >
               Períodos finalizados
             </button>
           </div>
         </div>
 
+        {activeTab === "financeFinished" ? (
+          <div className="period-list__toolbar">
+            <label className="search-field period-list__search">
+              <MagnifyingGlass size={18} />
+              <input
+                type="search"
+                value={financeFinishedSearch}
+                onChange={(event) => setFinanceFinishedSearch(event.target.value)}
+                placeholder="Buscar período finalizado no Financeiro"
+                aria-label="Buscar período finalizado no Financeiro"
+              />
+            </label>
+          </div>
+        ) : null}
+
         <div className="period-list">
-          {(activeTab === "active" ? activePeriods : finishedPeriods).map((period) => {
+          {visiblePeriods.map((period) => {
             const uploadedByBaseEntries = period.bases.map((base) => ({
               ...base,
               total: period.uploadedByBase[base.id] || 0
@@ -3110,7 +3162,7 @@ function PeriodsScreen({
                 </div>
 
                 <div className="period-card__actions">
-                  {activeTab === "finished" ? (
+                  {activeTab !== "created" ? (
                     <label className="period-lifecycle-control">
                       <span>Visibilidade no Financeiro</span>
                       <select
@@ -3150,7 +3202,7 @@ function PeriodsScreen({
                   >
                     {period.status === "disponivel" ? "Finalizar período" : "Reabrir período"}
                   </button>
-                  {activeTab === "active" ? (
+                  {period.status === "disponivel" ? (
                     <button
                       className="ghost-button ghost-button--small"
                       type="button"
@@ -3163,10 +3215,20 @@ function PeriodsScreen({
               </article>
             );
           })}
-          {(activeTab === "active" ? activePeriods : finishedPeriods).length === 0 ? (
+          {visiblePeriods.length === 0 ? (
             <div className="empty-state">
-              <strong>Nenhum período {activeTab === "active" ? "ativo" : "finalizado"} encontrado</strong>
-              <p>Crie um novo período ou altere o status de um registro existente para vê-lo aqui.</p>
+              <strong>
+                {activeTab === "created"
+                  ? "Nenhum período criado encontrado"
+                  : activeTab === "financeActive"
+                    ? "Nenhum período ativo encontrado no Financeiro"
+                    : "Nenhum período finalizado encontrado no Financeiro"}
+              </strong>
+              <p>
+                {activeTab === "financeFinished"
+                  ? "Ajuste a busca ou finalize a visibilidade de um período no Financeiro para vê-lo aqui."
+                  : "Crie um novo período ou altere o status de um registro existente para vê-lo aqui."}
+              </p>
             </div>
           ) : null}
         </div>
