@@ -99,6 +99,29 @@ export type UserSummary = {
   lastLoginAt: string | null;
   modules: string[];
   permissions?: string[];
+  sessionHistory?: {
+    totalLogins: number;
+    activeSessions: number;
+    totalActiveMinutes: number;
+    lastIp: string | null;
+    lastUserAgent: string | null;
+    recentSessions: Array<{
+      id: string;
+      startedAt: string;
+      expiresAt: string;
+      endedAt: string | null;
+      status: "ativa" | "encerrada" | "expirada";
+      durationMinutes: number;
+    }>;
+    recentEvents: Array<{
+      id: string;
+      action: string;
+      ip: string | null;
+      userAgent: string | null;
+      createdAt: string;
+      details?: unknown;
+    }>;
+  };
 };
 
 type JsonBody = Record<string, unknown>;

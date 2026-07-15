@@ -17,6 +17,23 @@ const userPayloadSchema = z.object({
 
 router.use(requireAuth, requireModuleAccess("users"), requireAdmin);
 
+function calculateSessionDurationMinutes(session: { criadoEm: Date; expiraEm: Date; revogadaEm: Date | null }, now = new Date()) {
+  const endAt = session.revogadaEm ?? (session.expiraEm < now ? session.expiraEm : now);
+  return Math.max(0, Math.round((endAt.getTime() - session.criadoEm.getTime()) / 60000));
+}
+
+function resolveSessionStatus(session: { expiraEm: Date; revogadaEm: Date | null }, now = new Date()) {
+  if (session.revogadaEm) {
+    return "encerrada";
+  }
+
+  if (session.expiraEm < now) {
+    return "expirada";
+  }
+
+  return "ativa";
+}
+
 router.get("/", (_req, res) => {
   void (async () => {
     const users = await prisma.usuario.findMany({
@@ -26,18 +43,128 @@ router.get("/", (_req, res) => {
       }
     });
 
+    const userIds = users.map((user) => user.id);
+    const now = new Date();
+
+    const [loginCounts, sessions, accessLogs] = await Promise.all([
+      prisma.logAuditoria.groupBy({
+        by: ["usuarioId"],
+        where: {
+          usuarioId: {
+            in: userIds
+          },
+          acao: "login"
+        },
+        _count: {
+          _all: true
+        }
+      }),
+      prisma.sessao.findMany({
+        where: {
+          usuarioId: {
+            in: userIds
+          }
+        },
+        select: {
+          id: true,
+          usuarioId: true,
+          criadoEm: true,
+          expiraEm: true,
+          revogadaEm: true
+        },
+        orderBy: {
+          criadoEm: "desc"
+        }
+      }),
+      prisma.logAuditoria.findMany({
+        where: {
+          usuarioId: {
+            in: userIds
+          },
+          acao: {
+            in: ["login", "logout", "login_falhou"]
+          }
+        },
+        select: {
+          id: true,
+          usuarioId: true,
+          acao: true,
+          ipOrigem: true,
+          userAgent: true,
+          criadoEm: true,
+          detalhes: true
+        },
+        orderBy: {
+          criadoEm: "desc"
+        },
+        take: Math.max(100, userIds.length * 10)
+      })
+    ]);
+
+    const loginCountByUser = new Map(loginCounts.map((item) => [item.usuarioId, item._count._all]));
+    const sessionsByUser = new Map<string, typeof sessions>();
+    const logsByUser = new Map<string, typeof accessLogs>();
+
+    for (const session of sessions) {
+      const userSessions = sessionsByUser.get(session.usuarioId) ?? [];
+      userSessions.push(session);
+      sessionsByUser.set(session.usuarioId, userSessions);
+    }
+
+    for (const log of accessLogs) {
+      if (!log.usuarioId) {
+        continue;
+      }
+
+      const userLogs = logsByUser.get(log.usuarioId) ?? [];
+      userLogs.push(log);
+      logsByUser.set(log.usuarioId, userLogs);
+    }
+
     res.json(
-      users.map((user) => ({
-        id: user.id,
-        name: user.nome,
-        email: user.email,
-        level: user.nivel.codigo,
-        active: user.ativo,
-        blocked: user.bloqueado,
-        firstAccess: user.primeiroAcesso,
-        lastLoginAt: user.ultimoLoginEm,
-        modules: resolveEffectiveModules(user)
-      }))
+      users.map((user) => {
+        const userSessions = sessionsByUser.get(user.id) ?? [];
+        const userLogs = logsByUser.get(user.id) ?? [];
+        const activeSessions = userSessions.filter((session) => resolveSessionStatus(session, now) === "ativa").length;
+
+        return {
+          id: user.id,
+          name: user.nome,
+          email: user.email,
+          level: user.nivel.codigo,
+          active: user.ativo,
+          blocked: user.bloqueado,
+          firstAccess: user.primeiroAcesso,
+          lastLoginAt: user.ultimoLoginEm,
+          modules: resolveEffectiveModules(user),
+          sessionHistory: {
+            totalLogins: loginCountByUser.get(user.id) ?? 0,
+            activeSessions,
+            totalActiveMinutes: userSessions.reduce(
+              (total, session) => total + calculateSessionDurationMinutes(session, now),
+              0
+            ),
+            lastIp: userLogs.find((log) => log.ipOrigem)?.ipOrigem ?? null,
+            lastUserAgent: userLogs.find((log) => log.userAgent)?.userAgent ?? null,
+            recentSessions: userSessions.slice(0, 5).map((session) => ({
+              id: session.id,
+              startedAt: session.criadoEm,
+              expiresAt: session.expiraEm,
+              endedAt: session.revogadaEm,
+              status: resolveSessionStatus(session, now),
+              durationMinutes: calculateSessionDurationMinutes(session, now)
+            })),
+            recentEvents: userLogs.slice(0, 5).map((log) => ({
+              id: log.id,
+              action: log.acao,
+              ip: log.ipOrigem,
+              userAgent: log.userAgent,
+              createdAt: log.criadoEm,
+              details: log.detalhes
+            }))
+          }
+        };
+      })
     );
   })().catch((error) => {
     res.status(500).json({

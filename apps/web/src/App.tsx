@@ -278,6 +278,25 @@ function formatDateTimeParts(dateValue?: string | null) {
   };
 }
 
+function formatDurationMinutes(minutes?: number | null) {
+  if (!minutes || minutes <= 0) {
+    return "menos de 1 min";
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (hours <= 0) {
+    return `${remainingMinutes} min`;
+  }
+
+  if (remainingMinutes <= 0) {
+    return `${hours}h`;
+  }
+
+  return `${hours}h ${remainingMinutes}min`;
+}
+
 function getRouteViewFromPath(pathname: string): RouteView {
   const normalized = pathname.replace(/\/+$/, "") || "/";
 
@@ -3906,6 +3925,16 @@ function UsersScreen({
     });
   }, [levelFilter, searchTerm, statusFilter, users]);
 
+  const usersWithSessionHistory = useMemo(() => {
+    return filteredUsers
+      .filter((user) => user.sessionHistory)
+      .sort((userA, userB) => {
+        const dateA = userA.lastLoginAt ? new Date(userA.lastLoginAt).getTime() : 0;
+        const dateB = userB.lastLoginAt ? new Date(userB.lastLoginAt).getTime() : 0;
+        return dateB - dateA;
+      });
+  }, [filteredUsers]);
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -4096,6 +4125,104 @@ function UsersScreen({
               ))}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel__header">
+          <div>
+            <h3>Historico de sessoes</h3>
+            <p>Login, logout, IP, dispositivo e tempo estimado de atividade por usuario</p>
+          </div>
+        </div>
+
+        <div className="session-history-grid">
+          {usersWithSessionHistory.map((user) => {
+            const history = user.sessionHistory;
+
+            if (!history) {
+              return null;
+            }
+
+            return (
+              <article className="session-history-card" key={`${user.id}-sessions`}>
+                <div className="session-history-card__header">
+                  <div>
+                    <strong>{user.name}</strong>
+                    <span>{user.email}</span>
+                  </div>
+                  <span className={`status-pill ${history.activeSessions > 0 ? "status-pill--active" : ""}`}>
+                    {history.activeSessions > 0 ? `${history.activeSessions} ativa(s)` : "Sem sessao ativa"}
+                  </span>
+                </div>
+
+                <div className="session-history-metrics">
+                  <div>
+                    <strong>{history.totalLogins}</strong>
+                    <span>logins</span>
+                  </div>
+                  <div>
+                    <strong>{formatDurationMinutes(history.totalActiveMinutes)}</strong>
+                    <span>tempo estimado</span>
+                  </div>
+                  <div>
+                    <strong>{history.lastIp || "Sem IP"}</strong>
+                    <span>ultimo IP</span>
+                  </div>
+                </div>
+
+                <div className="session-history-list">
+                  {history.recentSessions.length > 0 ? (
+                    history.recentSessions.map((session) => {
+                      const startedAt = formatDateTimeParts(session.startedAt);
+                      const endedAt = formatDateTimeParts(session.endedAt || session.expiresAt);
+
+                      return (
+                        <div className="session-history-row" key={session.id}>
+                          <div>
+                            <strong>{formatStatusLabel(session.status)}</strong>
+                            <span>
+                              Inicio: {startedAt.date} {startedAt.time}
+                            </span>
+                          </div>
+                          <div>
+                            <span>{session.endedAt ? "Logout" : session.status === "expirada" ? "Expirou" : "Expira"}</span>
+                            <strong>
+                              {endedAt.date} {endedAt.time}
+                            </strong>
+                          </div>
+                          <span>{formatDurationMinutes(session.durationMinutes)}</span>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="empty-state">Nenhuma sessao registrada para este usuario.</p>
+                  )}
+                </div>
+
+                {history.recentEvents.length > 0 ? (
+                  <div className="session-events">
+                    {history.recentEvents.slice(0, 3).map((event) => {
+                      const eventAt = formatDateTimeParts(event.createdAt);
+
+                      return (
+                        <span key={event.id}>
+                          {formatStatusLabel(event.action)} - {eventAt.date} {eventAt.time}
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </article>
+            );
+          })}
+
+          {usersWithSessionHistory.length === 0 ? (
+            <div className="empty-card">
+              <strong>Nenhum historico encontrado</strong>
+              <span>Os acessos vao aparecer aqui assim que os usuarios fizerem login.</span>
+            </div>
+          ) : null}
         </div>
       </section>
 
