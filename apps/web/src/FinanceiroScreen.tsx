@@ -118,7 +118,7 @@ function formatStatusLabel(value: string) {
     nota_fiscal_rejeitada: "Nota Fiscal rejeitada",
     em_atendimento: "Em atendimento",
     chamado_aberto: "Chamado aberto",
-    processo_concluido: "Processo concluído"
+    processo_concluido: "Processo Concluído"
   };
 
   return labels[value] || value;

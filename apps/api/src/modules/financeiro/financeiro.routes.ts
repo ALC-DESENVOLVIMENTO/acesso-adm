@@ -79,12 +79,12 @@ function formatStatusLabel(value: string) {
     aguardando_envio_nota_fiscal: "Aguardando envio da Nota Fiscal",
     pago: "Pago",
     nota_fiscal_recebida: "Nota Fiscal recebida",
-    nota_fiscal_em_analise: "Nota Fiscal em an?lise",
+    nota_fiscal_em_analise: "Nota Fiscal em análise",
     nota_fiscal_aprovada: "Nota Fiscal aprovada",
     nota_fiscal_rejeitada: "Nota Fiscal recusada",
     em_atendimento: "Em atendimento",
     chamado_aberto: "Chamado aberto",
-    processo_concluido: "Processo conclu?do"
+    processo_concluido: "Processo Concluído"
   };
 
   return labels[value] || value;
@@ -1217,7 +1217,7 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
             : noteReceipt?.status === "nota_fiscal_aprovada"
               ? "Aprovada"
               : noteReceipt?.status === "nota_fiscal_em_analise"
-                ? "Em an?lise"
+                ? "Em análise"
                 : noteReceipt?.status === "nota_fiscal_recebida"
                   ? "Recebida"
                   : currentStatus === "pdf_enviado_ao_motorista"

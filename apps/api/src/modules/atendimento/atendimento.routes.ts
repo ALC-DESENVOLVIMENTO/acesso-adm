@@ -86,7 +86,7 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
   nota_fiscal_rejeitada: "Nota Fiscal recusada",
   em_atendimento: "Em atendimento",
   chamado_aberto: "Chamado aberto",
-  processo_concluido: "Processo concluído"
+  processo_concluido: "Processo Concluído"
 };
 
 type DriverRegistryMetadata = {

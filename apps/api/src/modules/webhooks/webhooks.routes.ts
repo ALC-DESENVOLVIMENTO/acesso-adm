@@ -145,27 +145,29 @@ router.post("/access-adm", (req, res) => {
           createdByUserId: readString(data.createdByUserId) || null
         });
 
-        await prisma.logAuditoria.create({
-          data: {
-            usuarioId: null,
-            acao: "webhook_pdf_visualizado",
-            entidade: "driver_pdf_received",
-            entidadeId: result?.id || upload?.id || null,
-            ipOrigem: req.ip,
-            userAgent: req.get("user-agent") || null,
-            detalhes: {
-              event,
-              uploadId,
-              motoristaId: readString(data.motoristaId) || upload?.motoristaId || null,
-              periodId: readString(data.periodId) || upload?.periodoPagamentoId || null,
-              basePaymentId: readString(data.basePaymentId) || upload?.basePagamentoId || null
+        if (result?.firstView) {
+          await prisma.logAuditoria.create({
+            data: {
+              usuarioId: null,
+              acao: "webhook_pdf_visualizado",
+              entidade: "driver_pdf_received",
+              entidadeId: result.record.id || upload?.id || null,
+              ipOrigem: req.ip,
+              userAgent: req.get("user-agent") || null,
+              detalhes: {
+                event,
+                uploadId,
+                motoristaId: readString(data.motoristaId) || upload?.motoristaId || null,
+                periodId: readString(data.periodId) || upload?.periodoPagamentoId || null,
+                basePaymentId: readString(data.basePaymentId) || upload?.basePagamentoId || null
+              }
             }
-          }
-        });
+          });
+        }
 
         res.json({
-          message: "Visualização registrada com sucesso.",
-          receivedId: result?.id || null
+          message: result?.firstView ? "Visualização registrada com sucesso." : "Visualização já registrada anteriormente.",
+          receivedId: result?.record.id || null
         });
         return;
       }

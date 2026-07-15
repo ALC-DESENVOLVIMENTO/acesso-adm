@@ -263,6 +263,7 @@ export async function markDriverPdfReceivedViewed(input: DriverPdfReceivedViewIn
         where,
         select: {
           id: true,
+          status: true,
           visualizadoEm: true
         }
       })
@@ -273,6 +274,13 @@ export async function markDriverPdfReceivedViewed(input: DriverPdfReceivedViewIn
   }
 
   if (existing?.id) {
+    if (existing.visualizadoEm) {
+      return {
+        record: existing,
+        firstView: false
+      };
+    }
+
     const updated = await prisma.driverPdfReceived.update({
       where: {
         id: existing.id
@@ -284,7 +292,10 @@ export async function markDriverPdfReceivedViewed(input: DriverPdfReceivedViewIn
     });
 
     await setDriverPdfDocumentType(updated.id, DocumentTypeCode.espelho);
-    return updated;
+    return {
+      record: updated,
+      firstView: true
+    };
   }
 
   const created = await prisma.driverPdfReceived.create({
@@ -311,7 +322,10 @@ export async function markDriverPdfReceivedViewed(input: DriverPdfReceivedViewIn
   });
 
   await setDriverPdfDocumentType(created.id, DocumentTypeCode.espelho);
-  return created;
+  return {
+    record: created,
+    firstView: true
+  };
 }
 
 export async function upsertDriverPdfReceivedNoteStatus(input: DriverPdfReceivedNoteStatusInput) {
