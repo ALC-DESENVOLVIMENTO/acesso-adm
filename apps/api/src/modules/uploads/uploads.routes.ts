@@ -35,6 +35,14 @@ const upload = multer({
 
 router.use(requireAuth, requireModuleAccess("pdfs"));
 
+function canSeeAllUploads(auth: NonNullable<Express.Request["auth"]>) {
+  return auth.level === "N3" || auth.level === "N4";
+}
+
+function uploadOwnerScope(auth: NonNullable<Express.Request["auth"]>) {
+  return canSeeAllUploads(auth) ? {} : { usuarioId: auth.userId };
+}
+
 function isPaymentMirrorUpload(upload: { documentType?: DocumentTypeCode | null; status: UploadStatus | string }) {
   if (upload.documentType === DocumentTypeCode.nota_fiscal) {
     return false;
@@ -83,9 +91,10 @@ function serializeUpload(upload: UploadHistoryItem) {
   };
 }
 
-async function getUploadHistory(uploadId: string) {
+async function getUploadHistory(uploadId: string, auth: NonNullable<Express.Request["auth"]>) {
   const uploads = await prisma.uploadPdf.findMany({
     where: {
+      ...uploadOwnerScope(auth),
       status: {
         not: UploadStatus.removido
       }
@@ -306,10 +315,18 @@ async function reconcilePendingUploadsFromRegistry() {
   }
 }
 
-router.get("/", (_req, res) => {
+router.get("/", (req, res) => {
   void (async () => {
+    if (!req.auth) {
+      res.status(401).json({
+        message: "SessÃ£o invÃ¡lida."
+      });
+      return;
+    }
+
     const uploads = await prisma.uploadPdf.findMany({
       where: {
+        ...uploadOwnerScope(req.auth),
         status: {
           not: UploadStatus.removido
         }
@@ -354,7 +371,14 @@ router.get("/", (_req, res) => {
 
 router.get("/:id/history", (req, res) => {
   void (async () => {
-    const history = await getUploadHistory(String(req.params.id));
+    if (!req.auth) {
+      res.status(401).json({
+        message: "SessÃ£o invÃ¡lida."
+      });
+      return;
+    }
+
+    const history = await getUploadHistory(String(req.params.id), req.auth);
 
     if (!history) {
       res.status(404).json({
@@ -598,6 +622,13 @@ router.delete("/:id", (req, res) => {
       return;
     }
 
+    if (!req.auth || (!canSeeAllUploads(req.auth) && upload.usuarioId !== req.auth.userId)) {
+      res.status(404).json({
+        message: "Arquivo nÃ£o encontrado."
+      });
+      return;
+    }
+
     if (!isPaymentMirrorUpload(upload)) {
       res.status(404).json({
         message: "Upload não encontrado."
@@ -816,6 +847,13 @@ router.get("/:id/download", (req, res) => {
     if (!isPaymentMirrorUpload(upload)) {
       res.status(404).json({
         message: "Arquivo não encontrado."
+      });
+      return;
+    }
+
+    if (!req.auth || (!canSeeAllUploads(req.auth) && upload.usuarioId !== req.auth.userId)) {
+      res.status(404).json({
+        message: "Arquivo nÃ£o encontrado."
       });
       return;
     }
