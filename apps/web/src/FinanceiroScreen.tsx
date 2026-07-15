@@ -65,6 +65,22 @@ type PeriodFormState = {
 type FinanceTab = "exportacao" | "apagar" | "importacao";
 type PreviewFilter = "todos" | "validos" | "erros";
 
+const MOTORISTA_STATUS_FILTER_ORDER = [
+  "pdf_enviado_ao_motorista",
+  "motorista_visualizou",
+  "nota_fiscal_recebida",
+  "nota_fiscal_em_analise",
+  "nota_fiscal_aprovada",
+  "processo_concluido",
+  "pagamento_pendente",
+  "nota_fiscal_pendente",
+  "tentativa_pagamento_falha",
+  "pagamento_em_revisao",
+  "pagamento_bloqueado",
+  "nota_fiscal_rejeitada",
+  "pago"
+] as const;
+
 const initialSummary: FinanceiroSummary = {
   activePeriods: 0,
   bases: 0,
@@ -197,6 +213,14 @@ function financeStatusClass(status: string) {
   return "finance-status-pill";
 }
 
+function normalizeFilterText(value: string | null | undefined) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
 export function FinanceiroScreen({
   token,
   currentUser,
@@ -272,15 +296,71 @@ export function FinanceiroScreen({
     return allowedBases.find((base) => base.id === selectedBaseId) || null;
   }, [allowedBases, selectedBaseId]);
 
+  const statusOptions = useMemo(() => {
+    const labels = new Map<string, string>();
+
+    for (const row of motoristas) {
+      if (!labels.has(row.status)) {
+        labels.set(row.status, row.statusLabel || formatStatusLabel(row.status));
+      }
+    }
+
+    return Array.from(labels.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((left, right) => {
+        const leftIndex = MOTORISTA_STATUS_FILTER_ORDER.indexOf(left.value as (typeof MOTORISTA_STATUS_FILTER_ORDER)[number]);
+        const rightIndex = MOTORISTA_STATUS_FILTER_ORDER.indexOf(right.value as (typeof MOTORISTA_STATUS_FILTER_ORDER)[number]);
+
+        if (leftIndex === -1 && rightIndex === -1) {
+          return left.label.localeCompare(right.label, "pt-BR");
+        }
+
+        if (leftIndex === -1) {
+          return 1;
+        }
+
+        if (rightIndex === -1) {
+          return -1;
+        }
+
+        return leftIndex - rightIndex;
+      });
+  }, [motoristas]);
+
+  useEffect(() => {
+    if (statusFilter === "todos") {
+      return;
+    }
+
+    if (!statusOptions.some((option) => option.value === statusFilter)) {
+      setStatusFilter("todos");
+    }
+  }, [statusFilter, statusOptions]);
+
   const visibleMotoristas = useMemo(() => {
+    const normalizedSearch = normalizeFilterText(searchTerm);
+    const normalizedCpf = cpfTerm.replace(/\D/g, "");
+
     return motoristas.filter((row) => {
       if (attendanceFilter !== "todos" && row.situacaoAtendimento !== attendanceFilter) {
         return false;
       }
 
+      if (statusFilter !== "todos" && row.status !== statusFilter) {
+        return false;
+      }
+
+      if (normalizedSearch && !normalizeFilterText(row.nome).includes(normalizedSearch)) {
+        return false;
+      }
+
+      if (normalizedCpf && !row.cpf.replace(/\D/g, "").includes(normalizedCpf)) {
+        return false;
+      }
+
       return true;
     });
-  }, [attendanceFilter, motoristas]);
+  }, [attendanceFilter, cpfTerm, motoristas, searchTerm, statusFilter]);
 
   const loadSummary = async () => {
     const data = await fetchFinanceiroSummary(token);
@@ -303,11 +383,7 @@ export function FinanceiroScreen({
       return;
     }
 
-    const data = await fetchFinanceiroMotoristas(token, periodId, baseId, {
-      search: searchTerm || undefined,
-      cpf: cpfTerm || undefined,
-      status: statusFilter !== "todos" ? statusFilter : undefined
-    });
+    const data = await fetchFinanceiroMotoristas(token, periodId, baseId);
 
     setMotoristas(data);
   };
@@ -374,22 +450,18 @@ export function FinanceiroScreen({
       return;
     }
 
-    const timer = window.setTimeout(() => {
-      void (async () => {
-        try {
-          setErrorMessage("");
-          setBusyMessage("Atualizando motoristas...");
-          await loadMotoristas(selectedPeriodId, selectedBaseId);
-        } catch (error) {
-          setErrorMessage(error instanceof Error ? error.message : "Falha ao carregar motoristas.");
-        } finally {
-          setBusyMessage("");
-        }
-      })();
-    }, 250);
-
-    return () => window.clearTimeout(timer);
-  }, [cpfTerm, searchTerm, selectedBaseId, selectedPeriodId, statusFilter, token]);
+    void (async () => {
+      try {
+        setErrorMessage("");
+        setBusyMessage("Atualizando motoristas...");
+        await loadMotoristas(selectedPeriodId, selectedBaseId);
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "Falha ao carregar motoristas.");
+      } finally {
+        setBusyMessage("");
+      }
+    })();
+  }, [selectedBaseId, selectedPeriodId, token]);
 
   useEffect(() => {
     void (async () => {
@@ -986,23 +1058,11 @@ export function FinanceiroScreen({
                 <FunnelSimple size={18} />
                 <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
                   <option value="todos">Todos os status</option>
-                  <option value="pdf_aguardando_envio">PDF aguardando envio</option>
-                  <option value="pdf_enviado_ao_motorista">PDF enviado</option>
-                  <option value="motorista_visualizou">Visualizado</option>
-                  <option value="aguardando_envio_nota_fiscal">Aguardando NF</option>
-                  <option value="nota_fiscal_recebida">NF recebida</option>
-                  <option value="nota_fiscal_em_analise">Em análise</option>
-                  <option value="nota_fiscal_aprovada">Aprovada</option>
-                  <option value="pago">Pago</option>
-                  <option value="pagamento_pendente">Pagamento Pendente</option>
-                  <option value="nota_fiscal_pendente">Nota Fiscal Pendente</option>
-                  <option value="pagamento_bloqueado">Pagamento Bloqueado</option>
-                  <option value="tentativa_pagamento_falha">Tentativa sem Sucesso</option>
-                  <option value="pagamento_em_revisao">Pagamento em Revisão</option>
-                  <option value="nota_fiscal_rejeitada">Rejeitada</option>
-                  <option value="em_atendimento">Em atendimento</option>
-                  <option value="chamado_aberto">Chamado aberto</option>
-                  <option value="processo_concluido">Concluído</option>
+                  {statusOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label className="filter-select">
