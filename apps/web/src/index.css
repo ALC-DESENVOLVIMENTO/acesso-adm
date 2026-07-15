@@ -4523,4 +4523,152 @@ textarea {
   }
 }
 
+/* Professional select controls. Native option menus still follow browser limits. */
+:root {
+  --select-bg: rgba(255, 255, 255, 0.94);
+  --select-bg-hover: rgba(255, 255, 255, 0.99);
+  --select-border: rgba(235, 0, 0, 0.18);
+  --select-border-hover: rgba(235, 0, 0, 0.34);
+  --select-text: #172033;
+  --select-muted: #667085;
+  --select-shadow: 0 16px 36px rgba(18, 25, 38, 0.08);
+  --select-focus: 0 0 0 4px rgba(235, 0, 0, 0.13), 0 18px 42px rgba(235, 0, 0, 0.12);
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 256 256'%3E%3Cpath fill='%23eb0000' d='M216.49 104.49l-80 80a12 12 0 0 1-17 0l-80-80a12 12 0 0 1 17-17L128 159l71.51-71.52a12 12 0 0 1 17 17Z'/%3E%3C/svg%3E");
+}
+
+body.theme-dark {
+  --select-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.082), rgba(255, 255, 255, 0.045));
+  --select-bg-hover: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.065));
+  --select-border: rgba(255, 255, 255, 0.13);
+  --select-border-hover: rgba(235, 0, 0, 0.56);
+  --select-text: #f8fafc;
+  --select-muted: #aeb8c7;
+  --select-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+  --select-focus: 0 0 0 4px rgba(235, 0, 0, 0.26), 0 18px 42px rgba(235, 0, 0, 0.16);
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 256 256'%3E%3Cpath fill='%23ffffff' d='M216.49 104.49l-80 80a12 12 0 0 1-17 0l-80-80a12 12 0 0 1 17-17L128 159l71.51-71.52a12 12 0 0 1 17 17Z'/%3E%3C/svg%3E");
+}
+
+:where(
+  .filter-select,
+  .field:has(select),
+  .duplicate-review-card__redirect,
+  .finance-filters label,
+  .filters-row label
+) {
+  position: relative;
+}
+
+:where(
+  .filter-select,
+  .field:has(select)
+) {
+  background: var(--select-bg) !important;
+  border: 1px solid var(--select-border) !important;
+  box-shadow: var(--select-shadow) !important;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease,
+    background 0.2s ease;
+}
+
+:where(
+  .filter-select:hover,
+  .field:has(select):hover
+) {
+  background: var(--select-bg-hover) !important;
+  border-color: var(--select-border-hover) !important;
+  transform: translateY(-1px);
+}
+
+:where(
+  .filter-select:focus-within,
+  .field:has(select):focus-within
+) {
+  border-color: rgba(235, 0, 0, 0.72) !important;
+  box-shadow: var(--select-focus) !important;
+}
+
+:where(
+  select,
+  .filter-select select,
+  .field select,
+  .field__select,
+  .admin-form select,
+  .user-form--modal .field select,
+  .finance-period-form select,
+  .finance-filters select,
+  .filters-row select,
+  .duplicate-review-card__redirect select
+) {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 100%;
+  min-height: 48px;
+  color: var(--select-text) !important;
+  background:
+    var(--select-arrow) right 16px center / 18px 18px no-repeat,
+    transparent !important;
+  border-color: var(--select-border) !important;
+  border-radius: 16px !important;
+  padding-right: 48px !important;
+  cursor: pointer;
+  color-scheme: light;
+}
+
+:where(.filter-select select, .field select, .field__select):disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+:where(select option) {
+  background: #ffffff;
+  color: #172033;
+  font-weight: 700;
+}
+
+:where(select option:checked) {
+  background: rgba(235, 0, 0, 0.12);
+  color: #111827;
+}
+
+body.theme-dark :where(
+  select,
+  .filter-select select,
+  .field select,
+  .field__select,
+  .admin-form select,
+  .user-form--modal .field select,
+  .finance-period-form select,
+  .finance-filters select,
+  .filters-row select,
+  .duplicate-review-card__redirect select
+) {
+  color-scheme: dark;
+  background:
+    var(--select-arrow) right 16px center / 18px 18px no-repeat,
+    transparent !important;
+}
+
+body.theme-dark :where(select option) {
+  background: #141922 !important;
+  color: #f8fafc !important;
+}
+
+body.theme-dark :where(select option:checked) {
+  background: #eb0000 !important;
+  color: #ffffff !important;
+}
+
+:where(.filter-select svg, .field:has(select) svg) {
+  position: relative;
+  z-index: 1;
+  color: #eb0000 !important;
+  filter: drop-shadow(0 4px 10px rgba(235, 0, 0, 0.16));
+}
+
+body.theme-dark :where(.filter-select svg, .field:has(select) svg) {
+  color: #ff5c5c !important;
+}
+
 
