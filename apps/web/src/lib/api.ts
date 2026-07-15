@@ -10,6 +10,14 @@ export class ApiError extends Error {
   }
 }
 
+function notifySessionExpired(status: number) {
+  if (status !== 401 || typeof window === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(new CustomEvent("portal-admin-session-expired"));
+}
+
 export type LoginResponse = {
   token: string;
   firstAccess: boolean;
@@ -518,6 +526,7 @@ async function request<T>(path: string, options?: RequestInit & { body?: JsonBod
   const payload = (await response.json().catch(() => null)) as { message?: string } | null;
 
   if (!response.ok) {
+    notifySessionExpired(response.status);
     throw new ApiError(payload?.message || "Falha na comunicação com a API.", response.status);
   }
 
@@ -533,6 +542,7 @@ async function requestFormData<T>(path: string, options: RequestInit & { body: F
   const payload = (await response.json().catch(() => null)) as { message?: string } | null;
 
   if (!response.ok) {
+    notifySessionExpired(response.status);
     throw new ApiError(payload?.message || "Falha na comunicação com a API.", response.status);
   }
 
@@ -572,6 +582,7 @@ async function requestUpload<T>(params: {
         return;
       }
 
+      notifySessionExpired(xhr.status);
       reject(new ApiError(payload?.message || "Falha no upload.", xhr.status));
     };
 
@@ -607,6 +618,7 @@ async function requestBlob(path: string, token: string) {
   });
 
   if (!response.ok) {
+    notifySessionExpired(response.status);
     const payload = (await response.json().catch(() => null)) as { message?: string } | null;
     throw new ApiError(payload?.message || "Falha na comunicação com a API.", response.status);
   }
@@ -1074,6 +1086,7 @@ export async function downloadUpload(token: string, uploadId: string, fileName: 
   });
 
   if (!response.ok) {
+    notifySessionExpired(response.status);
     throw new Error("Falha ao baixar arquivo.");
   }
 

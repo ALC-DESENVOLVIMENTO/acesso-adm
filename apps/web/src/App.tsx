@@ -454,7 +454,7 @@ function App() {
     setPeriodDataLoaded(false);
   };
 
-  const clearSessionAndGoLogin = () => {
+  const clearSessionAndGoLogin = (message?: string) => {
     localStorage.removeItem("portal-admin-session");
     setCurrentUser(null);
     setToken("");
@@ -463,7 +463,7 @@ function App() {
     setPaymentPeriods([]);
     setPaymentBases([]);
     setDashboardSummary(initialSummary);
-    setLoginError("");
+    setLoginError(message || "");
     setPasswordError("");
     setProfileActionError("");
     setProfileActionLoading(false);
@@ -493,6 +493,15 @@ function App() {
     error instanceof ApiError &&
     (error.status === 401 ||
       /sessao invalida|sessao nao informada|sessão inválida|sessão não informada|invalid or expired/i.test(error.message));
+
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      clearSessionAndGoLogin("Sua sessão expirou. Faça login novamente para continuar.");
+    };
+
+    window.addEventListener("portal-admin-session-expired", handleSessionExpired);
+    return () => window.removeEventListener("portal-admin-session-expired", handleSessionExpired);
+  }, []);
 
   const navigateToRoute = (route: RouteView) => {
     setAccessDenied(null);
@@ -578,11 +587,11 @@ function App() {
         requestedRouteRef.current = null;
       } catch (error) {
         if (isSessionExpiredError(error)) {
-          clearSessionAndGoLogin();
+          clearSessionAndGoLogin("Sua sessão expirou. Faça login novamente para continuar.");
           return;
         }
 
-        clearSessionAndGoLogin();
+        clearSessionAndGoLogin("Não foi possível recuperar sua sessão. Faça login novamente.");
       }
     })();
   }, []);
@@ -695,7 +704,7 @@ function App() {
         }
 
         if (isSessionExpiredError(error)) {
-          clearSessionAndGoLogin();
+          clearSessionAndGoLogin("Sua sessão expirou. Faça login novamente para continuar.");
           return;
         }
 
