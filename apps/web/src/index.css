@@ -974,6 +974,7 @@ button {
 
 .sidebar__item,
 .sidebar__logout {
+  position: relative;
   width: 100%;
   max-width: 100%;
   display: flex;
@@ -985,6 +986,14 @@ button {
   color: #2b3445;
   white-space: nowrap;
   overflow: hidden;
+}
+
+.sidebar__item svg,
+.sidebar__logout svg {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 22px;
+  min-width: 22px;
 }
 
 .sidebar__logout {
@@ -1005,13 +1014,16 @@ button {
 .sidebar__logout span,
 .sidebar__brand-caption {
   opacity: 0;
-  transition: opacity 0.2s ease;
+  max-width: 0;
+  overflow: hidden;
+  transition: opacity 0.2s ease, max-width 0.28s ease;
 }
 
 .sidebar:hover .sidebar__item span,
 .sidebar:hover .sidebar__logout span,
 .sidebar:hover .sidebar__brand-caption {
   opacity: 1;
+  max-width: 170px;
 }
 
 .sidebar__item--active {
