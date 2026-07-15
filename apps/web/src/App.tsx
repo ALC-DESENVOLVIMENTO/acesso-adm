@@ -2523,7 +2523,7 @@ function DashboardScreen({
         <article className="panel panel--period-summary">
           <div className="panel__header">
             <div>
-              <h3>Resumo dos periodos</h3>
+              <h3>Resumo Geral</h3>
               <p>Status operacional dos periodos de pagamento mais recentes</p>
             </div>
             <button className="ghost-button" type="button" onClick={() => onNavigate("financeiro")}>

@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ensureFinanceiroCompatibilitySchema } from "./lib/financeiro-schema.js";
+import { backfillDashboardHistoryRecords } from "./lib/dashboard-history-backfill.js";
 import { backfillPaidStatusesFromExistingGroups } from "./lib/financeiro-status-backfill.js";
 import { backfillPaymentTotalsFromMirrorPdfs } from "./lib/financeiro-total-backfill.js";
 import { ensureDriverRegistryColumns } from "./lib/driver-registry-schema.js";
@@ -56,6 +57,12 @@ async function main() {
   const backfilledTotals = await backfillPaymentTotalsFromMirrorPdfs();
   if (backfilledTotals > 0) {
     console.log(`[financeiro] Backfill de valor total aplicado em ${backfilledTotals} registro(s).`);
+  }
+  const backfilledDashboardHistory = await backfillDashboardHistoryRecords();
+  if (backfilledDashboardHistory.periodosAtualizados > 0 || backfilledDashboardHistory.logsInseridos > 0) {
+    console.log(
+      `[dashboard] Backfill de historico aplicado em ${backfilledDashboardHistory.periodosAtualizados} periodo(s) e ${backfilledDashboardHistory.logsInseridos} registro(s) de auditoria.`
+    );
   }
   await ensureDriverRegistryColumns();
   await reconcileStorageReferences();

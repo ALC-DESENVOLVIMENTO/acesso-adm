@@ -10,6 +10,21 @@ function toIso(value: Date | null | undefined) {
   return value ? value.toISOString() : null;
 }
 
+function readDetails(details: unknown) {
+  return details && typeof details === "object" ? (details as Record<string, unknown>) : {};
+}
+
+function readDetailString(details: Record<string, unknown>, ...keys: string[]) {
+  for (const key of keys) {
+    const value = details[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
 function resolveActivityIcon(entity: string, action: string) {
   const normalized = `${entity} ${action}`.toLowerCase();
 
@@ -25,15 +40,26 @@ function resolveActivityIcon(entity: string, action: string) {
 }
 
 function resolveActivityTitle(entity: string, action: string, details: unknown) {
-  const parsedDetails = details && typeof details === "object" ? (details as Record<string, unknown>) : {};
-  const fileName =
-    typeof parsedDetails.arquivo === "string"
-      ? parsedDetails.arquivo
-      : typeof parsedDetails.fileName === "string"
-        ? parsedDetails.fileName
-        : typeof parsedDetails.nomeArquivo === "string"
-          ? parsedDetails.nomeArquivo
-          : null;
+  const parsedDetails = readDetails(details);
+  const fileName = readDetailString(parsedDetails, "arquivo", "fileName", "nomeArquivo");
+  const periodName = readDetailString(parsedDetails, "nome", "periodoNome");
+  const motoristaName = readDetailString(parsedDetails, "nomeMotorista", "motoristaNome");
+
+  if (action.startsWith("dashboard_backfill_")) {
+    if (entity === "periodo_pagamento" && periodName) {
+      return `Histórico do período: ${periodName}`;
+    }
+
+    if ((entity === "upload_pdf" || entity === "driver_pdf_received") && fileName) {
+      return `Histórico do arquivo: ${fileName}`;
+    }
+
+    if (motoristaName) {
+      return `Histórico do motorista: ${motoristaName}`;
+    }
+
+    return `Histórico ${entity}`;
+  }
 
   if (fileName) {
     return `${action}: ${fileName}`;
@@ -74,7 +100,7 @@ router.get("/summary", (_req, res) => {
           orderBy: {
             atualizadoEm: "desc"
           },
-          take: 6,
+          take: 8,
           select: {
             id: true,
             nome: true,
@@ -87,7 +113,7 @@ router.get("/summary", (_req, res) => {
           orderBy: {
             criadoEm: "desc"
           },
-          take: 8,
+          take: 12,
           include: {
             usuario: {
               select: {

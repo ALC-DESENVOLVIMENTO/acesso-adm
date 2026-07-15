@@ -4,6 +4,12 @@ export function resolveDatabaseUrl() {
     process.env.DATABASE_PUBLIC_URL ||
     process.env.DATABASE_PRIVATE_URL;
 
+  const publicUrl = process.env.DATABASE_PUBLIC_URL || process.env.DATABASE_PRIVATE_URL;
+
+  if (shouldPreferPublicDatabaseUrl(directUrl, publicUrl)) {
+    return publicUrl;
+  }
+
   if (directUrl) {
     return directUrl;
   }
@@ -25,6 +31,28 @@ export function resolveDatabaseUrl() {
     process.env.DATABASE_PUBLIC_URL ||
     process.env.DATABASE_PRIVATE_URL
   );
+}
+
+function shouldPreferPublicDatabaseUrl(directUrl: string | undefined, publicUrl: string | undefined) {
+  if (!publicUrl) {
+    return false;
+  }
+
+  if (!directUrl) {
+    return true;
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(directUrl);
+    const hostname = parsed.hostname.toLowerCase();
+    return hostname === "postgres.railway.internal" || hostname.endsWith(".internal");
+  } catch {
+    return false;
+  }
 }
 
 export function withDatabaseSchema(databaseUrl?: string) {
