@@ -41,7 +41,7 @@ router.get("/", (_req, res) => {
     );
   })().catch((error) => {
     res.status(500).json({
-      message: "Falha ao listar usuarios.",
+      message: "Falha ao listar usuários.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });
@@ -53,7 +53,7 @@ router.post("/", (req, res) => {
 
     if (!parsed.success || !req.auth) {
       res.status(400).json({
-        message: "Dados invalidos para cadastro de usuario.",
+        message: "Dados inválidos para cadastro de usuário.",
         issues: parsed.success ? undefined : parsed.error.flatten()
       });
       return;
@@ -111,7 +111,7 @@ router.post("/", (req, res) => {
     });
   })().catch((error) => {
     res.status(500).json({
-      message: "Falha ao criar usuario.",
+      message: "Falha ao criar usuário.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });
@@ -123,7 +123,7 @@ router.patch("/:id", (req, res) => {
 
     if (!parsed.success || !req.auth) {
       res.status(400).json({
-        message: "Dados invalidos para edicao de usuario.",
+        message: "Dados inválidos para edição de usuário.",
         issues: parsed.success ? undefined : parsed.error.flatten()
       });
       return;
@@ -180,7 +180,7 @@ router.patch("/:id", (req, res) => {
     });
   })().catch((error) => {
     res.status(500).json({
-      message: "Falha ao editar usuario.",
+      message: "Falha ao editar usuário.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });
@@ -196,7 +196,7 @@ router.patch("/:id/status", (req, res) => {
 
     if (!parsed.success || !req.auth) {
       res.status(400).json({
-        message: "Dados invalidos para status do usuario.",
+        message: "Dados inválidos para status do usuário.",
         issues: parsed.success ? undefined : parsed.error.flatten()
       });
       return;
@@ -225,11 +225,11 @@ router.patch("/:id/status", (req, res) => {
     });
 
     res.json({
-      message: "Status do usuario atualizado."
+      message: "Status do usuário atualizado."
     });
   })().catch((error) => {
     res.status(500).json({
-      message: "Falha ao atualizar status do usuario.",
+      message: "Falha ao atualizar status do usuário.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });
@@ -239,7 +239,7 @@ router.delete("/:id", (req, res) => {
   void (async () => {
     if (!req.auth) {
       res.status(401).json({
-        message: "Sessao invalida."
+        message: "Sessão inválida."
       });
       return;
     }
@@ -259,7 +259,7 @@ router.delete("/:id", (req, res) => {
 
     if (req.auth.userId === user.id) {
       res.status(400).json({
-        message: "Nao e permitido excluir o proprio usuario."
+        message: "Não é permitido excluir o próprio usuário."
       });
       return;
     }
@@ -317,7 +317,7 @@ router.delete("/:id", (req, res) => {
     });
   })().catch((error) => {
     res.status(500).json({
-      message: "Falha ao excluir usuario.",
+      message: "Falha ao excluir usuário.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });
@@ -327,7 +327,7 @@ router.post("/:id/reset-password", (req, res) => {
   void (async () => {
     if (!req.auth) {
       res.status(401).json({
-        message: "Sessao invalida."
+        message: "Sessão inválida."
       });
       return;
     }
@@ -360,7 +360,7 @@ router.post("/:id/reset-password", (req, res) => {
     });
   })().catch((error) => {
     res.status(500).json({
-      message: "Falha ao redefinir senha do usuario.",
+      message: "Falha ao redefinir senha do usuário.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });

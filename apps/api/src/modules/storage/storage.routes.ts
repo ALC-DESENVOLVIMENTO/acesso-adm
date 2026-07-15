@@ -11,7 +11,7 @@ router.get("/*", async (req, res) => {
     const key = normalizeStorageKey(resolvedRawKey);
 
     if (!key) {
-      res.status(400).json({ message: "Chave do arquivo invalida." });
+      res.status(400).json({ message: "Chave do arquivo inválida." });
       return;
     }
 

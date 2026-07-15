@@ -511,7 +511,7 @@ router.post("/importacoes/preview", financeImportUpload.single("file"), (req, re
 
     if (!parsed.success) {
       res.status(400).json({
-        message: "Periodo ou base invalida.",
+        message: "Período ou base inválida.",
         issues: parsed.error.flatten()
       });
       return;
@@ -542,7 +542,7 @@ router.post("/importacoes/:importacaoId/confirmar", (req, res) => {
 
     if (!importacaoId) {
       res.status(400).json({
-        message: "Importacao invalida."
+        message: "Importação inválida."
       });
       return;
     }
@@ -564,7 +564,7 @@ router.post("/importacoes/:importacaoId/confirmar", (req, res) => {
     }
 
     res.json({
-      message: "Importacao confirmada.",
+      message: "Importação confirmada.",
       ...result,
       webhookResults
     });
@@ -645,7 +645,7 @@ router.get("/importacoes/:importacaoId", (req, res) => {
 
     if (!importacao) {
       res.status(404).json({
-        message: "Importacao nao encontrada."
+        message: "Importação não encontrada."
       });
       return;
     }
@@ -872,7 +872,7 @@ router.get("/periods/:periodId/bases", (req, res) => {
 
     if (!period) {
       res.status(404).json({
-        message: "Periodo nao encontrado."
+        message: "Período não encontrado."
       });
       return;
     }
@@ -945,7 +945,7 @@ router.get("/periods/:periodId/bases", (req, res) => {
     res.json(bases);
   })().catch((error) => {
     res.status(500).json({
-      message: "Falha ao carregar bases do periodo.",
+      message: "Falha ao carregar bases do período.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });
@@ -963,7 +963,7 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
 
     if (!parsed.success) {
       res.status(400).json({
-        message: "Parametros invalidos para listar motoristas.",
+        message: "Parâmetros inválidos para listar motoristas.",
         issues: parsed.error.flatten()
       });
       return;
@@ -976,7 +976,7 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
 
     if (scopeBaseId && !/^[0-9a-fA-F-]{36}$/.test(scopeBaseId)) {
       res.status(400).json({
-        message: "Base invalida para listar motoristas do periodo."
+        message: "Base inválida para listar motoristas do período."
       });
       return;
     }
@@ -1235,7 +1235,7 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
     res.json(filtered);
   })().catch((error) => {
     res.status(500).json({
-      message: "Falha ao listar motoristas do periodo financeiro.",
+      message: "Falha ao listar motoristas do período financeiro.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });
@@ -1247,7 +1247,7 @@ router.get("/driver-pdfs/:receivedId/content", (req, res) => {
 
     if (!receivedId) {
       res.status(400).json({
-        message: "Nota fiscal invalida."
+        message: "Nota fiscal inválida."
       });
       return;
     }
@@ -1314,14 +1314,14 @@ router.get("/periods/:periodId/export", (req, res) => {
 
     if (!periodId) {
       res.status(400).json({
-        message: "Periodo invalido para exportacao."
+        message: "Período inválido para exportação."
       });
       return;
     }
 
     if (baseId && !/^[0-9a-fA-F-]{36}$/.test(baseId)) {
       res.status(400).json({
-        message: "Base invalida para exportacao."
+        message: "Base inválida para exportação."
       });
       return;
     }
@@ -1394,7 +1394,7 @@ router.get("/periods/:periodId/export", (req, res) => {
 
     if (!period) {
       res.status(404).json({
-        message: "Periodo nao encontrado para exportacao."
+        message: "Período não encontrado para exportação."
       });
       return;
     }
@@ -1490,7 +1490,7 @@ router.get("/periods/:periodId/export", (req, res) => {
     archive.on("error", (error) => {
       if (!res.headersSent) {
         res.status(500).json({
-          message: "Falha ao gerar exportacao de notas fiscais.",
+          message: "Falha ao gerar exportação de notas fiscais.",
           detail: error instanceof Error ? error.message : "Erro desconhecido"
         });
         return;
@@ -1625,7 +1625,7 @@ router.get(
 
       if (!parsed.success) {
         res.status(400).json({
-          message: "Periodo ou base invalida.",
+          message: "Período ou base inválida.",
           issues: parsed.error.flatten()
         });
         return;
@@ -1669,7 +1669,7 @@ router.get(
 
       if (!parsed.success) {
         res.status(400).json({
-          message: "Periodo ou base invalida para exportacao.",
+          message: "Período ou base inválida para exportação.",
           issues: parsed.error.flatten()
         });
         return;

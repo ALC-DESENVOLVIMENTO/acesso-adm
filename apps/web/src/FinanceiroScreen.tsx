@@ -87,7 +87,7 @@ const initialPeriodForm: PeriodFormState = {
 
 function formatDateOnly(value: string | null | undefined) {
   if (!value) {
-    return "Nao informado";
+    return "Não informado";
   }
 
   const [year, month, day] = value.split("T")[0].split("-");
@@ -96,7 +96,7 @@ function formatDateOnly(value: string | null | undefined) {
 
 function formatDateTime(value: string | null | undefined) {
   if (!value) {
-    return "Nao informado";
+    return "Não informado";
   }
 
   return new Date(value).toLocaleString("pt-BR");
@@ -113,12 +113,12 @@ function formatStatusLabel(value: string) {
     aguardando_envio_nota_fiscal: "Aguardando NF",
     pago: "Pago",
     nota_fiscal_recebida: "Nota Fiscal recebida",
-    nota_fiscal_em_analise: "Nota Fiscal em analise",
+    nota_fiscal_em_analise: "Nota Fiscal em análise",
     nota_fiscal_aprovada: "Nota Fiscal aprovada",
     nota_fiscal_rejeitada: "Nota Fiscal rejeitada",
     em_atendimento: "Em atendimento",
     chamado_aberto: "Chamado aberto",
-    processo_concluido: "Processo concluido"
+    processo_concluido: "Processo concluído"
   };
 
   return labels[value] || value;
@@ -126,7 +126,7 @@ function formatStatusLabel(value: string) {
 
 function formatImportStatusLabel(value: string | null | undefined) {
   if (!value) {
-    return "Nao informado";
+    return "Não informado";
   }
 
   const labels: Record<string, string> = {
@@ -139,12 +139,12 @@ function formatImportStatusLabel(value: string | null | undefined) {
 function formatImportValidationLabel(value: string) {
   const labels: Record<string, string> = {
     valido: "Valida",
-    pagamento_nao_encontrado: "Pagamento nao encontrado",
+    pagamento_nao_encontrado: "Pagamento não encontrado",
     correspondencia_ambiguo: "Correspondencia ambigua",
     linha_duplicada: "Linha duplicada",
     linha_vazia: "Linha vazia",
     linha_inconsistente: "Linha inconsistente",
-    cor_nao_reconhecida: "Status nao reconhecido",
+    cor_nao_reconhecida: "Status não reconhecido",
     sem_identificador: "Sem identificador",
     ja_atualizada: "Ja atualizada",
     conflito_status: "Conflito de status"
@@ -321,7 +321,7 @@ export function FinanceiroScreen({
     void (async () => {
       try {
         setErrorMessage("");
-        setBusyMessage("Carregando bases do periodo...");
+        setBusyMessage("Carregando bases do período...");
         await loadBaseCards(selectedPeriodId);
         setPeriodViewTab("bases");
       } catch (error) {
@@ -415,7 +415,7 @@ export function FinanceiroScreen({
     event.preventDefault();
 
     try {
-      setBusyMessage(editingPeriod ? "Atualizando periodo..." : "Criando periodo...");
+      setBusyMessage(editingPeriod ? "Atualizando período..." : "Criando período...");
 
       if (editingPeriod) {
         await updatePaymentPeriod(token, editingPeriod.id, periodForm);
@@ -430,7 +430,7 @@ export function FinanceiroScreen({
       setPeriodForm(initialPeriodForm);
       setErrorMessage("");
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Falha ao salvar periodo.");
+      setErrorMessage(error instanceof Error ? error.message : "Falha ao salvar período.");
     } finally {
       setBusyMessage("");
     }
@@ -445,12 +445,12 @@ export function FinanceiroScreen({
           : "aprovado";
 
     try {
-      setBusyMessage("Atualizando status do periodo...");
+      setBusyMessage("Atualizando status do período...");
       await updatePaymentPeriodStatus(token, period.id, { status: nextStatus });
       await onRefreshPeriods();
       await loadSummary();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Falha ao atualizar status do periodo.");
+      setErrorMessage(error instanceof Error ? error.message : "Falha ao atualizar status do período.");
     } finally {
       setBusyMessage("");
     }
@@ -462,7 +462,7 @@ export function FinanceiroScreen({
     }
 
     try {
-      setBusyMessage("Excluindo periodo...");
+      setBusyMessage("Excluindo período...");
       await deletePaymentPeriod(token, deleteTarget.id);
       await onRefreshPeriods();
       await loadSummary();
@@ -471,7 +471,7 @@ export function FinanceiroScreen({
         setSelectedPeriodId("");
       }
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Falha ao excluir periodo.");
+      setErrorMessage(error instanceof Error ? error.message : "Falha ao excluir período.");
     } finally {
       setBusyMessage("");
     }
@@ -483,7 +483,7 @@ export function FinanceiroScreen({
     }
 
     try {
-      setBusyMessage("Preparando exportacao das notas fiscais...");
+      setBusyMessage("Preparando exportação das notas fiscais...");
       const { blob, filename } = await exportFinanceiroNotasFiscais(
         token,
         selectedPeriodId,
@@ -504,7 +504,7 @@ export function FinanceiroScreen({
 
   const handleConsultarAptosPagamento = async () => {
     if (!selectedPeriodId) {
-      setApagarError("Selecione um periodo antes de consultar.");
+      setApagarError("Selecione um período antes de consultar.");
       return;
     }
 
@@ -526,7 +526,7 @@ export function FinanceiroScreen({
 
   const handleExportAptosPagamento = async () => {
     if (!selectedPeriodId) {
-      setApagarError("Selecione um periodo antes de exportar.");
+      setApagarError("Selecione um período antes de exportar.");
       return;
     }
 
@@ -553,12 +553,12 @@ export function FinanceiroScreen({
 
   const handlePreviewFinanceiroImport = async () => {
     if (!selectedImportFile || !selectedPeriodId) {
-      setImportError("Selecione um arquivo e um periodo antes da pre-visualizacao.");
+      setImportError("Selecione um arquivo e um período antes da pré-visualização.");
       return;
     }
 
     try {
-      setImportBusy("Lendo planilha e montando pre-visualizacao...");
+      setImportBusy("Lendo planilha e montando pré-visualização...");
       setImportError("");
       setImportMessage("");
       const preview = await previewFinanceiroImport(token, selectedImportFile, {
@@ -567,12 +567,12 @@ export function FinanceiroScreen({
       });
       setPreviewRows(preview.previewRows);
       setImportMessage(
-        `${preview.importacao.totalValidas} linhas validas e ${preview.importacao.totalErros} linhas com alerta.`
+        `${preview.importacao.totalValidas} linhas válidas e ${preview.importacao.totalErros} linhas com alerta.`
       );
       setImportacaoConfirmada(false);
       await loadImportacaoDetalhe(preview.importacao.id);
     } catch (error) {
-      setImportError(error instanceof Error ? error.message : "Falha ao pre-visualizar a importacao.");
+      setImportError(error instanceof Error ? error.message : "Falha ao pré-visualizar a importação.");
     } finally {
       setImportBusy("");
     }
@@ -580,12 +580,12 @@ export function FinanceiroScreen({
 
   const handleConfirmFinanceiroImport = async () => {
     if (!currentImportacao) {
-      setImportError("Nenhuma importacao para confirmar.");
+      setImportError("Nenhuma importação para confirmar.");
       return;
     }
 
     try {
-      setImportBusy("Confirmando importacao e atualizando status...");
+      setImportBusy("Confirmando importação e atualizando status...");
       setImportError("");
       const result = await confirmFinanceiroImport(token, currentImportacao.id);
       setImportacaoConfirmada(true);
@@ -595,7 +595,7 @@ export function FinanceiroScreen({
       await loadImportacaoDetalhe(currentImportacao.id);
       await loadSummary();
     } catch (error) {
-      setImportError(error instanceof Error ? error.message : "Falha ao confirmar importacao.");
+      setImportError(error instanceof Error ? error.message : "Falha ao confirmar importação.");
     } finally {
       setImportBusy("");
     }
@@ -618,7 +618,7 @@ export function FinanceiroScreen({
 
   const openNotaFiscal = async (row: FinanceiroMotoristaRow) => {
     if (!row.notaFiscalDownloadUrl) {
-      setErrorMessage("Nota Fiscal ainda nao enviada.");
+      setErrorMessage("Nota Fiscal ainda não enviada.");
       return;
     }
 
@@ -655,7 +655,7 @@ export function FinanceiroScreen({
       <div className="screen">
         <section className="panel">
           <h3>Acesso restrito</h3>
-          <p>Esta funcionalidade esta liberada apenas para usuarios com acesso ao modulo Financeiro.</p>
+          <p>Esta funcionalidade está liberada apenas para usuários com acesso ao módulo Financeiro.</p>
         </section>
       </div>
     );
@@ -668,14 +668,14 @@ export function FinanceiroScreen({
           <p className="eyebrow">Financeiro</p>
           <h1>Financeiro</h1>
           <p>
-            Acompanhe a exportacao das notas fiscais, o espelho de pagamento e a importacao da planilha financeira
-            em um unico painel.
+            Acompanhe a exportação das notas fiscais, o espelho de pagamento e a importação da planilha financeira
+            em um único painel.
           </p>
         </div>
         <div className="quick-meta">
-          <span className="quick-meta__chip quick-meta__chip--active">{summary.activePeriods} periodos ativos</span>
+          <span className="quick-meta__chip quick-meta__chip--active">{summary.activePeriods} períodos ativos</span>
           <span className="quick-meta__chip">{summary.notesPending} pendentes</span>
-          <span className="quick-meta__chip">{summary.inAnalysis} em analise</span>
+          <span className="quick-meta__chip">{summary.inAnalysis} em análise</span>
         </div>
       </section>
 
@@ -686,8 +686,8 @@ export function FinanceiroScreen({
           </div>
           <div>
             <strong>{summary.activePeriods}</strong>
-            <span>Periodos ativos</span>
-            <small>Disponiveis para acompanhamento</small>
+            <span>Períodos ativos</span>
+            <small>Disponíveis para acompanhamento</small>
           </div>
         </article>
         <article className="stat-card">
@@ -707,7 +707,7 @@ export function FinanceiroScreen({
           <div>
             <strong>{summary.pdfsSent}</strong>
             <span>PDFs enviados</span>
-            <small>Registros de envio do periodo</small>
+            <small>Registros de envio do período</small>
           </div>
         </article>
         <article className="stat-card">
@@ -727,7 +727,7 @@ export function FinanceiroScreen({
           <div>
             <strong>{summary.notesPending}</strong>
             <span>Pendentes</span>
-            <small>Aguardando movimentacao</small>
+            <small>Aguardando movimentação</small>
           </div>
         </article>
         <article className="stat-card">
@@ -736,7 +736,7 @@ export function FinanceiroScreen({
           </div>
           <div>
             <strong>{summary.concluded}</strong>
-            <span>Concluidos</span>
+            <span>Concluídos</span>
             <small>Processos finalizados</small>
           </div>
         </article>
@@ -782,7 +782,7 @@ export function FinanceiroScreen({
         </div>
         <span className="finance-tab-hint">
           {financeTab === "exportacao"
-            ? "Selecione um periodo e exporte apenas as notas fiscais vinculadas."
+            ? "Selecione um período e exporte apenas as notas fiscais vinculadas."
             : financeTab === "apagar"
               ? "Consulte somente os motoristas aptos a receber pagamento e exporte o Excel."
               : "Atualize os pagamentos pela planilha da coluna Resumido e confirme os status."}
@@ -794,8 +794,8 @@ export function FinanceiroScreen({
           <article className="panel finance-panel">
           <div className="panel__header">
             <div>
-              <h3>Periodos de pagamento</h3>
-              <p>Selecione um periodo aberto para acompanhar os PDFs e as notas fiscais.</p>
+              <h3>Períodos de pagamento</h3>
+              <p>Selecione um período aberto para acompanhar os PDFs e as notas fiscais.</p>
             </div>
           </div>
 
@@ -816,7 +816,7 @@ export function FinanceiroScreen({
                     <div>
                       <h4>{period.name}</h4>
                       <p>
-                        {formatDateOnly(period.startDate)} ate {formatDateOnly(period.endDate)}
+                        {formatDateOnly(period.startDate)} até {formatDateOnly(period.endDate)}
                       </p>
                     </div>
                     <span className={`status-pill ${period.status === "disponivel" ? "status-pill--active" : ""}`}>
@@ -838,14 +838,14 @@ export function FinanceiroScreen({
                   type="button"
                   onClick={() => setPeriodViewTab("bases")}
                 >
-                  Periodo ativo
+                  Período ativo
                 </button>
                 <button
                   className={`period-tab ${periodViewTab === "motoristas" ? "period-tab--active" : ""}`}
                   type="button"
                   onClick={() => setPeriodViewTab("motoristas")}
                 >
-                  Motoristas do periodo
+                  Motoristas do período
                 </button>
               </div>
               <button
@@ -861,18 +861,18 @@ export function FinanceiroScreen({
             <article className="panel finance-panel" style={{ display: periodViewTab === "bases" ? "grid" : "none" }}>
             <div className="panel__header">
               <div>
-                <h3>Periodo ativo</h3>
-                <p>Visualize as bases do periodo selecionado e abra os motoristas rapidamente.</p>
+                <h3>Período ativo</h3>
+                <p>Visualize as bases do período selecionado e abra os motoristas rapidamente.</p>
               </div>
             </div>
 
             {selectedPeriod ? (
               <div className="finance-period-hero">
                 <div>
-                  <p className="eyebrow">Periodo selecionado</p>
+                  <p className="eyebrow">Período selecionado</p>
                   <h4>{selectedPeriod.name}</h4>
                   <p>
-                    {formatDateOnly(selectedPeriod.startDate)} ate {formatDateOnly(selectedPeriod.endDate)}
+                    {formatDateOnly(selectedPeriod.startDate)} até {formatDateOnly(selectedPeriod.endDate)}
                   </p>
                 </div>
                 <div className="finance-period-hero__meta">
@@ -881,8 +881,8 @@ export function FinanceiroScreen({
               </div>
             ) : (
               <div className="crm-empty-screen">
-                <strong>Nenhum periodo selecionado</strong>
-                <p>Crie ou selecione um periodo para carregar as bases e os motoristas.</p>
+                <strong>Nenhum período selecionado</strong>
+                <p>Crie ou selecione um período para carregar as bases e os motoristas.</p>
               </div>
             )}
 
@@ -923,7 +923,7 @@ export function FinanceiroScreen({
             >
             <div className="panel__header">
               <div>
-                <h3>Motoristas do periodo</h3>
+                <h3>Motoristas do período</h3>
                 <p>Filtre por motoristas e acompanhe o status da nota fiscal em tempo real.</p>
               </div>
             </div>
@@ -995,14 +995,14 @@ export function FinanceiroScreen({
                   <tr>
                     <th>Motorista</th>
                     <th>Base</th>
-                    <th>Periodo</th>
+                    <th>Período</th>
                     <th>PDF enviado</th>
-                    <th>Visualizacao</th>
+                    <th>Visualização</th>
                     <th>NF enviada</th>
                     <th>Status</th>
                     <th>Atendimento</th>
-                    <th>Atualizacao</th>
-                    <th>Acoes</th>
+                    <th>Atualização</th>
+                    <th>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1087,17 +1087,17 @@ export function FinanceiroScreen({
 
             <div className="finance-period-hero">
               <div>
-                <p className="eyebrow">Periodo selecionado</p>
-                <h4>{selectedPeriod?.name || "Selecione um periodo"}</h4>
+                <p className="eyebrow">Período selecionado</p>
+                <h4>{selectedPeriod?.name || "Selecione um período"}</h4>
                 <p>
                   {selectedPeriod
-                    ? `${formatDateOnly(selectedPeriod.startDate)} ate ${formatDateOnly(selectedPeriod.endDate)}`
-                    : "Escolha um periodo para consultar os aptos"}
+                    ? `${formatDateOnly(selectedPeriod.startDate)} até ${formatDateOnly(selectedPeriod.endDate)}`
+                    : "Escolha um período para consultar os aptos"}
                 </p>
               </div>
               <div className="finance-period-hero__meta">
                 <span>{selectedBase ? selectedBase.name : "Todas as bases"}</span>
-                <small>Filtro seguro por periodo/base</small>
+                <small>Filtro seguro por período/base</small>
               </div>
             </div>
 
@@ -1111,7 +1111,7 @@ export function FinanceiroScreen({
                     setSelectedBaseId("all");
                   }}
                 >
-                  <option value="">Selecione um periodo</option>
+                  <option value="">Selecione um período</option>
                   {visiblePeriods.map((period) => (
                     <option key={period.id} value={period.id}>
                       {period.name}
@@ -1193,7 +1193,7 @@ export function FinanceiroScreen({
                       <td colSpan={8}>
                         <div className="crm-empty">
                           <strong>Nenhum motorista apto localizado</strong>
-                          <p>Execute a consulta em um periodo ja processado para visualizar os aptos para pagamento.</p>
+                          <p>Execute a consulta em um período já processado para visualizar os aptos para pagamento.</p>
                         </div>
                       </td>
                     </tr>
@@ -1214,7 +1214,7 @@ export function FinanceiroScreen({
                     ))}
                   </div>
                 ) : (
-                  <p>Sem exclusoes para o periodo atual.</p>
+                  <p>Sem exclusões para o período atual.</p>
                 )}
               </article>
               <article className="finance-import-card finance-import-card--history">
@@ -1228,7 +1228,7 @@ export function FinanceiroScreen({
                     ))}
                   </div>
                 ) : (
-                  <p>Sem inconsistencias para o periodo atual.</p>
+                  <p>Sem inconsistências para o período atual.</p>
                 )}
               </article>
             </div>
@@ -1247,14 +1247,14 @@ export function FinanceiroScreen({
             <div className="finance-period-hero">
               <div>
                 <p className="eyebrow">Contexto selecionado</p>
-                <h4>{selectedPeriod?.name || "Selecione um periodo"}</h4>
+                <h4>{selectedPeriod?.name || "Selecione um período"}</h4>
                 <p>
-                  {selectedPeriod ? `${formatDateOnly(selectedPeriod.startDate)} ate ${formatDateOnly(selectedPeriod.endDate)}` : "Periodo necessario para o processamento"}
+                  {selectedPeriod ? `${formatDateOnly(selectedPeriod.startDate)} até ${formatDateOnly(selectedPeriod.endDate)}` : "Período necessário para o processamento"}
                 </p>
               </div>
               <div className="finance-period-hero__meta">
                 <span>{selectedBase ? selectedBase.name : "Todas as bases"}</span>
-                <small>Importacao segura por periodo/base</small>
+                <small>Importação segura por período/base</small>
               </div>
             </div>
 
@@ -1278,7 +1278,7 @@ export function FinanceiroScreen({
                 <FunnelSimple size={18} />
                 <select value={previewFilter} onChange={(event) => setPreviewFilter(event.target.value as PreviewFilter)}>
                   <option value="todos">Todos</option>
-                  <option value="validos">Validos</option>
+                  <option value="validos">Válidos</option>
                   <option value="erros">Erros</option>
                 </select>
               </label>
@@ -1286,11 +1286,11 @@ export function FinanceiroScreen({
 
             <div className="admin-form__actions">
               <button className="primary-button primary-button--inline cta-motion" type="button" onClick={handlePreviewFinanceiroImport} disabled={!selectedImportFile || !selectedPeriodId || Boolean(importBusy)}>
-                {importBusy || "Gerar pre-visualizacao"}
+                {importBusy || "Gerar pré-visualização"}
                 <ArrowRight size={18} weight="bold" />
               </button>
               <button className="ghost-button ghost-button--small cta-motion cta-motion--ghost" type="button" onClick={handleConfirmFinanceiroImport} disabled={!currentImportacao || importacaoConfirmada}>
-                Confirmar importacao
+                Confirmar importação
               </button>
             </div>
 
@@ -1311,9 +1311,9 @@ export function FinanceiroScreen({
                     <th>Status atual</th>
                     <th>Novo status</th>
                     <th>Regra</th>
-                    <th>Validacao</th>
+                    <th>Validação</th>
                     <th>Mensagem</th>
-                    <th>Acoes</th>
+                    <th>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1322,13 +1322,13 @@ export function FinanceiroScreen({
                     .map((row) => (
                       <tr key={`${row.numeroLinha}-${row.identificador || row.codigoObb || "linha"}`}>
                         <td>{row.numeroLinha}</td>
-                        <td>{row.identificador || "Nao informado"}</td>
-                        <td>{row.motorista || "Nao informado"}</td>
-                        <td>{row.cpfCnpj || "Nao informado"}</td>
-                        <td>{row.codigoObb || "Nao informado"}</td>
+                        <td>{row.identificador || "Não informado"}</td>
+                        <td>{row.motorista || "Não informado"}</td>
+                        <td>{row.cpfCnpj || "Não informado"}</td>
+                        <td>{row.codigoObb || "Não informado"}</td>
                         <td>{formatImportStatusLabel(row.statusPlanilha)}</td>
                         <td>{row.statusAtual || "PENDENTE"}</td>
-                        <td>{row.novoStatus || "Sem alteracao"}</td>
+                        <td>{row.novoStatus || "Sem alteração"}</td>
                         <td>{row.regraAplicada}</td>
                         <td>{formatImportValidationLabel(row.situacaoValidacao)}</td>
                         <td>{row.mensagem || "-"}</td>
@@ -1338,7 +1338,7 @@ export function FinanceiroScreen({
                             type="button"
                             onClick={() => {
                               if (!row.motoristaId) {
-                                setImportError(row.mensagem || "Linha sem correspondencia segura.");
+                                setImportError(row.mensagem || "Linha sem correspondência segura.");
                                 return;
                               }
 
@@ -1385,8 +1385,8 @@ export function FinanceiroScreen({
           <div className="modal-card modal-card--crm modal-card--finance">
             <div className="modal-card__header">
               <div>
-                <h3>{editingPeriod ? "Editar periodo" : "Criar periodo"}</h3>
-                <p>Defina datas, nome e tipo de pagamento do periodo.</p>
+                <h3>{editingPeriod ? "Editar período" : "Criar período"}</h3>
+                <p>Defina datas, nome e tipo de pagamento do período.</p>
               </div>
               <button
                 className="ghost-button ghost-button--small"
@@ -1403,7 +1403,7 @@ export function FinanceiroScreen({
 
             <form className="admin-form admin-form--modal finance-period-form" onSubmit={handleSavePeriod}>
               <label className="field">
-                <span>Nome do periodo</span>
+                <span>Nome do período</span>
                 <input
                   value={periodForm.name}
                   onChange={(event) =>
@@ -1467,7 +1467,7 @@ export function FinanceiroScreen({
 
               <div className="admin-form__actions">
                 <button className="primary-button primary-button--inline" type="submit">
-                  {editingPeriod ? "Salvar alterações" : "Criar periodo"}
+                  {editingPeriod ? "Salvar alterações" : "Criar período"}
                   <ArrowRight size={18} weight="bold" />
                 </button>
               </div>
@@ -1481,7 +1481,7 @@ export function FinanceiroScreen({
           <div className="modal-card modal-card--confirm">
             <div className="modal-card__header">
               <div>
-                <h3>Excluir periodo</h3>
+                <h3>Excluir período</h3>
                 <p>
                   Tem certeza que deseja excluir <strong>{deleteTarget.name}</strong>?
                 </p>

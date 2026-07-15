@@ -29,7 +29,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
   if (!authorization?.startsWith("Bearer ")) {
     res.status(401).json({
-      message: "Sessao nao informada."
+      message: "Sessão não informada."
     });
     return;
   }
@@ -54,7 +54,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
   if (!session || !session.usuario.ativo || session.usuario.bloqueado) {
     res.status(401).json({
-      message: "Sessao invalida ou expirada."
+      message: "Sessão inválida ou expirada."
     });
     return;
   }
@@ -77,7 +77,7 @@ export function requirePermission(permissionCode: string) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.auth) {
       res.status(401).json({
-        message: "Sessao nao autenticada."
+        message: "Sessão não autenticada."
       });
       return;
     }
@@ -91,7 +91,7 @@ export function requirePermission(permissionCode: string) {
 
     if (!req.auth.permissions.includes(permissionCode)) {
       res.status(403).json({
-        message: "Voce nao possui permissao para executar esta acao."
+        message: "Você não possui permissão para executar esta ação."
       });
       return;
     }
@@ -104,7 +104,7 @@ export function requireModuleAccess(moduleCode: string) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.auth) {
       res.status(401).json({
-        message: "Sessao nao autenticada."
+        message: "Sessão não autenticada."
       });
       return;
     }
@@ -118,7 +118,7 @@ export function requireModuleAccess(moduleCode: string) {
 
     if (!req.auth.modules.includes(moduleCode)) {
       res.status(403).json({
-        message: "Voce nao possui permissao para acessar este modulo."
+        message: "Você não possui permissão para acessar este módulo."
       });
       return;
     }
@@ -130,7 +130,7 @@ export function requireModuleAccess(moduleCode: string) {
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (!req.auth) {
     res.status(401).json({
-      message: "Sessao nao autenticada."
+      message: "Sessão não autenticada."
     });
     return;
   }

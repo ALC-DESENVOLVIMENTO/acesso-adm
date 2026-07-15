@@ -199,7 +199,7 @@ async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseNam
 
   if (!match) {
     return {
-      error: `Nao foi possivel resolver o motorista do arquivo ${file.originalname}.`
+      error: `Não foi possível resolver o motorista do arquivo ${file.originalname}.`
     } as const;
   }
 
@@ -207,7 +207,7 @@ async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseNam
 
   if (!motoristaId) {
     return {
-      error: `Nao foi possivel sincronizar o motorista ${match.nome} no banco de dados.`
+      error: `Não foi possível sincronizar o motorista ${match.nome} no banco de dados.`
     } as const;
   }
 
@@ -354,7 +354,7 @@ router.get("/:id/history", (req, res) => {
 
     if (!history) {
       res.status(404).json({
-        message: "Historico do PDF nao encontrado."
+        message: "Histórico do PDF não encontrado."
       });
       return;
     }
@@ -372,7 +372,7 @@ router.post("/", upload.array("files", 20), (req, res) => {
   void (async () => {
     if (!req.auth) {
       res.status(401).json({
-        message: "Sessao invalida."
+        message: "Sessão inválida."
       });
       return;
     }
@@ -392,7 +392,7 @@ router.post("/", upload.array("files", 20), (req, res) => {
 
     if (!periodId || !basePaymentId) {
       res.status(400).json({
-        message: "Selecione um periodo e uma base antes de enviar PDFs."
+        message: "Selecione um período e uma base antes de enviar PDFs."
       });
       return;
     }
@@ -427,7 +427,7 @@ router.post("/", upload.array("files", 20), (req, res) => {
 
     if (!period) {
       res.status(404).json({
-        message: "Periodo de pagamento nao encontrado."
+        message: "Período de pagamento não encontrado."
       });
       return;
     }
@@ -436,7 +436,7 @@ router.post("/", upload.array("files", 20), (req, res) => {
 
     if (!selectedBase) {
       res.status(404).json({
-        message: "Base selecionada nao encontrada no periodo."
+        message: "Base selecionada não encontrada no período."
       });
       return;
     }
@@ -561,7 +561,7 @@ router.delete("/:id", (req, res) => {
   void (async () => {
     if (!req.auth) {
       res.status(401).json({
-        message: "Sessao invalida."
+        message: "Sessão inválida."
       });
       return;
     }
@@ -608,7 +608,7 @@ router.delete("/:id", (req, res) => {
 
     if (!canDelete) {
       res.status(403).json({
-        message: "Voce nao possui permissao para remover este PDF."
+        message: "Você não possui permissão para remover este PDF."
       });
       return;
     }
@@ -653,7 +653,7 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
   void (async () => {
     if (!req.auth) {
       res.status(401).json({
-        message: "Sessao invalida."
+        message: "Sessão inválida."
       });
       return;
     }
@@ -709,7 +709,7 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
 
     if (!canReplace) {
       res.status(403).json({
-        message: "Voce nao possui permissao para substituir este PDF."
+        message: "Você não possui permissão para substituir este PDF."
       });
       return;
     }

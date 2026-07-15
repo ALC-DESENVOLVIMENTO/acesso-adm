@@ -13,7 +13,7 @@ const router = Router();
 router.use(requireAuth, (req, res, next) => {
   if (!req.auth) {
     res.status(401).json({
-      message: "Sessao nao autenticada."
+      message: "Sessão não autenticada."
     });
     return;
   }
@@ -31,7 +31,7 @@ router.use(requireAuth, (req, res, next) => {
     !["N3", "N4"].includes(req.auth.level)
   ) {
     res.status(403).json({
-      message: "Voce nao possui permissao para acessar este modulo."
+      message: "Você não possui permissão para acessar este módulo."
     });
     return;
   }
@@ -180,8 +180,8 @@ async function getDuplicateReviewQueue(periodId?: string | null) {
 
   const preparedUploads = await Promise.all(
     uploads.map(async (upload) => {
-      const motoristaCpf = upload.motorista?.cpf || "Nao informado";
-      const motoristaNome = upload.motorista?.nome || "Nao informado";
+      const motoristaCpf = upload.motorista?.cpf || "Não informado";
+      const motoristaNome = upload.motorista?.nome || "Não informado";
       const registryBase = await getRegistryBase(motoristaCpf, motoristaNome);
 
       return {
@@ -207,7 +207,7 @@ async function getDuplicateReviewQueue(periodId?: string | null) {
       continue;
     }
 
-    const baseCadastrada = registryBase || "Nao informada";
+    const baseCadastrada = registryBase || "Não informada";
     const groupKey = `${motoristaCpf}|${motoristaNome}|${baseCadastrada}`;
     const entry = grouped.get(groupKey) || {
       id: groupKey,
@@ -221,9 +221,9 @@ async function getDuplicateReviewQueue(periodId?: string | null) {
     entry.cases.push({
       id: upload.id,
       fileName: upload.nomeOriginal,
-      baseEnviada: upload.basePagamento?.nome || "Nao informada",
+      baseEnviada: upload.basePagamento?.nome || "Não informada",
       periodId: upload.periodoPagamentoId,
-      periodName: upload.periodoPagamento?.nome || "Nao informado",
+      periodName: upload.periodoPagamento?.nome || "Não informado",
       periodStatus: upload.periodoPagamento?.status || "disponivel",
       uploadedAt: upload.criadoEm,
       downloadUrl: upload.caminhoArquivo
@@ -382,7 +382,7 @@ function buildUploadBridgePayload(input: {
     versao: input.upload.versao,
     status: "pendente",
     tipoArquivo: "application/pdf",
-    observacoes: `PDF liberado no periodo ${input.periodId}`
+    observacoes: `PDF liberado no período ${input.periodId}`
   };
 }
 
@@ -410,7 +410,7 @@ router.post("/bases", requireAdmin, (req, res) => {
 
     if (!parsed.success || !auth) {
       res.status(400).json({
-        message: "Dados invalidos para criacao da base.",
+        message: "Dados inválidos para criação da base.",
         issues: parsed.success ? undefined : parsed.error.flatten()
       });
       return;
@@ -459,7 +459,7 @@ router.patch("/bases/:id", requireAdmin, (req, res) => {
 
     if (!parsed.success || !auth) {
       res.status(400).json({
-        message: "Dados invalidos para edicao da base.",
+        message: "Dados inválidos para edição da base.",
         issues: parsed.success ? undefined : parsed.error.flatten()
       });
       return;
@@ -523,7 +523,7 @@ router.delete("/bases/:id", requireAdmin, (req, res) => {
 
     if (!auth) {
       res.status(401).json({
-        message: "Sessao nao autenticada."
+        message: "Sessão não autenticada."
       });
       return;
     }
@@ -622,7 +622,7 @@ router.post("/", requireAdmin, (req, res) => {
 
     if (!parsed.success || !req.auth) {
       res.status(400).json({
-        message: "Dados invalidos para criacao do periodo.",
+        message: "Dados inválidos para criação do período.",
         issues: parsed.success ? undefined : parsed.error.flatten()
       });
       return;
@@ -641,7 +641,7 @@ router.post("/", requireAdmin, (req, res) => {
 
     if (bases.length === 0) {
       res.status(400).json({
-        message: "Nao existem bases cadastradas para o tipo selecionado."
+        message: "Não existem bases cadastradas para o tipo selecionado."
       });
       return;
     }
@@ -713,11 +713,11 @@ router.post("/", requireAdmin, (req, res) => {
     });
 
     res.status(201).json({
-      message: "Periodo criado com sucesso."
+      message: "Período criado com sucesso."
     });
   })().catch((error) => {
     res.status(500).json({
-      message: "Falha ao criar periodo.",
+      message: "Falha ao criar período.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });
@@ -730,7 +730,7 @@ router.patch("/:id", requireAdmin, (req, res) => {
 
     if (!parsed.success || !auth) {
       res.status(400).json({
-        message: "Dados invalidos para edicao do periodo.",
+        message: "Dados inválidos para edição do período.",
         issues: parsed.success ? undefined : parsed.error.flatten()
       });
       return;
@@ -747,7 +747,7 @@ router.patch("/:id", requireAdmin, (req, res) => {
 
     if (!period) {
       res.status(404).json({
-        message: "Periodo nao encontrado."
+        message: "Período não encontrado."
       });
       return;
     }
@@ -765,7 +765,7 @@ router.patch("/:id", requireAdmin, (req, res) => {
 
     if (bases.length === 0) {
       res.status(400).json({
-        message: "Nao existem bases cadastradas para o tipo selecionado."
+        message: "Não existem bases cadastradas para o tipo selecionado."
       });
       return;
     }
@@ -833,11 +833,11 @@ router.patch("/:id", requireAdmin, (req, res) => {
     });
 
     res.json({
-      message: "Periodo atualizado com sucesso."
+      message: "Período atualizado com sucesso."
     });
   })().catch((error) => {
     res.status(500).json({
-      message: "Falha ao atualizar periodo.",
+      message: "Falha ao atualizar período.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });
@@ -850,7 +850,7 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
 
     if (!parsed.success || !auth) {
       res.status(400).json({
-        message: "Dados invalidos para status do periodo.",
+        message: "Dados inválidos para status do período.",
         issues: parsed.success ? undefined : parsed.error.flatten()
       });
       return;
@@ -861,7 +861,7 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
 
       if (duplicateReviews.length > 0) {
         res.status(409).json({
-          message: "Existem motoristas duplicados pendentes de analise. Aprove, reprove ou redirecione antes de aprovar o periodo.",
+          message: "Existem motoristas duplicados pendentes de análise. Aprove, reprove ou redirecione antes de aprovar o período.",
           pendingCount: duplicateReviews.length,
           duplicates: duplicateReviews
         });
@@ -981,7 +981,7 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
                 status: "pendente",
                 tipoArquivo: "application/pdf",
                 versao: 1,
-                observacoes: `PDF liberado no periodo ${approvedPeriod?.nome || updated.id}`
+                observacoes: `PDF liberado no período ${approvedPeriod?.nome || updated.id}`
               },
               {
                 userId: auth.userId,
@@ -1016,11 +1016,11 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
     }
 
     res.json({
-      message: "Status do periodo atualizado com sucesso."
+      message: "Status do período atualizado com sucesso."
     });
   })().catch((error) => {
     res.status(500).json({
-      message: "Falha ao alterar status do periodo.",
+      message: "Falha ao alterar status do período.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });
@@ -1046,7 +1046,7 @@ router.patch("/uploads/:uploadId/review", requireAdmin, (req, res) => {
 
     if (!parsed.success || !auth) {
       res.status(400).json({
-        message: "Dados invalidos para revisao do upload.",
+        message: "Dados inválidos para revisão do upload.",
         issues: parsed.success ? undefined : parsed.error.flatten()
       });
       return;
@@ -1225,7 +1225,7 @@ router.delete("/:id", requireAdmin, (req, res) => {
   void (async () => {
     if (!req.auth) {
       res.status(401).json({
-        message: "Sessao nao autenticada."
+        message: "Sessão não autenticada."
       });
       return;
     }
@@ -1244,7 +1244,7 @@ router.delete("/:id", requireAdmin, (req, res) => {
 
     if (!existing) {
       res.status(404).json({
-        message: "Periodo nao encontrado."
+        message: "Período não encontrado."
       });
       return;
     }
@@ -1300,11 +1300,11 @@ router.delete("/:id", requireAdmin, (req, res) => {
     });
 
     res.json({
-      message: "Periodo excluido com sucesso."
+      message: "Período excluído com sucesso."
     });
   })().catch((error) => {
     res.status(500).json({
-      message: "Falha ao excluir periodo.",
+      message: "Falha ao excluir período.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });

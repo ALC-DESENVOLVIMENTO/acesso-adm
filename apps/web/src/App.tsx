@@ -129,8 +129,8 @@ const routePaths: Record<RouteView, string> = {
 const menuItems = [
   { key: "dashboard", label: "Dashboard", icon: HouseLine },
   { key: "pdfs", label: "Envio de PDFs", icon: FileArrowUp },
-  { key: "users", label: "Cadastro de Usuarios", icon: UserCirclePlus },
-  { key: "periods", label: "Criacao de Periodo", icon: CalendarBlank },
+  { key: "users", label: "Cadastro de Usuários", icon: UserCirclePlus },
+  { key: "periods", label: "Criação de Período", icon: CalendarBlank },
   { key: "financeiro", label: "Financeiro", icon: FilePdf },
   { key: "atendimento", label: "Atendimento", icon: ChatCenteredDots }
 ] as const;
@@ -138,8 +138,8 @@ const menuItems = [
 const moduleLabels: Record<string, string> = {
   dashboard: "Dashboard",
   pdfs: "Envio de PDFs",
-  users: "Cadastro de Usuarios",
-  periods: "Criacao de Periodo",
+  users: "Cadastro de Usuários",
+  periods: "Criação de Período",
   financeiro: "Financeiro",
   atendimento: "Atendimento"
 };
@@ -147,8 +147,8 @@ const moduleLabels: Record<string, string> = {
 const userModuleOptions = [
   { code: "dashboard", label: "Dashboard" },
   { code: "pdfs", label: "Envio de PDFs" },
-  { code: "users", label: "Cadastro de Usuarios" },
-  { code: "periods", label: "Criacao de Periodo" },
+  { code: "users", label: "Cadastro de Usuários" },
+  { code: "periods", label: "Criação de Período" },
   { code: "financeiro", label: "Financeiro" },
   { code: "atendimento", label: "Atendimento" }
 ] as const;
@@ -158,11 +158,11 @@ const loginPreviewImages = ["/login-preview-dashboard.png", "/login-preview-pdfs
 const quickActionStorageKey = "portal-adm.quick-actions";
 const themeStorageKey = "portal-adm.theme";
 const quickActionLabels: Record<RouteView, { title: string; description: string; icon: typeof FileArrowUp }> = {
-  dashboard: { title: "Dashboard", description: "Visao geral do portal.", icon: HouseLine },
-  pdfs: { title: "Enviar PDF", description: "Faca o envio de novos documentos.", icon: FileArrowUp },
-  users: { title: "Cadastrar Usuario", description: "Adicione novos usuarios e niveis de acesso.", icon: UserCirclePlus },
-  periods: { title: "Criacao de Periodo", description: "Gerencie periodos e bases.", icon: CalendarBlank },
-  financeiro: { title: "Financeiro", description: "Acompanhe notas fiscais, espelho e importacao financeira.", icon: FilePdf },
+  dashboard: { title: "Dashboard", description: "Visão geral do portal.", icon: HouseLine },
+  pdfs: { title: "Enviar PDF", description: "Faça o envio de novos documentos.", icon: FileArrowUp },
+  users: { title: "Cadastrar Usuário", description: "Adicione novos usuários e níveis de acesso.", icon: UserCirclePlus },
+  periods: { title: "Criação de Período", description: "Gerencie períodos e bases.", icon: CalendarBlank },
+  financeiro: { title: "Financeiro", description: "Acompanhe notas fiscais, espelho e importação financeira.", icon: FilePdf },
   atendimento: { title: "Atendimento", description: "Abra o CRM do motorista.", icon: ChatCenteredDots }
 };
 
@@ -184,7 +184,7 @@ const activities: Activity[] = [
   },
   {
     icon: "user",
-    title: "Usuario novo cadastrado: joao.silva",
+    title: "Usuário novo cadastrado: joao.silva",
     subtitle: "Cadastrado por Administrador",
     date: "05/05/2025",
     time: "09:15"
@@ -268,8 +268,8 @@ function getRouteLabel(view: RouteView) {
   const labels: Record<RouteView, string> = {
     dashboard: "Dashboard",
     pdfs: "Envio de PDFs",
-    users: "Cadastro de Usuarios",
-    periods: "Criacao de Periodo",
+    users: "Cadastro de Usuários",
+    periods: "Criação de Período",
     financeiro: "Financeiro",
     atendimento: "Atendimento"
   };
@@ -489,7 +489,7 @@ function App() {
   const isSessionExpiredError = (error: unknown) =>
     error instanceof ApiError &&
     (error.status === 401 ||
-      /sessao invalida|sessao nao informada|invalid or expired/i.test(error.message));
+      /sessao invalida|sessao nao informada|sessão inválida|sessão não informada|invalid or expired/i.test(error.message));
 
   const navigateToRoute = (route: RouteView) => {
     setAccessDenied(null);
@@ -696,7 +696,7 @@ function App() {
           return;
         }
 
-        setLoginError(error instanceof Error ? error.message : "Falha ao carregar dados do portal.");
+        setLoginError(error instanceof Error ? error.message : "Falha ao carregar os dados do portal.");
       } finally {
         if (!cancelled) {
           setLoadingMessage("");
@@ -769,7 +769,7 @@ function App() {
       window.history.replaceState({}, "", getRoutePath(nextView));
       requestedRouteRef.current = null;
     } catch (error) {
-      setLoginError(error instanceof Error ? error.message : "Falha ao autenticar usuario.");
+      setLoginError(error instanceof Error ? error.message : "Falha ao autenticar o usuário.");
     } finally {
       setLoadingMessage("");
     }
@@ -947,7 +947,7 @@ function App() {
       return false;
     }
 
-    setLoadingMessage("Criando usuario...");
+    setLoadingMessage("Criando usuário...");
 
     try {
       const response = await createUser(token, payload);
@@ -957,7 +957,7 @@ function App() {
     } catch (error) {
       setFlashMessage({
         type: "error",
-        text: error instanceof Error ? error.message : "Falha ao criar usuario."
+        text: error instanceof Error ? error.message : "Falha ao criar o usuário."
       });
       return false;
     } finally {
@@ -970,7 +970,7 @@ function App() {
       return false;
     }
 
-    setLoadingMessage("Atualizando usuario...");
+    setLoadingMessage("Atualizando usuário...");
 
     try {
       const response = await updateUser(token, userId, payload);
@@ -980,7 +980,7 @@ function App() {
     } catch (error) {
       setFlashMessage({
         type: "error",
-        text: error instanceof Error ? error.message : "Falha ao atualizar usuario."
+        text: error instanceof Error ? error.message : "Falha ao atualizar o usuário."
       });
       return false;
     } finally {
@@ -993,7 +993,7 @@ function App() {
       return false;
     }
 
-    setLoadingMessage("Excluindo usuario...");
+    setLoadingMessage("Excluindo usuário...");
 
     try {
       const response = await deleteUser(token, user.id);
@@ -1003,7 +1003,7 @@ function App() {
     } catch (error) {
       setFlashMessage({
         type: "error",
-        text: error instanceof Error ? error.message : "Falha ao excluir usuario."
+        text: error instanceof Error ? error.message : "Falha ao excluir o usuário."
       });
       return false;
     } finally {
@@ -1021,7 +1021,7 @@ function App() {
       return false;
     }
 
-    setLoadingMessage("Criando periodo...");
+    setLoadingMessage("Criando período...");
 
     try {
       const response = await createPaymentPeriod(token, payload);
@@ -1031,7 +1031,7 @@ function App() {
     } catch (error) {
       setFlashMessage({
         type: "error",
-        text: error instanceof Error ? error.message : "Falha ao criar periodo."
+        text: error instanceof Error ? error.message : "Falha ao criar o período."
       });
       return false;
     } finally {
@@ -1226,7 +1226,7 @@ function App() {
     } catch (error) {
       setFlashMessage({
         type: "error",
-        text: error instanceof Error ? error.message : "Falha ao baixar arquivo."
+        text: error instanceof Error ? error.message : "Falha ao baixar o arquivo."
       });
     }
   };
@@ -1236,7 +1236,7 @@ function App() {
       return;
     }
 
-    setLoadingMessage("Carregando historico do PDF...");
+    setLoadingMessage("Carregando histórico do PDF...");
 
     try {
       const entries = await fetchUploadHistory(token, uploadId);
@@ -1247,7 +1247,7 @@ function App() {
     } catch (error) {
       setFlashMessage({
         type: "error",
-        text: error instanceof Error ? error.message : "Falha ao carregar historico do PDF."
+        text: error instanceof Error ? error.message : "Falha ao carregar o histórico do PDF."
       });
     } finally {
       setLoadingMessage("");
@@ -1285,7 +1285,7 @@ function App() {
       return;
     }
 
-    setLoadingMessage("Excluindo periodo...");
+    setLoadingMessage("Excluindo período...");
 
     try {
       const response = await deletePaymentPeriod(token, periodId);
@@ -1294,7 +1294,7 @@ function App() {
     } catch (error) {
       setFlashMessage({
         type: "error",
-        text: error instanceof Error ? error.message : "Falha ao excluir periodo."
+        text: error instanceof Error ? error.message : "Falha ao excluir o período."
       });
     } finally {
       setLoadingMessage("");
@@ -1310,7 +1310,7 @@ function App() {
     }
 
     const statusLabel =
-      status === "disponivel" ? "Reabrindo periodo..." : status === "aguardando_aprovacao" ? "Finalizando periodo..." : "Aprovando periodo...";
+      status === "disponivel" ? "Reabrindo período..." : status === "aguardando_aprovacao" ? "Finalizando período..." : "Aprovando período...";
 
     setLoadingMessage(statusLabel);
 
@@ -1319,9 +1319,9 @@ function App() {
       setFlashMessage({ type: "success", text: response.message });
       await Promise.all([loadPeriodData(), loadDashboardSummary(), loadUploadsData()]);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Falha ao atualizar status do periodo.";
+      const errorMessage = error instanceof Error ? error.message : "Falha ao atualizar o status do período.";
 
-      if (status === "aprovado" && /duplicados|analise/i.test(errorMessage)) {
+      if (status === "aprovado" && /duplicados|analise|análise/i.test(errorMessage)) {
         setPeriodApprovalBlockedMessage(errorMessage);
       }
 
@@ -1461,45 +1461,45 @@ function App() {
             <div className="auth-headline__copy-row">
               <span className="auth-red-line" aria-hidden="true" />
               <p className="auth-copy">
-                Gerencie documentos, usuarios, bases e rotinas operacionais em um unico ambiente.
+                Gerencie documentos, usuários, bases e rotinas operacionais em um único ambiente.
               </p>
             </div>
           </div>
 
-          <div className="auth-feature-grid" aria-label="Modulos do portal administrativo">
+          <div className="auth-feature-grid" aria-label="Módulos do portal administrativo">
             <article className="auth-feature-card">
               <Receipt size={34} />
               <div>
                 <strong>Documentos</strong>
-                <span>Upload, gestao e compartilhamento de arquivos.</span>
+                <span>Upload, gestão e compartilhamento de arquivos.</span>
               </div>
             </article>
             <article className="auth-feature-card">
               <Coins size={34} />
               <div>
                 <strong>Financeiro</strong>
-                <span>Contas, recebimentos e movimentacoes financeiras.</span>
+                <span>Contas, recebimentos e movimentações financeiras.</span>
               </div>
             </article>
             <article className="auth-feature-card">
               <UsersThree size={34} />
               <div>
-                <strong>Usuarios</strong>
-                <span>Gerencie perfis, permissoes e acessos ao sistema.</span>
+                <strong>Usuários</strong>
+                <span>Gerencie perfis, permissões e acessos ao sistema.</span>
               </div>
             </article>
             <article className="auth-feature-card">
               <ChartBar size={34} />
               <div>
-                <strong>Relatorios</strong>
-                <span>Indicadores, graficos e performance operacional.</span>
+                <strong>Relatórios</strong>
+                <span>Indicadores, gráficos e performance operacional.</span>
               </div>
             </article>
             <article className="auth-feature-card">
               <Database size={34} />
               <div>
                 <strong>Bases</strong>
-                <span>Gerencie bases de dados e cadastros da operacao.</span>
+                <span>Gerencie bases de dados e cadastros da operação.</span>
               </div>
             </article>
           </div>
@@ -1514,7 +1514,7 @@ function App() {
                       index === loginPreviewIndex ? "hero-preview__image--active" : ""
                     }`}
                     src={src}
-                    alt="Previa do painel administrativo"
+                    alt="Prévia do painel administrativo"
                   />
                 ))}
               </div>
@@ -1567,7 +1567,7 @@ function App() {
 
             <div className="auth-note">
               <LockKey size={18} />
-              <span>Ambiente restrito a usuarios autorizados</span>
+              <span>Ambiente restrito a usuários autorizados</span>
             </div>
           </div>
         </section>
@@ -1580,11 +1580,11 @@ function App() {
       <main className="first-access-page">
         <div className="first-access-card">
           <img className="first-access-card__logo" src={logoSrc} alt="ALC Pereira Filho Transportes" />
-          <p className="eyebrow">Seguranca obrigatoria</p>
+          <p className="eyebrow">Segurança obrigatória</p>
           <h2>Altere sua senha para continuar</h2>
           <p className="panel-copy">
-            No primeiro acesso, o sistema exige a substituicao da senha padrao antes de liberar os
-            demais modulos.
+            No primeiro acesso, o sistema exige a substituição da senha padrão antes de liberar os
+            demais módulos.
           </p>
 
           <form className="form-stack" onSubmit={handleChangePassword}>
@@ -1714,7 +1714,7 @@ function App() {
               </button>
 
               {profileMenuOpen ? (
-                <div className="profile-menu" role="menu" aria-label="Acoes do perfil">
+                <div className="profile-menu" role="menu" aria-label="Ações do perfil">
                   <button
                     className="profile-menu__item"
                     type="button"
@@ -1853,8 +1853,8 @@ function App() {
                 </button>
               </div>
               <div className="crm-empty-screen">
-                <strong>Antes de aprovar o periodo, conclua a revisao dos motoristas duplicados.</strong>
-                <p>Voce precisa aprovar, reprovar ou redirecionar os itens pendentes para liberar o periodo.</p>
+                <strong>Antes de aprovar o período, conclua a revisão dos motoristas duplicados.</strong>
+                <p>Você precisa aprovar, reprovar ou redirecionar os itens pendentes para liberar o período.</p>
               </div>
             </div>
           </div>
@@ -1918,7 +1918,7 @@ function App() {
                 <div>
                   <p className="eyebrow">Bases do sistema</p>
                   <h3 id="base-editor-title">{editingBase ? "Editar base" : "Nova base"}</h3>
-                  <p>Altere o nome, o tipo de pagamento e a situacao da base.</p>
+                  <p>Altere o nome, o tipo de pagamento e a situação da base.</p>
                 </div>
                 <button className="ghost-button ghost-button--small" type="button" onClick={() => setBaseEditorOpen(false)}>
                   Fechar
@@ -2014,7 +2014,7 @@ function App() {
                       ? "Alterar foto"
                       : "Alterar senha"}
                 </h3>
-                <p>As alteracoes sao gravadas diretamente no cadastro do usuario.</p>
+                <p>As alterações são gravadas diretamente no cadastro do usuário.</p>
               </div>
             </div>
 
@@ -2035,7 +2035,7 @@ function App() {
                     {currentUser?.photoUrl && !profilePhotoBroken ? (
                       <img
                         src={currentUser.photoUrl}
-                        alt="Foto atual do usuario"
+                        alt="Foto atual do usuário"
                         onError={() => setProfilePhotoBroken(true)}
                       />
                     ) : (
@@ -2081,14 +2081,14 @@ function App() {
               ) : null}
 
               {profileActionError ? <p className="form-error">{profileActionError}</p> : null}
-              {profileActionLoading ? <p className="loading-note">Salvando alteracoes...</p> : null}
+              {profileActionLoading ? <p className="loading-note">Salvando alterações...</p> : null}
 
               <div className="confirm-actions">
                 <button className="ghost-button" type="button" onClick={closeProfileModal}>
                   Cancelar
                 </button>
                 <button className="primary-button primary-button--inline cta-motion" type="submit" disabled={profileActionLoading}>
-                  Salvar alteracoes
+                  Salvar alterações
                 </button>
               </div>
             </form>
@@ -2107,8 +2107,8 @@ function App() {
           >
             <div className="modal-card__header">
               <div>
-                <p className="eyebrow">Confirmacao</p>
-                <h3 id="delete-user-title">Excluir usuario</h3>
+                <p className="eyebrow">Confirmação</p>
+                <h3 id="delete-user-title">Excluir usuário</h3>
                 <p>
                   Excluir permanentemente <strong>{deleteUserTarget.name}</strong> do banco de dados?
                 </p>
@@ -2149,7 +2149,7 @@ function App() {
           >
             <div className="modal-card__header">
               <div>
-                <p className="eyebrow">Confirmacao</p>
+                <p className="eyebrow">Confirmação</p>
                 <h3 id="delete-upload-title">Remover PDF</h3>
                 <p>
                   Remover permanentemente <strong>{deleteUploadTarget.fileName}</strong> da fila operacional?
@@ -2191,10 +2191,10 @@ function App() {
           >
             <div className="modal-card__header">
               <div>
-                <p className="eyebrow">Confirmacao</p>
-                <h3 id="delete-period-title">Excluir periodo</h3>
+                <p className="eyebrow">Confirmação</p>
+                <h3 id="delete-period-title">Excluir período</h3>
                 <p>
-                  Excluir permanentemente o periodo <strong>{deletePeriodTarget.name}</strong>?
+                  Excluir permanentemente o período <strong>{deletePeriodTarget.name}</strong>?
                 </p>
               </div>
             </div>
@@ -2258,7 +2258,7 @@ function DashboardScreen({
       icon: FilePdf
     },
     {
-      label: "Usuarios Ativos",
+      label: "Usuários Ativos",
       value: String(summary.usersCount),
       detail: "Base operacional do portal",
       icon: UsersThree
@@ -2280,7 +2280,7 @@ function DashboardScreen({
           <p className="eyebrow">Visao geral</p>
           <h1>Bem-vindo ao Portal Administrativo!</h1>
           <p>
-            Gerencie informacoes, documentos e usuarios do sistema com uma experiencia corporativa
+            Gerencie informações, documentos e usuários do sistema com uma experiência corporativa
             clara e modular.
           </p>
         </div>
@@ -2301,9 +2301,9 @@ function DashboardScreen({
           >
             <div className="modal-card__header">
               <div>
-                <p className="eyebrow">Acesso rapido</p>
+                <p className="eyebrow">Acesso rápido</p>
                 <h3 id="quick-actions-title">Editar atalhos</h3>
-                <p>Selecione apenas telas que este usuario pode acessar.</p>
+                <p>Selecione apenas as telas que este usuário pode acessar.</p>
               </div>
               <button className="ghost-button ghost-button--small" type="button" onClick={onCloseQuickActions}>
                 Fechar
@@ -2353,7 +2353,7 @@ function DashboardScreen({
       <section className="panel">
         <div className="panel__header panel__header--split">
           <div>
-            <h3>Acesso Rapido</h3>
+            <h3>Acesso Rápido</h3>
             <p>Atalhos operacionais para a equipe administrativa</p>
           </div>
           <button className="ghost-button ghost-button--small" type="button" onClick={onOpenQuickActions}>
@@ -2628,7 +2628,7 @@ function PeriodsScreen({
       <div className="screen">
       <section className="panel">
           <h3>Acesso restrito</h3>
-          <p>Esta funcionalidade esta liberada apenas para N3 e N4.</p>
+          <p>Esta funcionalidade está liberada apenas para N3 e N4.</p>
         </section>
       </div>
     );
@@ -2638,8 +2638,8 @@ function PeriodsScreen({
     <div className="screen">
       <section className="screen__intro">
         <div>
-          <p className="eyebrow">Administracao de periodos</p>
-          <h1>Criacao de Periodo</h1>
+          <p className="eyebrow">Administração de períodos</p>
+          <h1>Criação de Período</h1>
           <p>Cadastre intervalos de pagamento e vincule automaticamente as bases corretas por tipo.</p>
         </div>
       </section>
@@ -2651,8 +2651,8 @@ function PeriodsScreen({
           </div>
           <div>
             <strong>{periods.length}</strong>
-            <span>Periodos cadastrados</span>
-            <small>Disponiveis para envio de PDFs</small>
+            <span>Períodos cadastrados</span>
+            <small>Disponíveis para envio de PDFs</small>
           </div>
         </article>
         <article className="stat-card">
@@ -2671,7 +2671,7 @@ function PeriodsScreen({
           </div>
           <div>
             <strong>N3/N4</strong>
-            <span>Autorizacao</span>
+            <span>Autorização</span>
             <small>Controle administrativo total</small>
           </div>
         </article>
@@ -2680,15 +2680,15 @@ function PeriodsScreen({
       <section className="panel">
         <div className="panel__header panel__header--split">
           <div>
-            <h3>Novo periodo de pagamento</h3>
-            <p>Abra o pop-up para criar um novo periodo com o mesmo fluxo visual ja usado no sistema.</p>
+            <h3>Novo período de pagamento</h3>
+            <p>Abra o pop-up para criar um novo período com o mesmo fluxo visual já usado no sistema.</p>
           </div>
           <button
             className="primary-button primary-button--inline cta-motion"
             type="button"
             onClick={() => setIsCreatePeriodModalOpen(true)}
           >
-            Novo periodo de pagamento
+            Novo período de pagamento
             <ArrowRight size={18} weight="bold" />
           </button>
         </div>
@@ -2696,7 +2696,7 @@ function PeriodsScreen({
         <div className="period-launch-card">
           <div>
             <strong>Bases cadastradas</strong>
-            <p>Edite nome, tipo e status das bases sem sair do modulo de periodos.</p>
+            <p>Edite nome, tipo e status das bases sem sair do módulo de períodos.</p>
           </div>
           <div className="period-launch-card__actions">
             <button className="ghost-button cta-motion cta-motion--ghost" type="button" onClick={() => setIsBasePanelOpen(true)}>
@@ -2710,10 +2710,10 @@ function PeriodsScreen({
       <section className="panel">
         <div className="panel__header panel__header--split">
           <div>
-            <h3>Periodos cadastrados</h3>
-            <p>Visualize periodos ativos ou finalizados em abas separadas.</p>
+            <h3>Períodos cadastrados</h3>
+            <p>Visualize períodos ativos ou finalizados em abas separadas.</p>
           </div>
-          <div className="period-tabs" role="tablist" aria-label="Filtro de periodos">
+          <div className="period-tabs" role="tablist" aria-label="Filtro de períodos">
             <button
               className={`period-tab ${activeTab === "active" ? "period-tab--active" : ""}`}
               type="button"
@@ -2721,7 +2721,7 @@ function PeriodsScreen({
               aria-selected={activeTab === "active"}
               onClick={() => setActiveTab("active")}
             >
-              Periodos ativos
+              Períodos ativos
             </button>
             <button
               className={`period-tab ${activeTab === "finished" ? "period-tab--active" : ""}`}
@@ -2730,7 +2730,7 @@ function PeriodsScreen({
               aria-selected={activeTab === "finished"}
               onClick={() => setActiveTab("finished")}
             >
-              Periodos finalizados
+              Períodos finalizados
             </button>
           </div>
         </div>
@@ -2744,7 +2744,7 @@ function PeriodsScreen({
             return (
               <article className="period-card" key={period.id}>
                 <div>
-                  <p className="eyebrow">Periodo {period.paymentType.toUpperCase()}</p>
+                  <p className="eyebrow">Período {period.paymentType.toUpperCase()}</p>
                   <h4>{period.name}</h4>
                   <p>
                     {formatDateOnly(period.startDate)} a {formatDateOnly(period.endDate)}
@@ -2798,7 +2798,7 @@ function PeriodsScreen({
                       )
                     }
                   >
-                    {period.status === "disponivel" ? "Finalizar periodo" : "Reabrir periodo"}
+                    {period.status === "disponivel" ? "Finalizar período" : "Reabrir período"}
                   </button>
                   {activeTab === "active" ? (
                     <button
@@ -2806,7 +2806,7 @@ function PeriodsScreen({
                       type="button"
                       onClick={() => void onUpdatePeriodStatus(period.id, "aprovado")}
                     >
-                      Aprovar periodo
+                      Aprovar período
                     </button>
                   ) : null}
                 </div>
@@ -2815,8 +2815,8 @@ function PeriodsScreen({
           })}
           {(activeTab === "active" ? activePeriods : finishedPeriods).length === 0 ? (
             <div className="empty-state">
-              <strong>Nenhum periodo {activeTab === "active" ? "ativo" : "finalizado"} encontrado</strong>
-              <p>Crie um novo periodo ou altere o status de um registro existente para ve-lo aqui.</p>
+              <strong>Nenhum período {activeTab === "active" ? "ativo" : "finalizado"} encontrado</strong>
+              <p>Crie um novo período ou altere o status de um registro existente para vê-lo aqui.</p>
             </div>
           ) : null}
         </div>
@@ -2854,7 +2854,7 @@ function PeriodsScreen({
                 <span>Base</span>
                 <span>Tipo</span>
                 <span>Status</span>
-                <span>Acoes</span>
+                <span>Ações</span>
               </div>
               {activeBases.map((base) => (
                 <div className="base-management-row" key={base.id}>
@@ -2911,10 +2911,10 @@ function PeriodsScreen({
             <div className="modal-card__header">
               <div>
                 <p className="eyebrow">Motoristas duplicados</p>
-                <h3 id="duplicate-review-title">Revisao de base dos uploads</h3>
+                <h3 id="duplicate-review-title">Revisão de base dos uploads</h3>
                 <p>
                   {duplicateReviewPeriodName
-                    ? `Periodo selecionado: ${duplicateReviewPeriodName}`
+                    ? `Período selecionado: ${duplicateReviewPeriodName}`
                     : "Confira os arquivos com base divergente e decida com N3/N4."}
                 </p>
               </div>
@@ -3040,9 +3040,9 @@ function PeriodsScreen({
           >
             <div className="modal-card__header">
               <div>
-                <p className="eyebrow">Administracao de periodos</p>
-                <h3 id="create-period-title">Novo periodo de pagamento</h3>
-                <p>Defina a descricao, o tipo e o intervalo para gerar o periodo.</p>
+                <p className="eyebrow">Administração de períodos</p>
+                <h3 id="create-period-title">Novo período de pagamento</h3>
+                <p>Defina a descrição, o tipo e o intervalo para gerar o período.</p>
               </div>
               <button className="ghost-button ghost-button--small" type="button" onClick={() => setIsCreatePeriodModalOpen(false)}>
                 Fechar
@@ -3051,7 +3051,7 @@ function PeriodsScreen({
 
             <form className="admin-form period-form admin-form--modal" onSubmit={handleSubmit}>
               <label className="field">
-                <span>Descricao do periodo</span>
+                <span>Descrição do período</span>
                 <input
                   name="name"
                   placeholder="Pagamento Semanal 1 a 7"
@@ -3132,7 +3132,7 @@ function PeriodsScreen({
 
               <div className="admin-form__actions">
                 <button className="primary-button primary-button--inline" type="submit">
-                  Criar periodo
+                  Criar período
                   <ArrowRight size={18} weight="bold" />
                 </button>
               </div>
@@ -3233,8 +3233,8 @@ function PdfsScreen({
 
         grouped.set(key, {
           key,
-          periodName: row.periodName || "Periodo nao definido",
-          baseName: row.baseName || "Base nao definida",
+          periodName: row.periodName || "Período não definido",
+          baseName: row.baseName || "Base não definida",
           ownerName: row.owner,
           lastSentAt: row.sentAt,
           uploads: [row]
@@ -3259,8 +3259,8 @@ function PdfsScreen({
       <section className="panel">
         <div className="panel__header">
           <div>
-            <h3>Periodo ativo para envio</h3>
-            <p>Escolha o periodo e a base antes de anexar os PDFs.</p>
+            <h3>Período ativo para envio</h3>
+            <p>Escolha o período e a base antes de anexar os PDFs.</p>
           </div>
         </div>
 
@@ -3268,7 +3268,7 @@ function PdfsScreen({
           <label className="filter-select">
             <CalendarBlank size={18} />
             <select value={selectedPeriodId} onChange={(event) => setSelectedPeriodId(event.target.value)}>
-              <option value="">Selecione um periodo</option>
+              <option value="">Selecione um período</option>
               {availablePeriods.map((period) => (
                 <option key={period.id} value={period.id}>
                   {period.name} - {formatStatusLabel(period.status)}
@@ -3332,7 +3332,7 @@ function PdfsScreen({
           <label className="search-field">
             <MagnifyingGlass size={18} />
             <input
-              placeholder="Buscar por arquivo ou responsavel"
+              placeholder="Buscar por arquivo ou responsável"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
             />
@@ -3425,7 +3425,7 @@ function PdfsScreen({
                             type="button"
                             onClick={() => void onOpenUploadHistory(row.id)}
                           >
-                            Historico
+                            Histórico
                           </button>
                           <label className="ghost-button ghost-button--small file-picker file-picker--ghost cta-motion cta-motion--ghost">
                             Substituir
@@ -3465,7 +3465,7 @@ function PdfsScreen({
         <section className="panel">
           <div className="panel__header">
             <div>
-              <h3>Historico de Versoes</h3>
+              <h3>Histórico de Versões</h3>
               <p>Linha completa de substituicoes do PDF selecionado</p>
             </div>
             <button className="ghost-button" type="button" onClick={onCloseHistory}>
@@ -3607,12 +3607,12 @@ function UsersScreen({
     <div className="screen">
       <section className="screen__intro">
         <div>
-          <p className="eyebrow">Administracao</p>
-          <h1>Cadastro de Usuarios</h1>
-          <p>Gestao de niveis, status, modulos liberados e historico operacional.</p>
+          <p className="eyebrow">Administração</p>
+          <h1>Cadastro de Usuários</h1>
+          <p>Gestão de níveis, status, módulos liberados e histórico operacional.</p>
         </div>
         <button className="primary-button primary-button--inline cta-motion" type="button" onClick={openCreateModal}>
-          Novo usuario
+          Novo usuário
           <UserCirclePlus size={18} weight="bold" />
         </button>
       </section>
@@ -3624,7 +3624,7 @@ function UsersScreen({
           </div>
           <div>
             <strong>{users.length}</strong>
-            <span>Usuarios na base</span>
+            <span>Usuários na base</span>
             <small>Sincronizados com PostgreSQL</small>
           </div>
         </article>
@@ -3634,8 +3634,8 @@ function UsersScreen({
           </div>
           <div>
             <strong>RBAC</strong>
-            <span>Controle por perfil e modulo</span>
-            <small>Grant e deny por usuario</small>
+            <span>Controle por perfil e módulo</span>
+            <small>Grant e deny por usuário</small>
           </div>
         </article>
         <article className="stat-card">
@@ -3654,7 +3654,7 @@ function UsersScreen({
         <div className="panel__header">
           <div>
             <h3>Busca e filtros</h3>
-            <p>Refine a operacao por nome, e-mail, nivel e situacao</p>
+            <p>Refine a operação por nome, e-mail, nível e situação</p>
           </div>
         </div>
 
@@ -3662,7 +3662,7 @@ function UsersScreen({
           <label className="search-field">
             <MagnifyingGlass size={18} />
             <input
-              placeholder="Buscar usuario por nome ou e-mail"
+              placeholder="Buscar usuário por nome ou e-mail"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
             />
@@ -3694,8 +3694,8 @@ function UsersScreen({
       <section className="panel">
         <div className="panel__header">
           <div>
-            <h3>Usuarios cadastrados</h3>
-            <p>{filteredUsers.length} usuario(s) retornado(s) pelos filtros atuais</p>
+            <h3>Usuários cadastrados</h3>
+            <p>{filteredUsers.length} usuário(s) retornado(s) pelos filtros atuais</p>
           </div>
         </div>
 
@@ -3708,8 +3708,8 @@ function UsersScreen({
                 <th>Nivel</th>
                 <th>Status</th>
                 <th>Ultimo acesso</th>
-                <th>Modulos</th>
-                <th>Acoes</th>
+                <th>Módulos</th>
+                <th>Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -3785,9 +3785,9 @@ function UsersScreen({
           >
             <div className="modal-card__header">
               <div>
-                <p className="eyebrow">Administracao</p>
-                <h3 id="user-modal-title">{editingUserId ? "Editar usuario" : "Novo usuario"}</h3>
-                <p>Cadastro com senha temporaria 0000 e controle de modulos por usuario</p>
+                <p className="eyebrow">Administração</p>
+                <h3 id="user-modal-title">{editingUserId ? "Editar usuário" : "Novo usuário"}</h3>
+                <p>Cadastro com senha temporária 0000 e controle de módulos por usuário</p>
               </div>
               <button className="ghost-button ghost-button--small" type="button" onClick={closeModal}>
                 Fechar
@@ -3849,7 +3849,7 @@ function UsersScreen({
               </label>
 
               <div className="field field--full user-modules-field">
-                <span>Modulos</span>
+                <span>Módulos</span>
                 <div className="checkbox-grid">
                   {userModuleOptions.map((module) => (
                     <label className="checkbox-chip" key={module.code}>
@@ -3872,7 +3872,7 @@ function UsersScreen({
 
               <div className="admin-form__actions">
                 <button className="primary-button primary-button--inline" type="submit">
-                  {editingUserId ? "Salvar alteracoes" : "Criar usuario"}
+                  {editingUserId ? "Salvar alterações" : "Criar usuário"}
                   <ArrowRight size={18} weight="bold" />
                 </button>
 
@@ -3902,11 +3902,11 @@ function AtendimentoScreen({
   const isAdmin = currentUser?.level === "N3" || currentUser?.level === "N4";
   const detailTabs = [
     { key: "dados", label: "Dados do Motorista" },
-    { key: "classificacoes", label: "Classificacoes" },
+    { key: "classificacoes", label: "Classificações" },
     { key: "notas", label: "Notas internas" },
-    { key: "pdfs", label: "Historico de PDFs" },
-    { key: "pagamentos", label: "Historico de Pagamentos" },
-    { key: "historico", label: "Historico de Atendimento" },
+    { key: "pdfs", label: "Histórico de PDFs" },
+    { key: "pagamentos", label: "Histórico de Pagamentos" },
+    { key: "historico", label: "Histórico de Atendimento" },
     { key: "chamados", label: "Chamados" }
   ] as const;
   type DetailTab = (typeof detailTabs)[number]["key"];
@@ -3976,7 +3976,7 @@ function AtendimentoScreen({
     });
   }, [detail, paymentHistoryQuery]);
 
-  const selectedMotoristaBase = detail?.motorista.base || detail?.motorista.empresaVinculada || "Base nao informada";
+  const selectedMotoristaBase = detail?.motorista.base || detail?.motorista.empresaVinculada || "Base não informada";
 
   const buildMotoristaEditForm = (motorista: AtendimentoDetail["motorista"]): AtendimentoMotoristaUpdatePayload => ({
     nome: motorista.nome || "",
@@ -4045,7 +4045,7 @@ function AtendimentoScreen({
           setSearchResults([]);
           setDetail(null);
           setSelectedMotoristaId(null);
-          setLoading(error instanceof Error ? error.message : "Falha ao buscar motorista.");
+          setLoading(error instanceof Error ? error.message : "Falha ao buscar o motorista.");
         } finally {
           setLoading("");
         }
@@ -4075,7 +4075,7 @@ function AtendimentoScreen({
         setNoteContent("");
       } catch (error) {
         setDetail(null);
-        setLoading(error instanceof Error ? error.message : "Falha ao carregar motorista.");
+        setLoading(error instanceof Error ? error.message : "Falha ao carregar o motorista.");
       } finally {
         setLoading("");
       }
@@ -4325,7 +4325,7 @@ function AtendimentoScreen({
       return;
     }
 
-    setLoading("Registrando movimentacao...");
+    setLoading("Registrando movimentação...");
 
     try {
       await createAtendimentoMovimento(token, ticketAction.chamadoId, description, ticketFiles);
@@ -4333,7 +4333,7 @@ function AtendimentoScreen({
       setTicketFiles([]);
       setTicketAction(null);
     } catch (error) {
-      setLoading(error instanceof Error ? error.message : "Falha ao registrar movimentacao.");
+      setLoading(error instanceof Error ? error.message : "Falha ao registrar movimentação.");
     } finally {
       setLoading("");
     }
@@ -4375,7 +4375,7 @@ function AtendimentoScreen({
           <p className="eyebrow">Atendimento</p>
           <h1>CRM do Motorista</h1>
           <p>
-            Localize o motorista por nome ou CPF, acompanhe o historico completo e resolva os
+            Localize o motorista por nome ou CPF, acompanhe o histórico completo e resolva os
             chamados em uma unica tela.
           </p>
         </div>
@@ -4486,19 +4486,19 @@ function AtendimentoScreen({
 
                   <div className="crm-driver__grid">
                     <div><strong>CPF</strong><span>{detail.motorista.cpf}</span></div>
-                    <div><strong>RG</strong><span>{detail.motorista.rg || 'Nao informado'}</span></div>
-                    <div><strong>Nascimento</strong><span>{detail.motorista.dataNascimento ? new Date(detail.motorista.dataNascimento).toLocaleDateString('pt-BR') : 'Nao informado'}</span></div>
-                    <div><strong>Telefone</strong><span>{detail.motorista.telefone || 'Nao informado'}</span></div>
-                    <div><strong>WhatsApp</strong><span>{detail.motorista.whatsapp || 'Nao informado'}</span></div>
-                    <div><strong>E-mail</strong><span>{detail.motorista.email || 'Nao informado'}</span></div>
-                    <div><strong>Endereco</strong><span>{detail.motorista.endereco || 'Nao informado'}</span></div>
+                    <div><strong>RG</strong><span>{detail.motorista.rg || 'Não informado'}</span></div>
+                    <div><strong>Nascimento</strong><span>{detail.motorista.dataNascimento ? new Date(detail.motorista.dataNascimento).toLocaleDateString('pt-BR') : 'Não informado'}</span></div>
+                    <div><strong>Telefone</strong><span>{detail.motorista.telefone || 'Não informado'}</span></div>
+                    <div><strong>WhatsApp</strong><span>{detail.motorista.whatsapp || 'Não informado'}</span></div>
+                    <div><strong>E-mail</strong><span>{detail.motorista.email || 'Não informado'}</span></div>
+                    <div><strong>Endereço</strong><span>{detail.motorista.endereco || 'Não informado'}</span></div>
                     <div><strong>Base</strong><span>{selectedMotoristaBase}</span></div>
-                    <div><strong>Favorecido</strong><span>{detail.motorista.nomeFavorecido || 'Nao informado'}</span></div>
-                    <div><strong>CPF/CNPJ Favorecido</strong><span>{detail.motorista.cpfFavorecido || detail.motorista.cnpjFavorecido || 'Nao informado'}</span></div>
-                    <div><strong>CEP</strong><span>{detail.motorista.cep || 'Nao informado'}</span></div>
+                    <div><strong>Favorecido</strong><span>{detail.motorista.nomeFavorecido || 'Não informado'}</span></div>
+                    <div><strong>CPF/CNPJ favorecido</strong><span>{detail.motorista.cpfFavorecido || detail.motorista.cnpjFavorecido || 'Não informado'}</span></div>
+                    <div><strong>CEP</strong><span>{detail.motorista.cep || 'Não informado'}</span></div>
                     <div><strong>Criado em</strong><span>{new Date(detail.motorista.dataCriacao).toLocaleString('pt-BR')}</span></div>
                     <div><strong>Atualizado em</strong><span>{new Date(detail.motorista.ultimaAtualizacao).toLocaleString('pt-BR')}</span></div>
-                    <div><strong>Observacoes</strong><span>{detail.motorista.observacoesGerais || 'Sem observacoes'}</span></div>
+                    <div><strong>Observações</strong><span>{detail.motorista.observacoesGerais || 'Sem observações'}</span></div>
                   </div>
                 </div>
               ) : null}
@@ -4594,7 +4594,7 @@ function AtendimentoScreen({
                 <div className="crm-tab-panel-content">
                   <div className="crm-tab-panel__header">
                     <div>
-                      <strong>Historico de PDFs</strong>
+                      <strong>Histórico de PDFs</strong>
                       <p>Arquivos mais recentes para os mais antigos.</p>
                     </div>
                   </div>
@@ -4639,8 +4639,8 @@ function AtendimentoScreen({
                 <div className="crm-tab-panel-content">
                   <div className="crm-tab-panel__header">
                     <div>
-                      <strong>Historico de Pagamentos</strong>
-                      <p>Periodo, PDF, nota fiscal e situacao completa do processo.</p>
+                      <strong>Histórico de Pagamentos</strong>
+                      <p>Período, PDF, nota fiscal e situação completa do processo.</p>
                     </div>
                   </div>
 
@@ -4648,7 +4648,7 @@ function AtendimentoScreen({
                     <label className="search-field search-field--compact">
                       <MagnifyingGlass size={18} />
                       <input
-                        placeholder="Buscar por periodo, base, status ou data"
+                        placeholder="Buscar por período, base, status ou data"
                         value={paymentHistoryQuery}
                         onChange={(event) => setPaymentHistoryQuery(event.target.value)}
                       />
@@ -4664,8 +4664,8 @@ function AtendimentoScreen({
                         <article className="crm-payment-card" key={item.id}>
                           <div className="crm-payment-card__header">
                             <div>
-                              <strong>{item.periodoPagamento || "Periodo nao informado"}</strong>
-                              <span>{item.basePagamento || "Base nao informada"}</span>
+                              <strong>{item.periodoPagamento || "Período não informado"}</strong>
+                              <span>{item.basePagamento || "Base não informada"}</span>
                             </div>
                             <div className="crm-payment-card__badges">
                               <span className={`status-pill ${item.pago ? "status-pill--active" : ""}`}>
@@ -4675,11 +4675,11 @@ function AtendimentoScreen({
                           </div>
 
                           <div className="crm-payment-card__grid">
-                            <div><strong>Espelho de pagamento enviado</strong><span>{item.pdfEnviadoEm ? new Date(item.pdfEnviadoEm).toLocaleString("pt-BR") : "Nao informado"}</span></div>
-                            <div><strong>Espelho de pagamento visualizado</strong><span>{item.pdfVisualizadoEm ? new Date(item.pdfVisualizadoEm).toLocaleString("pt-BR") : "Nao informado"}</span></div>
-                            <div><strong>NF enviada</strong><span>{item.notaFiscalEnviadaEm ? new Date(item.notaFiscalEnviadaEm).toLocaleString("pt-BR") : "Nao informado"}</span></div>
-                            <div><strong>NF recebida</strong><span>{item.notaFiscalRecebidaEm ? new Date(item.notaFiscalRecebidaEm).toLocaleString("pt-BR") : "Nao informado"}</span></div>
-                            <div><strong>Data de pagamento</strong><span>{item.dataPagamento ? new Date(item.dataPagamento).toLocaleString("pt-BR") : "Nao informado"}</span></div>
+                            <div><strong>Espelho de pagamento enviado</strong><span>{item.pdfEnviadoEm ? new Date(item.pdfEnviadoEm).toLocaleString("pt-BR") : "Não informado"}</span></div>
+                            <div><strong>Espelho de pagamento visualizado</strong><span>{item.pdfVisualizadoEm ? new Date(item.pdfVisualizadoEm).toLocaleString("pt-BR") : "Não informado"}</span></div>
+                            <div><strong>NF enviada</strong><span>{item.notaFiscalEnviadaEm ? new Date(item.notaFiscalEnviadaEm).toLocaleString("pt-BR") : "Não informado"}</span></div>
+                            <div><strong>NF recebida</strong><span>{item.notaFiscalRecebidaEm ? new Date(item.notaFiscalRecebidaEm).toLocaleString("pt-BR") : "Não informado"}</span></div>
+                            <div><strong>Data de pagamento</strong><span>{item.dataPagamento ? new Date(item.dataPagamento).toLocaleString("pt-BR") : "Não informado"}</span></div>
                           </div>
 
                           <div className="crm-payment-card__actions">
@@ -4705,7 +4705,7 @@ function AtendimentoScreen({
                         </article>
                       ))
                     ) : (
-                      <div className="crm-empty">Nenhum historico de pagamento disponivel para este motorista.</div>
+                      <div className="crm-empty">Nenhum histórico de pagamento disponível para este motorista.</div>
                     )}
                   </div>
                 </div>
@@ -4715,7 +4715,7 @@ function AtendimentoScreen({
                 <div className="crm-tab-panel-content">
                   <div className="crm-tab-panel__header">
                     <div>
-                      <strong>Historico de Atendimento</strong>
+                      <strong>Histórico de Atendimento</strong>
                       <p>Timeline unica com chamadas, PDFs, notas e logs.</p>
                     </div>
                   </div>
@@ -4735,7 +4735,7 @@ function AtendimentoScreen({
                         </article>
                       ))
                     ) : (
-                      <div className="crm-empty">Sem eventos no historico ainda.</div>
+                      <div className="crm-empty">Sem eventos no histórico ainda.</div>
                     )}
                   </div>
                 </div>
@@ -4779,7 +4779,7 @@ function AtendimentoScreen({
                               <div>
                                 <strong>{ticket.assunto}</strong>
                                 <span>
-                                  #{ticket.numero} - {ticket.categoria} - {ticket.responsavel || 'Sem responsavel'}
+                                  #{ticket.numero} - {ticket.categoria} - {ticket.responsavel || 'Sem responsável'}
                                 </span>
                               </div>
                               <div className="crm-ticket__badges">
@@ -4792,7 +4792,7 @@ function AtendimentoScreen({
 
                             <div className="crm-ticket__meta">
                               <small>
-                                Abertura: {new Date(ticket.dataAbertura).toLocaleString('pt-BR')} - Atualizacao:{' '}
+                                Abertura: {new Date(ticket.dataAbertura).toLocaleString('pt-BR')} - Atualização:{' '}
                                 {new Date(ticket.ultimaAtualizacao).toLocaleString('pt-BR')}
                               </small>
                             </div>
@@ -4860,7 +4860,7 @@ function AtendimentoScreen({
               <div>
                 <p className="eyebrow">Chamados</p>
                 <h3 id="new-ticket-title">Novo Chamado</h3>
-                <p>O atendimento sera registrado e refletido na timeline do motorista.</p>
+                <p>O atendimento será registrado e refletido na timeline do motorista.</p>
               </div>
               <button className="ghost-button ghost-button--small" type="button" onClick={() => setNewTicketOpen(false)}>
                 Fechar
@@ -4874,7 +4874,7 @@ function AtendimentoScreen({
               </label>
               <label className="field">
                 <span>Categoria</span>
-                <input name="categoria" placeholder="Ex.: Documentacao" required />
+                <input name="categoria" placeholder="Ex.: Documentação" required />
               </label>
               <label className="field">
                 <span>Prioridade</span>
@@ -4886,22 +4886,30 @@ function AtendimentoScreen({
                 </select>
               </label>
               <label className="field">
-                <span>Responsavel</span>
-                <input name="responsavelId" defaultValue={currentUser?.id} placeholder={currentUser?.name || "Responsavel"} />
+                <span>Responsável</span>
+                <input name="responsavelId" defaultValue={currentUser?.id} placeholder={currentUser?.name || "Responsável"} />
               </label>
               <label className="field" style={{ gridColumn: "1 / -1" }}>
-                <span>Descricao</span>
+                <span>Descrição</span>
                 <textarea className="crm-textarea" name="descricao" placeholder="Descreva o chamado" required />
               </label>
-              <label className="field" style={{ gridColumn: "1 / -1" }}>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <span>Anexos</span>
-                <input
-                  className="field__select"
-                  type="file"
-                  multiple
-                  onChange={(event) => setTicketFiles(Array.from(event.target.files || []))}
-                />
-              </label>
+                <label className="upload-chooser">
+                  <FileArrowUp size={18} weight="bold" />
+                  <span>Escolher arquivos</span>
+                  <input
+                    type="file"
+                    multiple
+                    onChange={(event) => setTicketFiles(Array.from(event.target.files || []))}
+                  />
+                </label>
+                <small className="upload-chooser__filename">
+                  {ticketFiles.length > 0
+                    ? `${ticketFiles.length} arquivo(s) selecionado(s)`
+                    : "Nenhum arquivo escolhido"}
+                </small>
+              </div>
               <div className="admin-form__actions">
                 <button className="ghost-button" type="button" onClick={() => setNewTicketOpen(false)}>
                   Cancelar
@@ -4937,8 +4945,8 @@ function AtendimentoScreen({
 
             <form className="admin-form admin-form--modal" onSubmit={handleMovement}>
               <label className="field" style={{ gridColumn: "1 / -1" }}>
-                <span>Texto da atualizacao</span>
-                <textarea className="crm-textarea" name="description" placeholder="Atualizacao do chamado" required />
+                <span>Texto da atualização</span>
+                <textarea className="crm-textarea" name="description" placeholder="Atualização do chamado" required />
               </label>
               <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <span>Anexos opcionais</span>
@@ -4958,7 +4966,7 @@ function AtendimentoScreen({
                   Cancelar
                 </button>
                 <button className="primary-button primary-button--inline" type="submit">
-                  Registrar movimentacao
+                  Registrar movimentação
                 </button>
               </div>
             </form>
@@ -5134,7 +5142,7 @@ function AtendimentoScreen({
                 />
               </label>
               <label className="field field--full">
-                <span>Endereco</span>
+                <span>Endereço</span>
                 <input
                   value={motoristaEditForm.endereco}
                   onChange={(event) =>
@@ -5190,7 +5198,7 @@ function AtendimentoScreen({
                   Cancelar
                 </button>
                 <button className="primary-button primary-button--inline" type="submit">
-                  Salvar alteracoes
+                  Salvar alterações
                 </button>
               </div>
             </form>
@@ -5234,7 +5242,7 @@ function AtendimentoScreen({
                   Cancelar
                 </button>
                 <button className="primary-button primary-button--inline" type="submit">
-                  Salvar alteracao
+                  Salvar alteração
                 </button>
               </div>
             </form>
@@ -5259,15 +5267,15 @@ function AccessDeniedScreen({
           <p className="eyebrow">Acesso restrito</p>
           <h1>Acesso negado</h1>
           <p>
-            Voce tentou abrir a tela <strong>{getRouteLabel(route)}</strong>, mas seu perfil nao possui
-            permissao para esse modulo.
+            Você tentou abrir a tela <strong>{getRouteLabel(route)}</strong>, mas seu perfil não possui
+            permissão para esse módulo.
           </p>
         </div>
       </section>
 
       <section className="panel">
         <div className="crm-empty-screen">
-          <strong>Voce nao tem permissao para acessar esta pagina.</strong>
+          <strong>Você não tem permissão para acessar esta página.</strong>
           <p>Use o menu liberado para o seu perfil ou volte para uma tela permitida.</p>
           <button className="primary-button primary-button--inline" type="button" onClick={onGoHome}>
             Voltar para a tela inicial

@@ -371,7 +371,7 @@ export function evaluateAptidao(params: {
     return {
       apto: false,
       statusProcesso: "Aguardando nota fiscal",
-      statusNotaFiscal: "Nao enviada",
+      statusNotaFiscal: "Não enviada",
       statusPagamento: paymentStatus || FinanceiroStatusPagamento.PENDENTE,
       motivoExclusao: "Nota fiscal nao enviada"
     };
@@ -383,7 +383,7 @@ export function evaluateAptidao(params: {
       statusProcesso: "Nota fiscal rejeitada",
       statusNotaFiscal: "Nota fiscal rejeitada",
       statusPagamento: paymentStatus || FinanceiroStatusPagamento.PENDENTE,
-      motivoExclusao: "Nota fiscal rejeitada ou invalida"
+      motivoExclusao: "Nota fiscal rejeitada ou inválida"
     };
   }
 
@@ -419,8 +419,8 @@ async function buildAptosPreviewRows(rows: CandidateRow[]) {
       excluidos.push({
         processoId: upload.id,
         motoristaId: upload.motoristaId,
-        nomeMotorista: upload.motorista?.nome || "Nao informado",
-        motivo: evaluation.motivoExclusao || "Nao apto para exportacao"
+        nomeMotorista: upload.motorista?.nome || "Não informado",
+        motivo: evaluation.motivoExclusao || "Não apto para exportação"
       });
       continue;
     }
@@ -476,8 +476,8 @@ async function buildAptosPreviewRows(rows: CandidateRow[]) {
       inconsistencias.push({
         processoId: upload.id,
         motoristaId: upload.motoristaId || "",
-        nomeMotorista: upload.motorista?.nome || "Nao informado",
-        periodo: upload.periodoPagamento?.nome || "Nao informado",
+        nomeMotorista: upload.motorista?.nome || "Não informado",
+        periodo: upload.periodoPagamento?.nome || "Não informado",
         motivo: missing.map((item) => item.reason).join("; "),
         campo: missing.map((item) => item.field).join(", ")
       });
@@ -487,11 +487,11 @@ async function buildAptosPreviewRows(rows: CandidateRow[]) {
     aptos.push({
       processoId: upload.id,
       motoristaId: upload.motoristaId || "",
-      nomeMotorista: upload.motorista?.nome || "Nao informado",
+      nomeMotorista: upload.motorista?.nome || "Não informado",
       nomeFavorecido,
       cpfFavorecido,
       valorTotalPdf,
-      valorTotalPdfFormatado: valorTotalPdf === null ? "Nao informado" : formatMoney(valorTotalPdf),
+      valorTotalPdfFormatado: valorTotalPdf === null ? "Não informado" : formatMoney(valorTotalPdf),
       baseMotorista,
       statusProcesso: evaluation.statusProcesso,
       statusNotaFiscal: evaluation.statusNotaFiscal,
@@ -553,7 +553,7 @@ async function buildCandidateRows(periodId: string, baseId?: string | null) {
   });
 
   if (!period) {
-    throw new Error("Periodo nao encontrado para exportacao.");
+    throw new Error("Período não encontrado para exportação.");
   }
 
   const uploadById = new Map(period.uploads.map((upload) => [upload.id, upload] as const));
@@ -796,7 +796,7 @@ export function buildWorkbook(preview: AptosPagamentoPreview) {
       "ID do processo": row.processoId,
       "ID do motorista": row.motoristaId,
       "Nome do motorista": row.nomeMotorista,
-      "Periodo": row.periodo,
+      "Período": row.periodo,
       "Motivo da inconsistência": row.motivo,
       "Campo ausente ou inválido": row.campo
     }));

@@ -164,7 +164,7 @@ router.post("/access-adm", (req, res) => {
         });
 
         res.json({
-          message: "Visualizacao registrada com sucesso.",
+          message: "Visualização registrada com sucesso.",
           receivedId: result?.id || null
         });
         return;

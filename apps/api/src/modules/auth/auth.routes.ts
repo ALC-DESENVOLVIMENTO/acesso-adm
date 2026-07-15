@@ -72,7 +72,7 @@ router.post("/login", (req, res) => {
 
     if (!parsed.success) {
       res.status(400).json({
-        message: "Dados de login invalidos.",
+        message: "Dados de login inválidos.",
         issues: parsed.error.flatten()
       });
       return;
@@ -167,7 +167,7 @@ router.post("/login", (req, res) => {
     });
   })().catch((error) => {
     res.status(500).json({
-      message: "Falha ao autenticar usuario.",
+      message: "Falha ao autenticar usuário.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });
@@ -185,7 +185,7 @@ router.post("/first-access/change-password", (req, res) => {
 
     if (!parsed.success) {
       res.status(400).json({
-        message: "Dados invalidos para troca de senha.",
+        message: "Dados inválidos para troca de senha.",
         issues: parsed.error.flatten()
       });
       return;
@@ -208,7 +208,7 @@ router.post("/first-access/change-password", (req, res) => {
 
     if (!passwordMatches) {
       res.status(401).json({
-        message: "Senha atual invalida."
+        message: "Senha atual inválida."
       });
       return;
     }
@@ -250,7 +250,7 @@ router.get("/me", requireAuth, (req, res) => {
   void (async () => {
     if (!req.auth) {
       res.status(401).json({
-        message: "Sessao invalida."
+        message: "Sessão inválida."
       });
       return;
     }
@@ -288,7 +288,7 @@ router.post("/logout", requireAuth, (req, res) => {
   void (async () => {
     if (!req.auth) {
       res.status(401).json({
-        message: "Sessao invalida."
+        message: "Sessão inválida."
       });
       return;
     }
@@ -315,7 +315,7 @@ router.post("/logout", requireAuth, (req, res) => {
     });
 
     res.json({
-      message: "Sessao encerrada com sucesso."
+      message: "Sessão encerrada com sucesso."
     });
   })().catch((error) => {
     res.status(500).json({
@@ -329,7 +329,7 @@ router.patch("/me/profile", requireAuth, profilePhotoUpload.single("photo"), (re
   void (async () => {
     if (!req.auth) {
       res.status(401).json({
-        message: "Sessao invalida."
+        message: "Sessão inválida."
       });
       return;
     }
@@ -344,7 +344,7 @@ router.patch("/me/profile", requireAuth, profilePhotoUpload.single("photo"), (re
 
     if (!parsed.success) {
       res.status(400).json({
-        message: "Dados invalidos para atualizacao do perfil.",
+        message: "Dados inválidos para atualização do perfil.",
         issues: parsed.error.flatten()
       });
       return;
@@ -400,7 +400,7 @@ router.patch("/me/profile", requireAuth, profilePhotoUpload.single("photo"), (re
 
       if (!passwordMatches) {
         res.status(401).json({
-          message: "Senha atual invalida."
+          message: "Senha atual inválida."
         });
         return;
       }

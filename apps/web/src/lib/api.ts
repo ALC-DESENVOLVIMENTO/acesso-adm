@@ -518,7 +518,7 @@ async function request<T>(path: string, options?: RequestInit & { body?: JsonBod
   const payload = (await response.json().catch(() => null)) as { message?: string } | null;
 
   if (!response.ok) {
-    throw new ApiError(payload?.message || "Falha na comunicacao com a API.", response.status);
+    throw new ApiError(payload?.message || "Falha na comunicação com a API.", response.status);
   }
 
   return payload as T;
@@ -533,7 +533,7 @@ async function requestFormData<T>(path: string, options: RequestInit & { body: F
   const payload = (await response.json().catch(() => null)) as { message?: string } | null;
 
   if (!response.ok) {
-    throw new ApiError(payload?.message || "Falha na comunicacao com a API.", response.status);
+    throw new ApiError(payload?.message || "Falha na comunicação com a API.", response.status);
   }
 
   return payload as T;
@@ -608,7 +608,7 @@ async function requestBlob(path: string, token: string) {
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new ApiError(payload?.message || "Falha na comunicacao com a API.", response.status);
+    throw new ApiError(payload?.message || "Falha na comunicação com a API.", response.status);
   }
 
   const contentDisposition = response.headers.get("content-disposition") || "";

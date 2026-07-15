@@ -384,7 +384,7 @@ async function resolveCandidateMatch(row: WorkbookRow, candidates: CandidateUplo
     : [];
 
   if (byCpf.length === 1) {
-    return { match: byCpf[0], reason: "CPF ou CNPJ + periodo" };
+    return { match: byCpf[0], reason: "CPF ou CNPJ + período" };
   }
 
   if (byCpf.length > 1) {
@@ -398,15 +398,15 @@ async function resolveCandidateMatch(row: WorkbookRow, candidates: CandidateUplo
       const filteredByValue = byCpfAndValue.filter((item) => moneyMatches(item.valorTotal, rowAmount)).map((item) => item.candidate);
 
       if (filteredByValue.length === 1) {
-        return { match: filteredByValue[0], reason: "CPF ou CNPJ + periodo + valor" };
+        return { match: filteredByValue[0], reason: "CPF ou CNPJ + período + valor" };
       }
 
       if (filteredByValue.length > 1) {
-        return { ambiguous: true, matches: filteredByValue, reason: "CPF ou CNPJ + periodo + valor" };
+        return { ambiguous: true, matches: filteredByValue, reason: "CPF ou CNPJ + período + valor" };
       }
     }
 
-    return { ambiguous: true, matches: byCpf, reason: "CPF ou CNPJ + periodo" };
+    return { ambiguous: true, matches: byCpf, reason: "CPF ou CNPJ + período" };
   }
 
   const byName = normalizedName
@@ -414,7 +414,7 @@ async function resolveCandidateMatch(row: WorkbookRow, candidates: CandidateUplo
     : [];
 
   if (byName.length === 1) {
-    return { match: byName[0], reason: rowAmount !== null ? "Motorista + periodo + valor" : "Motorista + periodo" };
+    return { match: byName[0], reason: rowAmount !== null ? "Motorista + período + valor" : "Motorista + período" };
   }
 
   if (byName.length > 1) {
@@ -428,15 +428,15 @@ async function resolveCandidateMatch(row: WorkbookRow, candidates: CandidateUplo
       const filteredByValue = byNameAndValue.filter((item) => moneyMatches(item.valorTotal, rowAmount)).map((item) => item.candidate);
 
       if (filteredByValue.length === 1) {
-        return { match: filteredByValue[0], reason: "Motorista + periodo + valor" };
+        return { match: filteredByValue[0], reason: "Motorista + período + valor" };
       }
 
       if (filteredByValue.length > 1) {
-        return { ambiguous: true, matches: filteredByValue, reason: "Motorista + periodo + valor" };
+        return { ambiguous: true, matches: filteredByValue, reason: "Motorista + período + valor" };
       }
     }
 
-    return { ambiguous: true, matches: byName, reason: rowAmount !== null ? "Motorista + periodo + valor" : "Motorista + periodo" };
+    return { ambiguous: true, matches: byName, reason: rowAmount !== null ? "Motorista + período + valor" : "Motorista + período" };
   }
 
   return { match: null, reason: "Nenhuma correspondencia segura" };
@@ -484,7 +484,7 @@ function determineValidation(row: WorkbookRow) {
       resultado: FinanceiroImportacaoItemResultado.cor_nao_reconhecida,
       regraAplicada: "Status nao informado",
       statusNovo: null,
-      mensagem: "Nao foi possivel identificar o status na coluna M."
+      mensagem: "Não foi possível identificar o status na coluna M."
     } as const;
   }
 
@@ -495,7 +495,7 @@ function determineValidation(row: WorkbookRow) {
       resultado: FinanceiroImportacaoItemResultado.cor_nao_reconhecida,
       regraAplicada: "Status nao reconhecido",
       statusNovo: null,
-      mensagem: "Nao foi possivel reconhecer o status da coluna M."
+      mensagem: "Não foi possível reconhecer o status da coluna M."
     } as const;
   }
 
@@ -509,8 +509,8 @@ function determineValidation(row: WorkbookRow) {
 
 function buildAmbiguousMessage(matches: CandidateUpload[], rowAmount: string | number | null | undefined, reason: string) {
   const sample = matches.slice(0, 3).map((candidate) => {
-    const motorista = candidate.motorista?.nome || "Nao informado";
-    const cpf = candidate.motorista?.cpf || "Nao informado";
+    const motorista = candidate.motorista?.nome || "Não informado";
+    const cpf = candidate.motorista?.cpf || "Não informado";
     return `${motorista} (${cpf}) #${candidate.id.slice(0, 8)}`;
   });
 
@@ -599,7 +599,7 @@ export async function createFinanceiroImportPreview(context: ImportContext) {
         situacaoValidacao: row.hasData
           ? FinanceiroImportacaoItemResultado.pagamento_nao_encontrado
           : FinanceiroImportacaoItemResultado.linha_vazia,
-        mensagem: row.hasData ? "Pagamento nao encontrado no periodo selecionado." : "Linha vazia.",
+        mensagem: row.hasData ? "Pagamento não encontrado no período selecionado." : "Linha vazia.",
         pagamentoId: null,
         motoristaId: null,
         baseId: context.baseId,
@@ -727,7 +727,7 @@ export async function confirmFinanceiroImport(importacaoId: string, userId: stri
   });
 
   if (!importacao) {
-    throw new Error("Importacao financeira nao encontrada.");
+    throw new Error("Importação financeira não encontrada.");
   }
 
   const validItems = importacao.itens.filter((item) => item.resultado === FinanceiroImportacaoItemResultado.valido);

@@ -686,7 +686,7 @@ function buildTimeline(
       id: `upload-${upload.id}`,
       type: "upload",
       title: `PDF anexado: ${upload.nomeOriginal}`,
-      subtitle: `${upload.usuario.nome} · ${upload.periodoPagamento?.nome || "Sem periodo"}`,
+      subtitle: `${upload.usuario.nome} · ${upload.periodoPagamento?.nome || "Sem período"}`,
       status: upload.status,
       at: upload.criadoEm
     })),
@@ -710,7 +710,7 @@ function buildTimeline(
       ...ticket.historicos.map((history) => ({
         id: `chamado-historico-${history.id}`,
         type: "chamado",
-        title: `Movimentacao do chamado`,
+        title: `Movimentação do chamado`,
         subtitle: `${history.usuario.nome} · ${history.descricao}`,
         status: ticket.status,
         at: history.criadoEm
@@ -721,7 +721,7 @@ function buildTimeline(
               id: `chamado-close-${ticket.id}`,
               type: "chamado",
               title: `Chamado encerrado: ${ticket.assunto || ticket.titulo}`,
-              subtitle: ticket.responsavel?.nome || "Sem responsavel",
+              subtitle: ticket.responsavel?.nome || "Sem responsável",
               status: ticket.status,
               at: ticket.encerradoEm
             }
@@ -1339,7 +1339,7 @@ router.get("/motoristas/:id", (req, res) => {
 router.patch("/motoristas/:id", (req, res) => {
   void (async () => {
     if (!req.auth) {
-      res.status(401).json({ message: "Sessao invalida." });
+      res.status(401).json({ message: "Sessão inválida." });
       return;
     }
 
@@ -1501,7 +1501,7 @@ router.patch("/motoristas/:id/classificacoes", (req, res) => {
 router.post("/motoristas/:id/notas", (req, res) => {
   void (async () => {
     if (!req.auth) {
-      res.status(401).json({ message: "Sessao invalida." });
+      res.status(401).json({ message: "Sessão inválida." });
       return;
     }
 
@@ -1558,7 +1558,7 @@ router.post("/motoristas/:id/notas", (req, res) => {
 router.patch("/motoristas/:id/notas/:notaId", (req, res) => {
   void (async () => {
     if (!req.auth) {
-      res.status(401).json({ message: "Sessao invalida." });
+      res.status(401).json({ message: "Sessão inválida." });
       return;
     }
 
@@ -1617,7 +1617,7 @@ router.patch("/motoristas/:id/notas/:notaId", (req, res) => {
 router.delete("/motoristas/:id/notas/:notaId", requireAdmin, (req, res) => {
   void (async () => {
     if (!req.auth) {
-      res.status(401).json({ message: "Sessao invalida." });
+      res.status(401).json({ message: "Sessão inválida." });
       return;
     }
 
@@ -1657,7 +1657,7 @@ router.delete("/motoristas/:id/notas/:notaId", requireAdmin, (req, res) => {
 router.post("/motoristas/:id/atendimentos", upload.array("attachments", 6), (req, res) => {
   void (async () => {
     if (!req.auth) {
-      res.status(401).json({ message: "Sessao invalida." });
+      res.status(401).json({ message: "Sessão inválida." });
       return;
     }
 
@@ -1723,7 +1723,7 @@ router.post("/motoristas/:id/atendimentos", upload.array("attachments", 6), (req
 router.post("/motoristas/:id/chamados", upload.array("attachments", 10), (req, res) => {
   void (async () => {
     if (!req.auth) {
-      res.status(401).json({ message: "Sessao invalida." });
+      res.status(401).json({ message: "Sessão inválida." });
       return;
     }
 
@@ -1828,7 +1828,7 @@ router.post("/motoristas/:id/chamados", upload.array("attachments", 10), (req, r
 router.post("/chamados/:id/movimentos", upload.array("attachments", 10), (req, res) => {
   void (async () => {
     if (!req.auth) {
-      res.status(401).json({ message: "Sessao invalida." });
+      res.status(401).json({ message: "Sessão inválida." });
       return;
     }
 
@@ -1904,7 +1904,7 @@ router.post("/chamados/:id/movimentos", upload.array("attachments", 10), (req, r
     });
 
     res.status(201).json({
-      message: "Movimentacao registrada."
+      message: "Movimentação registrada."
     });
   })().catch((error) => {
     res.status(500).json({
@@ -1917,7 +1917,7 @@ router.post("/chamados/:id/movimentos", upload.array("attachments", 10), (req, r
 router.post("/chamados/:id/encerrar", (req, res) => {
   void (async () => {
     if (!req.auth) {
-      res.status(401).json({ message: "Sessao invalida." });
+      res.status(401).json({ message: "Sessão inválida." });
       return;
     }
 
@@ -1964,7 +1964,7 @@ router.post("/chamados/:id/encerrar", (req, res) => {
       data: {
         chamadoId: chamado.id,
         usuarioId: req.auth.userId,
-        descricao: `Chamado encerrado. Motivo: ${motivoConclusao || "Nao informado"}`
+        descricao: `Chamado encerrado. Motivo: ${motivoConclusao || "Não informado"}`
       }
     });
 
