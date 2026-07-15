@@ -25,6 +25,10 @@ import { notifyPaymentStatusToPdfOnline } from "../../lib/pdfonline-bridge.js";
 const router = Router();
 const financeImportUpload = multer({
   storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 15 * 1024 * 1024,
+    files: 1
+  },
   fileFilter: (_req, file, callback) => {
     const lower = file.originalname.toLowerCase();
     const isExcel =

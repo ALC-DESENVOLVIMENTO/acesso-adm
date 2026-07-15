@@ -20,6 +20,10 @@ const router = Router();
 
 const profilePhotoUpload = multer({
   storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+    files: 1
+  },
   fileFilter: (_req, file, callback) => {
     const isImage =
       file.mimetype.startsWith("image/") ||

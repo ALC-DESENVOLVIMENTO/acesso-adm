@@ -22,6 +22,10 @@ import { upsertDriverPdfReceivedFromUpload } from "../../lib/driver-pdf-received
 const router = Router();
 const upload = multer({
   storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 25 * 1024 * 1024,
+    files: 20
+  },
   fileFilter: (_req, file, callback) => {
     const isPdf =
       file.mimetype === "application/pdf" || file.originalname.toLowerCase().endsWith(".pdf");

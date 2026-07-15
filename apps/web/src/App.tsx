@@ -28,7 +28,7 @@ import {
   UserCirclePlus,
   UsersThree
 } from "@phosphor-icons/react";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import {
   changeFirstAccessPassword,
   createUser,
@@ -83,7 +83,10 @@ import {
   type UserSummary
 } from "./lib/api";
 import { ApiError } from "./lib/api";
-import { FinanceiroScreen } from "./FinanceiroScreen";
+
+const FinanceiroScreen = lazy(() =>
+  import("./FinanceiroScreen").then((module) => ({ default: module.FinanceiroScreen }))
+);
 
 type AccessLevel = "N1" | "N2" | "N3" | "N4";
 type AuthView = "login" | "first-access";
@@ -1649,10 +1652,17 @@ function App() {
       >
         <List size={22} />
       </button>
-      {sidebarOpen ? <div className="shell-mobile-backdrop" onClick={() => setSidebarOpen(false)} /> : null}
-      <aside className="sidebar">
+      {sidebarOpen ? (
+        <button
+          className="shell-mobile-backdrop"
+          type="button"
+          aria-label="Fechar menu"
+          onClick={() => setSidebarOpen(false)}
+        />
+      ) : null}
+      <aside className="sidebar" aria-label="Menu principal">
         <div>
-          <nav className="sidebar__nav">
+          <nav className="sidebar__nav" aria-label="Navegação principal">
             {allowedMenu.map((item) => {
                   const Icon = item.icon;
                   const isActive = activeView === item.key;
@@ -1660,6 +1670,7 @@ function App() {
                     <button
                       key={item.key}
                       className={`sidebar__item ${isActive ? "sidebar__item--active" : ""}`}
+                      aria-current={isActive ? "page" : undefined}
                       onClick={() => navigateToRoute(item.key)}
                       type="button"
                     >
@@ -1683,7 +1694,7 @@ function App() {
             <img src={logoSrc} alt="ALC Pereira Filho Transportes" />
           </div>
           <div className="topbar__actions">
-            <button className="icon-button" type="button" aria-label="Notificacoes">
+            <button className="icon-button" type="button" aria-label="Notificações">
               <Bell size={22} />
             </button>
             <div className="topbar__profile" ref={profileMenuRef}>
@@ -1860,14 +1871,22 @@ function App() {
           </div>
         ) : null}
         {!accessDenied && activeView === "financeiro" ? (
-          <FinanceiroScreen
-            token={token}
-            currentUser={currentUser}
-            periods={paymentPeriods}
-            bases={paymentBases}
-            onRefreshPeriods={loadPeriodData}
-            onOpenMotorista={openMotoristaInAtendimento}
-          />
+          <Suspense
+            fallback={
+              <section className="panel" aria-live="polite">
+                <p className="loading-note">Carregando financeiro...</p>
+              </section>
+            }
+          >
+            <FinanceiroScreen
+              token={token}
+              currentUser={currentUser}
+              periods={paymentPeriods}
+              bases={paymentBases}
+              onRefreshPeriods={loadPeriodData}
+              onOpenMotorista={openMotoristaInAtendimento}
+            />
+          </Suspense>
         ) : null}
         {!accessDenied && activeView === "pdfs" ? (
           <PdfsScreen
