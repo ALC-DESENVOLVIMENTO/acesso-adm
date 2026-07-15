@@ -3,6 +3,10 @@ import multer from "multer";
 import { requireAdmin, requireAuth, requireModuleAccess } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
 import { extractTotalGeralValueFromSource } from "../../lib/financeiro-total-backfill.js";
+import {
+  PAYMENT_PROCESS_STATUS_LABELS,
+  resolvePaymentProcessStatus
+} from "../../lib/financeiro-payment-status.js";
 import { buildStorageObjectUrl, createStorageKey, fetchObjectBuffer, uploadObject } from "../../lib/storage.js";
 
 const router = Router();
@@ -79,7 +83,7 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
   pdf_enviado_ao_motorista: "PDF enviado ao motorista",
   motorista_visualizou: "PDF visualizado",
   aguardando_envio_nota_fiscal: "Aguardando envio da Nota Fiscal",
-  pago: "Pago",
+  ...PAYMENT_PROCESS_STATUS_LABELS,
   nota_fiscal_recebida: "Nota Fiscal recebida",
   nota_fiscal_em_analise: "Nota Fiscal em análise",
   nota_fiscal_aprovada: "Nota Fiscal aprovada",
@@ -936,7 +940,10 @@ async function loadMotoristaDetail(motoristaId: string) {
       const noteSentAt = noteReceipt?.uploadEm || null;
       const noteReceivedAt = noteReceipt?.aprovadoEm || noteReceipt?.rejeitadoEm || null;
       const noteStatus = noteReceipt?.status || "aguardando_envio_nota_fiscal";
-      const paymentStatus = upload.statusPagamento === "PAGO" ? "pago" : null;
+      const paymentStatus = resolvePaymentProcessStatus(
+        upload.statusPagamento,
+        upload.statusPagamentoOrigem
+      );
       const paymentDate = upload.statusPagamentoAtualizadoEm || noteReceivedAt || pdfViewedAt || pdfSentAt || null;
       const currentStatus =
         paymentStatus
@@ -972,7 +979,14 @@ async function loadMotoristaDetail(motoristaId: string) {
         notaFiscalEnviadaEm: noteSentAt ? toIso(noteSentAt) : null,
         notaFiscalRecebidaEm: noteReceivedAt ? toIso(noteReceivedAt) : null,
         pago: paid,
-        atualizadoEm: toIso(noteReceivedAt || pdfViewedAt || pdfSentAt || noteReceipt?.uploadEm || upload.criadoEm),
+        atualizadoEm: toIso(
+          upload.statusPagamentoAtualizadoEm ||
+            noteReceivedAt ||
+            pdfViewedAt ||
+            pdfSentAt ||
+            noteReceipt?.uploadEm ||
+            upload.criadoEm
+        ),
         pdfDownloadUrl: buildStorageObjectUrl(mirrorReceipt?.caminhoArquivo || upload.caminhoArquivo),
         notaFiscalDownloadUrl: buildStorageObjectUrl(noteReceipt?.caminhoArquivo)
       };

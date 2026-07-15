@@ -21,6 +21,10 @@ import {
 } from "./financeiro-import.js";
 import { buildAptosPagamentoPreview, buildAptosPagamentoWorkbook } from "../../lib/financeiro-apagar.js";
 import { notifyPaymentStatusToPdfOnline } from "../../lib/pdfonline-bridge.js";
+import {
+  PAYMENT_PROCESS_STATUS_LABELS,
+  resolvePaymentProcessStatus
+} from "../../lib/financeiro-payment-status.js";
 
 const router = Router();
 const financeImportUpload = multer({
@@ -58,6 +62,11 @@ const listFiltersSchema = z.object({
       "nota_fiscal_em_analise",
       "nota_fiscal_aprovada",
       "pago",
+      "pagamento_pendente",
+      "nota_fiscal_pendente",
+      "pagamento_bloqueado",
+      "tentativa_pagamento_falha",
+      "pagamento_em_revisao",
       "nota_fiscal_rejeitada",
       "em_atendimento",
       "chamado_aberto",
@@ -77,7 +86,7 @@ function formatStatusLabel(value: string) {
     pdf_enviado_ao_motorista: "PDF enviado ao motorista",
     motorista_visualizou: "PDF visualizado",
     aguardando_envio_nota_fiscal: "Aguardando envio da Nota Fiscal",
-    pago: "Pago",
+    ...PAYMENT_PROCESS_STATUS_LABELS,
     nota_fiscal_recebida: "Nota Fiscal recebida",
     nota_fiscal_em_analise: "Nota Fiscal em análise",
     nota_fiscal_aprovada: "Nota Fiscal aprovada",
@@ -524,7 +533,8 @@ router.post("/importacoes/preview", financeImportUpload.single("file"), (req, re
     const activePeriod = await prisma.periodoPagamento.findFirst({
       where: {
         id: parsed.data.periodId,
-        ativo: true
+        ativo: true,
+        status: "aprovado"
       },
       select: {
         id: true
@@ -533,7 +543,7 @@ router.post("/importacoes/preview", financeImportUpload.single("file"), (req, re
 
     if (!activePeriod) {
       res.status(409).json({
-        message: "O período selecionado está finalizado e não aceita atualizações financeiras."
+        message: "O período selecionado não está disponível no Financeiro."
       });
       return;
     }
@@ -575,15 +585,19 @@ router.post("/importacoes/:importacaoId/confirmar", (req, res) => {
       select: {
         periodoPagamento: {
           select: {
-            ativo: true
+            ativo: true,
+            status: true
           }
         }
       }
     });
 
-    if (importacao?.periodoPagamento && !importacao.periodoPagamento.ativo) {
+    if (
+      importacao?.periodoPagamento &&
+      (!importacao.periodoPagamento.ativo || importacao.periodoPagamento.status !== "aprovado")
+    ) {
       res.status(409).json({
-        message: "O período desta importação está finalizado. Reative-o antes de confirmar."
+        message: "O período desta importação não está disponível no Financeiro."
       });
       return;
     }
@@ -763,7 +777,8 @@ router.get("/summary", (_req, res) => {
     const [periods, bases, uploads] = await Promise.all([
       prisma.periodoPagamento.findMany({
         where: {
-          ativo: true
+          ativo: true,
+          status: "aprovado"
         },
         select: {
           id: true,
@@ -786,7 +801,8 @@ router.get("/summary", (_req, res) => {
             not: "removido"
           },
           periodoPagamento: {
-            ativo: true
+            ativo: true,
+            status: "aprovado"
           }
         },
         select: {
@@ -881,7 +897,8 @@ router.get("/periods/:periodId/bases", (req, res) => {
     const period = await prisma.periodoPagamento.findFirst({
       where: {
         id: periodId,
-        ativo: true
+        ativo: true,
+        status: "aprovado"
       },
       include: {
         bases: {
@@ -1032,7 +1049,8 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
     const activePeriod = await prisma.periodoPagamento.findFirst({
       where: {
         id: periodId,
-        ativo: true
+        ativo: true,
+        status: "aprovado"
       },
       select: {
         id: true
@@ -1221,7 +1239,10 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
               (right.uploadEm?.getTime() ?? 0) - (left.uploadEm?.getTime() ?? 0)
           )[0] || null;
       const noteReceipt = noteReceiptByUpload || noteReceiptByIdentity;
-      const paymentStatus = upload.statusPagamento === FinanceiroStatusPagamento.PAGO ? "pago" : null;
+      const paymentStatus = resolvePaymentProcessStatus(
+        upload.statusPagamento,
+        upload.statusPagamentoOrigem
+      );
 
       const ticketStatuses = upload.motorista.chamados.map((item) => item.status);
       const attendanceStatus = computeAttendanceStatus(ticketStatuses, upload.motorista.atendimentos.length);
@@ -1263,7 +1284,8 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
         statusLabel: formatStatusLabel(currentStatus),
         situacaoAtendimento: attendanceStatus,
         ultimaAtualizacao: toIso(
-          noteReceipt?.aprovadoEm ||
+          upload.statusPagamentoAtualizadoEm ||
+            noteReceipt?.aprovadoEm ||
             noteReceipt?.rejeitadoEm ||
             noteReceipt?.uploadEm ||
             mirrorReceipt?.visualizadoEm ||
@@ -1394,7 +1416,8 @@ router.get("/periods/:periodId/export", (req, res) => {
     const period = await prisma.periodoPagamento.findFirst({
       where: {
         id: periodId,
-        ativo: true
+        ativo: true,
+        status: "aprovado"
       },
       select: {
         id: true,

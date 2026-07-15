@@ -506,7 +506,8 @@ async function buildCandidateRows(periodId: string, baseId?: string | null) {
   const period = await prisma.periodoPagamento.findFirst({
     where: {
       id: periodId,
-      ativo: true
+      ativo: true,
+      status: "aprovado"
     },
     select: {
       id: true,

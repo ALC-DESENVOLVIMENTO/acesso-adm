@@ -906,21 +906,6 @@ router.patch("/:id/lifecycle", requireAdmin, (req, res) => {
       return period;
     });
 
-    void notifyPdfOnline(
-      "portal.period.lifecycle_changed",
-      {
-        periodId: updated.id,
-        name: updated.nome,
-        active: updated.ativo
-      },
-      {
-        userId: auth.userId,
-        periodId: updated.id
-      }
-    ).catch((error) => {
-      console.warn("PDF Online bridge period-lifecycle notify failed:", error instanceof Error ? error.message : error);
-    });
-
     res.json({
       message: updated.ativo
         ? "Periodo reativado e disponivel no Financeiro."

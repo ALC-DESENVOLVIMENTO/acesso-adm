@@ -112,6 +112,11 @@ function formatStatusLabel(value: string) {
     motorista_visualizou: "Motorista visualizou o PDF",
     aguardando_envio_nota_fiscal: "Aguardando NF",
     pago: "Pago",
+    pagamento_pendente: "Pagamento Pendente",
+    nota_fiscal_pendente: "Nota Fiscal Pendente",
+    pagamento_bloqueado: "Pagamento Bloqueado",
+    tentativa_pagamento_falha: "Tentativa de Pagamento sem Sucesso",
+    pagamento_em_revisao: "Pagamento em Revisão",
     nota_fiscal_recebida: "Nota Fiscal recebida",
     nota_fiscal_em_analise: "Nota Fiscal em análise",
     nota_fiscal_aprovada: "Nota Fiscal aprovada",
@@ -158,11 +163,18 @@ function financeStatusClass(status: string) {
     return "finance-status-pill finance-status-pill--success";
   }
 
-  if (["nota_fiscal_rejeitada"].includes(status)) {
+  if (["nota_fiscal_rejeitada", "pagamento_bloqueado"].includes(status)) {
     return "finance-status-pill finance-status-pill--danger";
   }
 
-  if (["nota_fiscal_em_analise", "aguardando_envio_nota_fiscal"].includes(status)) {
+  if (
+    [
+      "nota_fiscal_em_analise",
+      "aguardando_envio_nota_fiscal",
+      "nota_fiscal_pendente",
+      "tentativa_pagamento_falha"
+    ].includes(status)
+  ) {
     return "finance-status-pill finance-status-pill--warning";
   }
 
@@ -170,7 +182,15 @@ function financeStatusClass(status: string) {
     return "finance-status-pill finance-status-pill--info";
   }
 
-  if (["pdf_aguardando_envio", "pdf_enviado_ao_motorista", "motorista_visualizou"].includes(status)) {
+  if (
+    [
+      "pdf_aguardando_envio",
+      "pdf_enviado_ao_motorista",
+      "motorista_visualizou",
+      "pagamento_pendente",
+      "pagamento_em_revisao"
+    ].includes(status)
+  ) {
     return "finance-status-pill finance-status-pill--neutral";
   }
 
@@ -231,7 +251,7 @@ export function FinanceiroScreen({
   );
 
   const visiblePeriods = useMemo(() => {
-    return periods.filter((period) => period.active !== false);
+    return periods.filter((period) => period.status === "aprovado" && period.active !== false);
   }, [periods]);
 
   const allowedBases = useMemo(() => {
@@ -592,8 +612,11 @@ export function FinanceiroScreen({
       setImportMessage(
         `${result.updatedItems.length} pagamentos atualizados. ${result.webhookResults.filter((item) => item.ok).length} webhooks processados.`
       );
-      await loadImportacaoDetalhe(currentImportacao.id);
-      await loadSummary();
+      await Promise.all([
+        loadImportacaoDetalhe(currentImportacao.id),
+        loadSummary(),
+        selectedPeriodId ? loadMotoristas(selectedPeriodId, selectedBaseId) : Promise.resolve()
+      ]);
     } catch (error) {
       setImportError(error instanceof Error ? error.message : "Falha ao confirmar importação.");
     } finally {
@@ -971,6 +994,11 @@ export function FinanceiroScreen({
                   <option value="nota_fiscal_em_analise">Em análise</option>
                   <option value="nota_fiscal_aprovada">Aprovada</option>
                   <option value="pago">Pago</option>
+                  <option value="pagamento_pendente">Pagamento Pendente</option>
+                  <option value="nota_fiscal_pendente">Nota Fiscal Pendente</option>
+                  <option value="pagamento_bloqueado">Pagamento Bloqueado</option>
+                  <option value="tentativa_pagamento_falha">Tentativa sem Sucesso</option>
+                  <option value="pagamento_em_revisao">Pagamento em Revisão</option>
                   <option value="nota_fiscal_rejeitada">Rejeitada</option>
                   <option value="em_atendimento">Em atendimento</option>
                   <option value="chamado_aberto">Chamado aberto</option>

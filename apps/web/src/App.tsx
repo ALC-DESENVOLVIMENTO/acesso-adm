@@ -2918,12 +2918,12 @@ function PeriodsScreen({
   );
 
   const activePeriods = useMemo(
-    () => periods.filter((period) => period.active !== false),
+    () => periods.filter((period) => period.status === "disponivel"),
     [periods]
   );
 
   const finishedPeriods = useMemo(
-    () => periods.filter((period) => period.active === false),
+    () => periods.filter((period) => period.status !== "disponivel"),
     [periods]
   );
 
@@ -3110,17 +3110,19 @@ function PeriodsScreen({
                 </div>
 
                 <div className="period-card__actions">
-                  <label className="period-lifecycle-control">
-                    <span>Situação</span>
-                    <select
-                      aria-label={`Situação do período ${period.name}`}
-                      value={period.active !== false ? "active" : "finished"}
-                      onChange={(event) => void onUpdatePeriodLifecycle(period.id, event.target.value === "active")}
-                    >
-                      <option value="active">Ativo</option>
-                      <option value="finished">Finalizado</option>
-                    </select>
-                  </label>
+                  {activeTab === "finished" ? (
+                    <label className="period-lifecycle-control">
+                      <span>Visibilidade no Financeiro</span>
+                      <select
+                        aria-label={`Visibilidade do período ${period.name} no Financeiro`}
+                        value={period.active !== false ? "active" : "finished"}
+                        onChange={(event) => void onUpdatePeriodLifecycle(period.id, event.target.value === "active")}
+                      >
+                        <option value="active">Ativo</option>
+                        <option value="finished">Finalizado</option>
+                      </select>
+                    </label>
+                  ) : null}
                   <button
                     className="ghost-button ghost-button--small ghost-button--danger"
                     type="button"
@@ -3146,7 +3148,7 @@ function PeriodsScreen({
                       )
                     }
                   >
-                    {period.status === "disponivel" ? "Encerrar envios" : "Reabrir envios"}
+                    {period.status === "disponivel" ? "Finalizar período" : "Reabrir período"}
                   </button>
                   {activeTab === "active" ? (
                     <button
@@ -3525,10 +3527,7 @@ function PdfsScreen({
   const [selectedBaseId, setSelectedBaseId] = useState("");
   const [expandedBatchKey, setExpandedBatchKey] = useState("");
 
-  const availablePeriods = useMemo(
-    () => periods.filter((period) => period.active !== false && period.status === "disponivel"),
-    [periods]
-  );
+  const availablePeriods = useMemo(() => periods.filter((period) => period.status === "disponivel"), [periods]);
   const selectedPeriod = availablePeriods.find((period) => period.id === selectedPeriodId) || null;
   const allowedBases = selectedPeriod
     ? selectedPeriod.paymentType === "mensal"
