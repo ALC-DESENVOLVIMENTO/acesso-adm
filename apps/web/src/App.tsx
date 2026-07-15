@@ -38,6 +38,7 @@ import {
   deleteUser,
   deleteUpload,
   downloadUpload,
+  fetchDashboardActivities,
   fetchDashboardSummary,
   fetchAtendimentoClassificacoes,
   fetchAtendimentoMotorista,
@@ -68,6 +69,7 @@ import {
   updateUser,
   updateUserStatus,
   uploadPdfs,
+  type DashboardActivity,
   type DashboardSummary,
   type AtendimentoClassificacao,
   type AtendimentoDetail,
@@ -98,6 +100,14 @@ type SessionUser = LoginResponse["user"];
 type FlashMessage = {
   type: "success" | "error";
   text: string;
+};
+
+type AppNotification = {
+  id: string;
+  title: string;
+  message: string;
+  createdAt: string;
+  read: boolean;
 };
 
 type ProfileModalMode = "name" | "photo" | "password" | null;
@@ -215,7 +225,8 @@ const initialSummary: DashboardSummary = {
   closedTickets: 0,
   usersCount: 0,
   periodSummaries: [],
-  recentActivities: []
+  recentActivities: [],
+  recentActivitiesTotal: 0
 };
 
 const logoSrc = "/alc-logotipo-dark.png";
@@ -356,7 +367,13 @@ function App() {
   const [passwordError, setPasswordError] = useState("");
   const [loadingMessage, setLoadingMessage] = useState("");
   const [flashMessage, setFlashMessage] = useState<FlashMessage | null>(null);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [activitiesModalOpen, setActivitiesModalOpen] = useState(false);
+  const [activitiesSearch, setActivitiesSearch] = useState("");
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [activitiesResult, setActivitiesResult] = useState<DashboardActivity[]>([]);
   const [profileModalMode, setProfileModalMode] = useState<ProfileModalMode>(null);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => readStoredTheme());
   const [profileActionError, setProfileActionError] = useState("");
@@ -394,7 +411,9 @@ function App() {
   const [periodDataLoaded, setPeriodDataLoaded] = useState(false);
   const requestedRouteRef = useRef<RouteView | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
+  const notificationsRef = useRef<HTMLDivElement | null>(null);
   const shouldUseDarkTheme = Boolean(currentUser) && themeMode === "dark";
+  const unreadNotifications = notifications.filter((item) => !item.read).length;
 
   const allowedMenu = useMemo(() => {
     if (!currentUser) {
@@ -502,6 +521,11 @@ function App() {
     setProfileActionError("");
     setProfileActionLoading(false);
     setProfileMenuOpen(false);
+    setNotificationsOpen(false);
+    setNotifications([]);
+    setActivitiesModalOpen(false);
+    setActivitiesSearch("");
+    setActivitiesResult([]);
     setProfileModalMode(null);
     setLoadingMessage("");
     setFlashMessage(null);
@@ -548,6 +572,36 @@ function App() {
     const summary = await fetchDashboardSummary(token);
     setDashboardSummary(summary);
     setDashboardLoaded(true);
+  };
+
+  const loadDashboardActivities = async (search = activitiesSearch) => {
+    if (!token) {
+      return;
+    }
+
+    setActivitiesLoading(true);
+
+    try {
+      const response = await fetchDashboardActivities(token, search);
+      setActivitiesResult(response.activities);
+    } catch (error) {
+      setFlashMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Falha ao carregar atividades."
+      });
+    } finally {
+      setActivitiesLoading(false);
+    }
+  };
+
+  const pushNotification = (notification: Omit<AppNotification, "read">) => {
+    setNotifications((current) => [
+      {
+        ...notification,
+        read: false
+      },
+      ...current.filter((item) => item.id !== notification.id)
+    ].slice(0, 12));
   };
 
   const loadUsersData = async () => {
@@ -673,6 +727,38 @@ function App() {
       document.removeEventListener("mousedown", handlePointerDown);
     };
   }, [profileMenuOpen]);
+
+  useEffect(() => {
+    if (!notificationsOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+
+      if (target && notificationsRef.current && !notificationsRef.current.contains(target)) {
+        setNotificationsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [notificationsOpen]);
+
+  useEffect(() => {
+    if (!activitiesModalOpen || !token) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      void loadDashboardActivities(activitiesSearch);
+    }, 220);
+
+    return () => window.clearTimeout(timeout);
+  }, [activitiesModalOpen, activitiesSearch, token]);
 
   useEffect(() => {
     if (!token || !currentUser || view === "login" || view === "first-access") {
@@ -928,6 +1014,11 @@ function App() {
     setProfileActionError("");
     setProfileActionLoading(false);
     setProfileMenuOpen(false);
+    setNotificationsOpen(false);
+    setNotifications([]);
+    setActivitiesModalOpen(false);
+    setActivitiesSearch("");
+    setActivitiesResult([]);
     setProfileModalMode(null);
     setLoadingMessage("");
     setFlashMessage(null);
@@ -1111,8 +1202,20 @@ function App() {
 
     try {
       const response = await createPaymentPeriod(token, payload);
-      setFlashMessage({ type: "success", text: response.message });
+      const periodName = response.period?.name || payload.name;
+
+      pushNotification({
+        id: `period-created-${response.period?.id || Date.now()}`,
+        title: "Periodo criado",
+        message: `${periodName} ja esta disponivel para envio de espelhos.`,
+        createdAt: new Date().toISOString()
+      });
+      setFlashMessage({
+        type: "success",
+        text: `${response.message} ${periodName} ja esta disponivel para envio.`
+      });
       await loadPeriodData();
+      await loadDashboardSummary();
       return true;
     } catch (error) {
       setFlashMessage({
@@ -1777,9 +1880,56 @@ function App() {
             <img src={logoSrc} alt="ALC Pereira Filho Transportes" />
           </div>
           <div className="topbar__actions">
-            <button className="icon-button" type="button" aria-label="Notificações">
-              <Bell size={22} />
-            </button>
+            <div className="notification-area" ref={notificationsRef}>
+              <button
+                className={`icon-button notification-button ${unreadNotifications ? "notification-button--has-items" : ""}`}
+                type="button"
+                aria-label="Notificacoes"
+                aria-expanded={notificationsOpen}
+                aria-haspopup="menu"
+                onClick={() => {
+                  setNotificationsOpen((current) => !current);
+                  setNotifications((current) => current.map((item) => ({ ...item, read: true })));
+                }}
+              >
+                <Bell size={22} />
+                {unreadNotifications ? <span className="notification-button__badge">{unreadNotifications}</span> : null}
+              </button>
+
+              {notificationsOpen ? (
+                <div className="notification-menu" role="menu" aria-label="Notificacoes recentes">
+                  <div className="notification-menu__header">
+                    <strong>Notificacoes</strong>
+                    <span>{notifications.length} registro(s)</span>
+                  </div>
+                  <div className="notification-menu__list">
+                    {notifications.length > 0 ? (
+                      notifications.map((item) => {
+                        const createdAt = formatDateTimeParts(item.createdAt);
+
+                        return (
+                          <div className="notification-menu__item" key={item.id} role="menuitem">
+                            <CalendarBlank size={18} />
+                            <div>
+                              <strong>{item.title}</strong>
+                              <span>{item.message}</span>
+                              <small>
+                                {createdAt.date} as {createdAt.time}
+                              </small>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="notification-menu__empty">
+                        <strong>Nenhuma notificacao nova</strong>
+                        <span>Novos periodos criados vao aparecer aqui.</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
             <div className="topbar__profile" ref={profileMenuRef}>
               <button
                 className="profile-chip cta-motion cta-motion--profile"
@@ -1885,6 +2035,72 @@ function App() {
           </div>
         ) : null}
 
+        {activitiesModalOpen ? (
+          <div className="modal-overlay" role="presentation">
+            <div className="modal-card modal-card--activities" role="dialog" aria-modal="true" aria-labelledby="activities-title">
+              <div className="modal-card__header">
+                <div>
+                  <p className="eyebrow">Auditoria operacional</p>
+                  <h3 id="activities-title">Todas as atividades</h3>
+                  <p>Pesquise por periodo, arquivo, motorista ou tipo de movimentacao.</p>
+                </div>
+                <button
+                  className="ghost-button"
+                  type="button"
+                  onClick={() => {
+                    setActivitiesModalOpen(false);
+                    setActivitiesSearch("");
+                  }}
+                >
+                  Fechar
+                </button>
+              </div>
+
+              <label className="search-field activity-search-field">
+                <MagnifyingGlass size={18} />
+                <input
+                  value={activitiesSearch}
+                  onChange={(event) => setActivitiesSearch(event.target.value)}
+                  placeholder="Buscar atividade"
+                />
+              </label>
+
+              <div className="activity-list activity-list--modal">
+                {activitiesLoading ? <p className="loading-note">Carregando atividades...</p> : null}
+                {!activitiesLoading && activitiesResult.length > 0 ? (
+                  activitiesResult.map((item) => {
+                    const occurredAt = formatDateTimeParts(item.occurredAt);
+
+                    return (
+                      <div className="activity-item" key={item.id}>
+                        <div className="activity-item__icon">
+                          {item.icon === "pdf" ? <FilePdf size={22} /> : null}
+                          {item.icon === "calendar" ? <CalendarBlank size={22} /> : null}
+                          {item.icon === "view" ? <Eye size={22} /> : null}
+                        </div>
+                        <div className="activity-item__body">
+                          <strong>{item.title}</strong>
+                          <span>{item.subtitle}</span>
+                        </div>
+                        <div className="activity-item__meta">
+                          <span>{occurredAt.date}</span>
+                          <small>{occurredAt.time}</small>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : null}
+                {!activitiesLoading && activitiesResult.length === 0 ? (
+                  <div className="empty-state">
+                    <strong>Nenhuma atividade encontrada</strong>
+                    <span>Tente buscar por outro periodo, arquivo ou motorista.</span>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {accessDenied ? (
           <AccessDeniedScreen
             route={accessDenied.route}
@@ -1900,6 +2116,10 @@ function App() {
             onNavigate={navigateToRoute}
             onOpenCreateUser={openUsersCreateModal}
             onOpenPdfUpload={openPdfUploadShortcut}
+            onOpenActivities={() => {
+              setActivitiesModalOpen(true);
+              void loadDashboardActivities("");
+            }}
             onUpdateQuickActions={setQuickActions}
             onCloseQuickActions={() => setQuickActionsOpen(false)}
             onOpenQuickActions={() => setQuickActionsOpen(true)}
@@ -2334,6 +2554,7 @@ function DashboardScreen({
   onNavigate,
   onOpenCreateUser,
   onOpenPdfUpload,
+  onOpenActivities,
   onUpdateQuickActions,
   onCloseQuickActions,
   onOpenQuickActions,
@@ -2346,6 +2567,7 @@ function DashboardScreen({
   onNavigate: (route: RouteView) => void;
   onOpenCreateUser: () => void;
   onOpenPdfUpload: () => void;
+  onOpenActivities: () => void;
   onUpdateQuickActions: (routes: RouteView[]) => void;
   onCloseQuickActions: () => void;
   onOpenQuickActions: () => void;
@@ -2574,8 +2796,11 @@ function DashboardScreen({
           <div className="panel__header">
             <div>
               <h3>Atividades Recentes</h3>
-              <p>Últimas ações auditadas no sistema</p>
+              <p>Movimentacoes operacionais auditadas no sistema</p>
             </div>
+            <button className="ghost-button" type="button" onClick={onOpenActivities}>
+              Ver todas
+            </button>
           </div>
 
           <div className="activity-list">
@@ -2587,7 +2812,7 @@ function DashboardScreen({
                   <div className="activity-item" key={item.id}>
                     <div className="activity-item__icon">
                       {item.icon === "pdf" ? <FilePdf size={22} /> : null}
-                      {item.icon === "user" ? <UserCirclePlus size={22} /> : null}
+                      {item.icon === "calendar" ? <CalendarBlank size={22} /> : null}
                       {item.icon === "view" ? <Eye size={22} /> : null}
                     </div>
                     <div className="activity-item__body">
@@ -2604,7 +2829,7 @@ function DashboardScreen({
             ) : (
               <div className="empty-state">
                 <strong>Nenhuma atividade recente</strong>
-                <span>As proximas acoes auditadas do sistema vao aparecer aqui.</span>
+                <span>Envios, periodos e alteracoes de espelho vao aparecer aqui.</span>
               </div>
             )}
           </div>

@@ -37,6 +37,14 @@ export type LoginResponse = {
 
 export type SessionResponse = LoginResponse;
 
+export type DashboardActivity = {
+  id: string;
+  icon: "pdf" | "view" | "calendar";
+  title: string;
+  subtitle: string;
+  occurredAt: string | null;
+};
+
 export type DashboardSummary = {
   pdfsSent: number;
   pendingPdfs: number;
@@ -55,13 +63,13 @@ export type DashboardSummary = {
     notesReceived: number;
     notesPending: number;
   }>;
-  recentActivities: Array<{
-    id: string;
-    icon: "pdf" | "user" | "view";
-    title: string;
-    subtitle: string;
-    occurredAt: string | null;
-  }>;
+  recentActivities: DashboardActivity[];
+  recentActivitiesTotal: number;
+};
+
+export type DashboardActivitiesResponse = {
+  activities: DashboardActivity[];
+  total: number;
 };
 
 export type UploadRow = {
@@ -696,6 +704,16 @@ export function fetchDashboardSummary(token: string) {
   });
 }
 
+export function fetchDashboardActivities(token: string, search = "") {
+  const suffix = search.trim() ? `?search=${encodeURIComponent(search.trim())}` : "";
+
+  return request<DashboardActivitiesResponse>(`/dashboard/activities${suffix}`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
 export function fetchUploads(token: string) {
   return request<UploadRow[]>("/uploads", {
     headers: {
@@ -944,7 +962,7 @@ export function exportFinanceiroAptosPagamento(
 }
 
 export function createPaymentPeriod(token: string, body: CreatePaymentPeriodPayload) {
-  return request<{ message: string }>("/periods", {
+  return request<{ message: string; period?: PaymentPeriod }>("/periods", {
     method: "POST",
     body,
     headers: {
