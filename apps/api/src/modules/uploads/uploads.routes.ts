@@ -694,8 +694,8 @@ router.delete("/:id", (req, res) => {
     });
 
     if (!upload) {
-      res.status(404).json({
-        message: "Upload não encontrado."
+      res.json({
+        message: "PDF removido ou não estava mais disponível na fila."
       });
       return;
     }
@@ -703,6 +703,13 @@ router.delete("/:id", (req, res) => {
     if (!req.auth || (!canSeeAllUploads(req.auth) && upload.usuarioId !== req.auth.userId)) {
       res.status(404).json({
         message: "Arquivo não encontrado."
+      });
+      return;
+    }
+
+    if (upload.status === UploadStatus.removido) {
+      res.json({
+        message: "PDF já estava removido da fila."
       });
       return;
     }
