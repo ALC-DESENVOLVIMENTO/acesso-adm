@@ -365,33 +365,46 @@ router.get("/summary", (_req, res) => {
     }
 
     const latestUploadsByPeriod = new Map<string, Map<string, (typeof periodUploads)[number]>>();
+    const paidDriversByPeriodId = new Map<string, Set<string>>();
 
     for (const upload of periodUploads) {
-      if (childUploadIds.has(upload.id) || upload.documentType === "nota_fiscal") {
-        continue;
-      }
-
       const periodId = upload.periodoPagamentoId || periodIdByUploadId.get(upload.id);
       if (!periodId) {
         continue;
       }
 
+      const uploadScope = buildUploadScopeKeyFromReceipt(upload, receiptsByUploadId);
+
+      if (upload.statusPagamento === "PAGO") {
+        const currentPaid = paidDriversByPeriodId.get(periodId) || new Set<string>();
+        currentPaid.add(uploadScope);
+        paidDriversByPeriodId.set(periodId, currentPaid);
+      }
+
+      if (childUploadIds.has(upload.id) || upload.documentType === "nota_fiscal") {
+        continue;
+      }
+
       const current = latestUploadsByPeriod.get(periodId) || new Map<string, (typeof periodUploads)[number]>();
-      current.set(buildUploadScopeKeyFromReceipt(upload, receiptsByUploadId), upload);
+      current.set(uploadScope, upload);
       latestUploadsByPeriod.set(periodId, current);
     }
 
     const notesByPeriodId = new Map<string, Set<string>>();
+    const mirrorReceiptsByPeriodId = new Map<string, Set<string>>();
 
     for (const receipt of periodReceipts) {
-      if (!isNotaFiscalReceipt(receipt)) {
-        continue;
-      }
-
       const upload = receipt.uploadPdfId ? uploadById.get(receipt.uploadPdfId) : null;
       const periodId = receipt.periodoPagamentoId || upload?.periodoPagamentoId;
 
       if (!periodId) {
+        continue;
+      }
+
+      if (!isNotaFiscalReceipt(receipt)) {
+        const currentMirrors = mirrorReceiptsByPeriodId.get(periodId) || new Set<string>();
+        currentMirrors.add(buildReceiptScopeKey(receipt, uploadById));
+        mirrorReceiptsByPeriodId.set(periodId, currentMirrors);
         continue;
       }
 
@@ -402,10 +415,13 @@ router.get("/summary", (_req, res) => {
 
     const periodSummaries = recentPeriods.map((period) => {
       const periodUploadMap = latestUploadsByPeriod.get(period.id) || new Map<string, (typeof periodUploads)[number]>();
-      const pdfsSent = periodUploadMap.size;
+      const mirrorScopes = new Set<string>([
+        ...Array.from(periodUploadMap.keys()),
+        ...Array.from(mirrorReceiptsByPeriodId.get(period.id) || [])
+      ]);
+      const pdfsSent = mirrorScopes.size;
       const notesReceived = notesByPeriodId.get(period.id)?.size || 0;
-      const paidDrivers = Array.from(periodUploadMap.values()).filter((upload) => upload.statusPagamento === "PAGO")
-        .length;
+      const paidDrivers = paidDriversByPeriodId.get(period.id)?.size || 0;
 
       return {
         id: period.id,
