@@ -7,6 +7,7 @@ import { fetchObjectBuffer } from "../../lib/storage.js";
 const SUPPORTED_SHEETS = ["Resumido"];
 const MAX_IMPORT_ROWS = 5_000;
 const MAX_IMPORT_COLUMNS = 40;
+const FAVORECIDO_DOCUMENT_KEYS = ["CNPJ do Favorecido", "CPF do Favorecido"];
 
 const BLOCK_CODES = new Set(["BLOQOXPAY", "BLOQ", "BOLQOXPAY"]);
 type ImportContext = {
@@ -84,6 +85,8 @@ function normalizeHeader(header: string) {
       return "Motorista";
     case "FAVORECIDO":
       return "Favorecido";
+    case "CNPJDOFAVORECIDO":
+      return "CNPJ do Favorecido";
     case "CPFDOFAVORECIDO":
       return "CPF do Favorecido";
     case "TOTAL":
@@ -105,6 +108,18 @@ function normalizeHeader(header: string) {
 
 function normalizeDigits(value: string | null | undefined) {
   return String(value || "").replace(/\D/g, "");
+}
+
+function getFavorecidoDocument(row: WorkbookRow) {
+  for (const key of FAVORECIDO_DOCUMENT_KEYS) {
+    const value = row.rowValues[key];
+
+    if (value) {
+      return value;
+    }
+  }
+
+  return "";
 }
 
 function toStringValue(value: ExcelCellValue) {
@@ -384,8 +399,8 @@ function dedupeLatestCandidates(candidates: CandidateUpload[]) {
 
 async function resolveCandidateMatch(row: WorkbookRow, candidates: CandidateUpload[]) {
   const motorista = row.rowValues["Motorista"] || row.rowValues["Favorecido"] || "";
-  const cpf = row.rowValues["CPF do Favorecido"] || "";
-  const cpfDigits = normalizeDigits(cpf);
+  const favorecidoDocument = getFavorecidoDocument(row);
+  const cpfDigits = normalizeDigits(favorecidoDocument);
   const normalizedName = normalizeCompact(motorista);
   const rowAmount = parseMoneyNumber(row.rowValues["Total"]);
   const uniqueCandidates = dedupeLatestCandidates(candidates);
@@ -481,12 +496,12 @@ function determineValidation(row: WorkbookRow) {
     } as const;
   }
 
-  if (!row.rowValues["Motorista"] && !row.rowValues["Favorecido"] && !row.rowValues["CPF do Favorecido"]) {
+  if (!row.rowValues["Motorista"] && !row.rowValues["Favorecido"] && !getFavorecidoDocument(row)) {
     return {
       resultado: FinanceiroImportacaoItemResultado.sem_identificador,
       regraAplicada: "Sem identificador",
       statusNovo: null,
-      mensagem: "Linha sem motorista ou CPF/CNPJ."
+      mensagem: "Linha sem motorista ou CNPJ do favorecido."
     } as const;
   }
 
@@ -575,7 +590,7 @@ export async function createFinanceiroImportPreview(context: ImportContext) {
         numeroLinha: row.numeroLinha,
         identificador: row.rowValues["Motorista"] || row.rowValues["Favorecido"] || null,
         motorista: row.rowValues["Motorista"] || row.rowValues["Favorecido"] || null,
-        cpfCnpj: row.rowValues["CPF do Favorecido"] || null,
+        cpfCnpj: getFavorecidoDocument(row) || null,
         periodo: period?.nome || null,
         valor: formatCurrency(row.rowValues["Total"]),
         codigoObb: row.rowValues["CodOBB"] || null,
@@ -599,7 +614,7 @@ export async function createFinanceiroImportPreview(context: ImportContext) {
         numeroLinha: row.numeroLinha,
         identificador: row.rowValues["Motorista"] || row.rowValues["Favorecido"] || null,
         motorista: row.rowValues["Motorista"] || row.rowValues["Favorecido"] || null,
-        cpfCnpj: row.rowValues["CPF do Favorecido"] || null,
+        cpfCnpj: getFavorecidoDocument(row) || null,
         periodo: period?.nome || null,
         valor: formatCurrency(row.rowValues["Total"]),
         codigoObb: row.rowValues["CodOBB"] || null,
@@ -625,7 +640,7 @@ export async function createFinanceiroImportPreview(context: ImportContext) {
         numeroLinha: row.numeroLinha,
         identificador: row.rowValues["Motorista"] || row.rowValues["Favorecido"] || null,
         motorista: matchResult.match.motorista?.nome || row.rowValues["Motorista"] || row.rowValues["Favorecido"] || null,
-        cpfCnpj: matchResult.match.motorista?.cpf || row.rowValues["CPF do Favorecido"] || null,
+        cpfCnpj: getFavorecidoDocument(row) || null,
         periodo: period?.nome || matchResult.match.periodoPagamento?.nome || null,
         valor: formatCurrency(row.rowValues["Total"]),
         codigoObb: row.rowValues["CodOBB"] || null,
@@ -650,7 +665,7 @@ export async function createFinanceiroImportPreview(context: ImportContext) {
       numeroLinha: row.numeroLinha,
       identificador: row.rowValues["Motorista"] || row.rowValues["Favorecido"] || null,
       motorista: matchResult.match.motorista?.nome || row.rowValues["Motorista"] || row.rowValues["Favorecido"] || null,
-      cpfCnpj: matchResult.match.motorista?.cpf || row.rowValues["CPF do Favorecido"] || null,
+      cpfCnpj: getFavorecidoDocument(row) || null,
       periodo: period?.nome || matchResult.match.periodoPagamento?.nome || null,
       valor: formatCurrency(row.rowValues["Total"]),
       codigoObb: row.rowValues["CodOBB"] || null,

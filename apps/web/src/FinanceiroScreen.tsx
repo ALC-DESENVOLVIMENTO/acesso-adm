@@ -1393,7 +1393,7 @@ export function FinanceiroScreen({
                     <th>Linha</th>
                     <th>Identificador</th>
                     <th>Motorista</th>
-                    <th>CPF/CNPJ</th>
+                    <th>CNPJ do Favorecido</th>
                     <th>Cod.OBB</th>
                     <th>Status planilha</th>
                     <th>Status atual</th>

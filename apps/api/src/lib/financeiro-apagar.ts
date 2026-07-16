@@ -435,12 +435,14 @@ async function buildAptosPreviewRows(rows: CandidateRow[]) {
     ).trim();
     const cpfFavorecido = normalizeCpfOrCnpj(
       String(
-        registryMatch?.raw.cpf_favorecido ||
+        registryMatch?.raw.cnpj_favorecido ||
+          registryMatch?.raw.cnpj_do_favorecido ||
+          registryMatch?.raw.favorecido_cnpj ||
+          registryMatch?.raw.beneficiary_cnpj ||
+          registryMatch?.raw.cpf_favorecido ||
           registryMatch?.raw.cpf_do_favorecido ||
           registryMatch?.raw.favorecido_cpf ||
           registryMatch?.raw.beneficiary_cpf ||
-          registryMatch?.raw.cnpj_favorecido ||
-          registryMatch?.raw.favorecido_cnpj ||
           registryMatch?.cpf ||
           ""
       )
@@ -458,7 +460,7 @@ async function buildAptosPreviewRows(rows: CandidateRow[]) {
     }
 
     if (!cpfFavorecido || !/^\d{11,14}$/.test(cpfFavorecido)) {
-      missing.push({ field: "cpf_favorecido", reason: "CPF do favorecido ausente ou invalido" });
+      missing.push({ field: "cnpj_favorecido", reason: "CNPJ do favorecido ausente ou invalido" });
     }
 
     if (!baseMotorista) {
@@ -723,7 +725,7 @@ export function buildWorkbook(preview: AptosPagamentoPreview) {
   const headers = [
     "Nome Motorista",
     "Nome Favorecido",
-    "CPF do Favorecido",
+    "CNPJ do Favorecido",
     "Valor Total do PDF",
     "Base do Motorista"
   ];
@@ -731,7 +733,7 @@ export function buildWorkbook(preview: AptosPagamentoPreview) {
   const dataRows = preview.aptos.map((row) => ({
     "Nome Motorista": row.nomeMotorista,
     "Nome Favorecido": row.nomeFavorecido,
-    "CPF do Favorecido": row.cpfFavorecido,
+    "CNPJ do Favorecido": row.cpfFavorecido,
     "Valor Total do PDF": row.valorTotalPdf ?? "",
     "Base do Motorista": row.baseMotorista
   }));
