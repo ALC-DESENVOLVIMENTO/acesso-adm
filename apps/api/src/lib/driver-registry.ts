@@ -22,8 +22,8 @@ const DRIVER_REGISTRY_DISPLAY_NAME_CANDIDATES = [
   "normalized_name"
 ];
 const DRIVER_REGISTRY_CPF_CANDIDATES = [
-  "cpf",
   "cpf_digits",
+  "cpf",
   "document_number",
   "documento",
   "documento_numero",
@@ -31,6 +31,7 @@ const DRIVER_REGISTRY_CPF_CANDIDATES = [
   "cpf_cnpj"
 ];
 const DRIVER_REGISTRY_CNPJ_CANDIDATES = [
+  "cnpj_digits",
   "cnpj",
   "cnpj_favorecido",
   "cnpj_do_favorecido",
@@ -265,7 +266,7 @@ export async function searchDriverRegistryMatches(options: {
 
   const tableRef = buildTableRef(metadata.schema);
   const orderBy = nameColumn ? quoteIdentifier(nameColumn) : quoteIdentifier("id");
-  const sql = `SELECT * FROM ${tableRef} WHERE ${conditions.join(" OR ")} ORDER BY ${orderBy} ASC LIMIT 20`;
+  const sql = `SELECT * FROM ${tableRef} WHERE ${conditions.join(" AND ")} ORDER BY ${orderBy} ASC LIMIT 20`;
   const rows = await prisma.$queryRawUnsafe<DriverRegistryRow[]>(sql, ...params);
 
   return rows.map(mapRegistryRow);
@@ -319,18 +320,45 @@ export async function resolveDriverRegistryByIdentity(options: {
     return null;
   }
 
-  if (cpfDigits || cnpjDigits) {
-    const exactMatch = matches.find((item) => item.cpfDigits === cpfDigits || digitsOnly(item.cnpj) === cnpjDigits);
-    if (exactMatch) {
-      return exactMatch;
+  let candidates = matches;
+
+  if (name) {
+    const exactNameMatches = candidates.filter((item) => {
+      const registryName =
+        getRecordValue(item.raw, DRIVER_REGISTRY_SEARCH_NAME_CANDIDATES) || item.nome;
+      return normalizeText(registryName) === name;
+    });
+
+    if (exactNameMatches.length === 1) {
+      return exactNameMatches[0];
+    }
+
+    if (exactNameMatches.length > 1) {
+      candidates = exactNameMatches;
     }
   }
 
-  if (matches.length === 1) {
-    return matches[0];
+  if (cpfDigits || cnpjDigits) {
+    const exactDocumentMatches = candidates.filter(
+      (item) =>
+        (cpfDigits && item.cpfDigits === cpfDigits) ||
+        (cnpjDigits && digitsOnly(item.cnpj) === cnpjDigits)
+    );
+
+    if (exactDocumentMatches.length === 1) {
+      return exactDocumentMatches[0];
+    }
+
+    if (exactDocumentMatches.length > 1) {
+      candidates = exactDocumentMatches;
+    }
   }
 
-  return { ambiguous: true as const, matches };
+  if (candidates.length === 1) {
+    return candidates[0];
+  }
+
+  return { ambiguous: true as const, matches: candidates };
 }
 
 export async function ensureMotoristaFromRegistryMatch(match: DriverRegistryMatch) {

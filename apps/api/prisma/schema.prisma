@@ -286,6 +286,8 @@ model UploadPdf {
   status             UploadStatus
   usuarioId          String        @map("usuario_id") @db.Uuid
   motoristaId        String?       @map("motorista_id") @db.Uuid
+  motoristaNomeExtraido String?    @map("motorista_nome_extraido") @db.VarChar(180)
+  motoristaCnpjExtraido String?    @map("motorista_cnpj_extraido") @db.VarChar(20)
   periodoPagamentoId String?       @map("periodo_pagamento_id") @db.Uuid
   basePagamentoId    String?       @map("base_pagamento_id") @db.Uuid
   substituiUploadId  String?       @map("substitui_upload_id") @db.Uuid

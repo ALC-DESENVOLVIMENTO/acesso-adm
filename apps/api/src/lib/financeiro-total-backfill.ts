@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma.js";
+import { extractPdfText, type PdfSource } from "./pdf-text.js";
 import { fetchObjectBuffer } from "./storage.js";
 
 export function parseMoneyNumber(value: string | number | null | undefined) {
@@ -20,12 +21,7 @@ export function parseMoneyNumber(value: string | number | null | undefined) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-type PdfSource = {
-  caminhoArquivo?: string | null;
-  content?: Buffer | Uint8Array | null;
-};
-
-async function parsePdfTextFromSource(source: PdfSource | null | undefined) {
+export async function extractPdfTextFromSource(source: PdfSource | null | undefined) {
   if (!source) {
     return null;
   }
@@ -41,50 +37,11 @@ async function parsePdfTextFromSource(source: PdfSource | null | undefined) {
     return null;
   }
 
-  try {
-    const pdfParseModule = await import("pdf-parse");
-    const legacyParser = (pdfParseModule as unknown as { default?: unknown }).default;
-    const modernParser = (pdfParseModule as unknown as {
-      PDFParse?: new (params: { data: Buffer }) => {
-        getText: () => Promise<{ text: string }>;
-        destroy?: () => Promise<void>;
-      };
-    }).PDFParse;
-
-    const parsed =
-      typeof legacyParser === "function"
-        ? await (legacyParser as (buffer: Buffer) => Promise<{ text: string }>)(candidateBuffer)
-        : modernParser
-          ? await parseWithModernPdfParser(modernParser, candidateBuffer)
-          : null;
-
-    if (!parsed) {
-      return null;
-    }
-
-    return String(parsed.text || "").replace(/\s+/g, " ");
-  } catch {
-    return null;
-  }
-}
-
-async function parseWithModernPdfParser(
-  PDFParse: new (params: { data: Buffer }) => {
-    getText: () => Promise<{ text: string }>;
-    destroy?: () => Promise<void>;
-  },
-  candidateBuffer: Buffer
-) {
-  const parser = new PDFParse({ data: candidateBuffer });
-  try {
-    return await parser.getText();
-  } finally {
-    await parser.destroy?.();
-  }
+  return extractPdfText(candidateBuffer);
 }
 
 export async function extractTotalGeralValueFromSource(source: PdfSource | null | undefined) {
-  const text = await parsePdfTextFromSource(source);
+  const text = await extractPdfTextFromSource(source);
   if (!text) {
     return null;
   }

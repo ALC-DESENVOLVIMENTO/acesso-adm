@@ -29,6 +29,18 @@ const REQUIRED_UPLOAD_TABLE_COLUMNS: CompatibilityColumn[] = [
     comment: "Adicionar coluna valor_total_pdf em uploads_pdf"
   },
   {
+    table: "uploads_pdf",
+    column: "motorista_nome_extraido",
+    typeSql: "VARCHAR(180)",
+    comment: "Adicionar nome extraido do espelho em uploads_pdf"
+  },
+  {
+    table: "uploads_pdf",
+    column: "motorista_cnpj_extraido",
+    typeSql: "VARCHAR(20)",
+    comment: "Adicionar CNPJ extraido do espelho em uploads_pdf"
+  },
+  {
     table: "driver_pdf_received",
     column: "content",
     typeSql: "BYTEA",

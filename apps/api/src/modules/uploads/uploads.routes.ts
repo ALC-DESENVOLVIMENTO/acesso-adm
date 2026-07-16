@@ -19,6 +19,7 @@ import {
 } from "../../lib/driver-registry.js";
 import { upsertDriverPdfReceivedFromUpload } from "../../lib/driver-pdf-received.js";
 import { DocumentTypeCode, type DocumentTypeCode as DocumentTypeCodeValue } from "../../lib/document-types.js";
+import { extractPaymentMirrorIdentity } from "../../lib/payment-mirror-pdf.js";
 
 const router = Router();
 const MAX_UPLOAD_FILES_PER_REQUEST = 100;
@@ -200,7 +201,13 @@ function normalizeFileIdentityOptions(body: Record<string, unknown>, fileName: s
 }
 
 async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseName: string, body: Record<string, unknown>) {
-  const identity = normalizeFileIdentityOptions(body, file.originalname);
+  const providedIdentity = normalizeFileIdentityOptions(body, file.originalname);
+  const pdfIdentity = await extractPaymentMirrorIdentity(file.buffer);
+  const identity = {
+    ...providedIdentity,
+    name: pdfIdentity?.name || providedIdentity.name,
+    cnpj: pdfIdentity?.cnpj || providedIdentity.cnpj
+  };
   const resolved = await resolveDriverRegistryByIdentity(identity);
 
   if (!resolved) {
@@ -285,6 +292,8 @@ export async function reconcilePendingUploadsFromRegistry() {
       id: true,
       nomeOriginal: true,
       caminhoArquivo: true,
+      motoristaNomeExtraido: true,
+      motoristaCnpjExtraido: true,
       periodoPagamentoId: true,
       basePagamentoId: true,
       status: true,
@@ -303,7 +312,9 @@ export async function reconcilePendingUploadsFromRegistry() {
 
   for (const upload of pendingUploads) {
     const resolved = await resolveDriverRegistryByIdentity({
-      fileName: upload.nomeOriginal
+      fileName: upload.nomeOriginal,
+      name: upload.motoristaNomeExtraido || undefined,
+      cnpj: upload.motoristaCnpjExtraido || undefined
     });
 
     if (!resolved || "ambiguous" in resolved) {
@@ -507,15 +518,17 @@ router.post("/", upload.array("files", MAX_UPLOAD_FILES_PER_REQUEST), (req, res)
       return;
     }
 
-    const resolvedFiles = await Promise.all(
-      files.map(async (file) => {
+    const resolvedFiles = await mapWithConcurrency(
+      files,
+      STORAGE_UPLOAD_CONCURRENCY,
+      async (file) => {
         const resolved = await resolveUploadMotorista(file, selectedBase.nome, req.body as Record<string, unknown>);
 
         return {
           file,
           ...resolved
         };
-      })
+      }
     );
 
     const validationErrors = resolvedFiles.flatMap((item) =>
@@ -555,7 +568,7 @@ router.post("/", upload.array("files", MAX_UPLOAD_FILES_PER_REQUEST), (req, res)
       validFiles,
       STORAGE_UPLOAD_CONCURRENCY,
       async (item) => {
-        const { file, motoristaId, motoristaNome, motoristaCpf, baseName } = item;
+        const { file, motoristaId, motoristaNome, motoristaCpf, motoristaCnpj, baseName } = item;
         const storageKey = assertPaymentMirrorStorageKey(createStorageKey(storageFolder, file.originalname));
 
         try {
@@ -576,6 +589,8 @@ router.post("/", upload.array("files", MAX_UPLOAD_FILES_PER_REQUEST), (req, res)
               status: UploadStatus.pendente,
               usuarioId: auth.userId,
               motoristaId: motoristaId || null,
+              motoristaNomeExtraido: motoristaNome,
+              motoristaCnpjExtraido: motoristaCnpj,
               periodoPagamentoId: periodId,
               basePagamentoId: basePaymentId
             },

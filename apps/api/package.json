@@ -7,7 +7,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "prisma generate && tsc -p tsconfig.json",
     "start": "node dist/bootstrap.js && node dist/server.js",
-    "test": "tsx --test src/lib/financeiro-apagar.test.ts src/lib/financeiro-payment-status.test.ts",
+    "test": "tsx --test src/lib/financeiro-apagar.test.ts src/lib/financeiro-payment-status.test.ts src/lib/payment-mirror-pdf.test.ts",
     "bootstrap": "node dist/bootstrap.js",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
