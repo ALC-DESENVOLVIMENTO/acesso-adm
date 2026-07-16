@@ -1,4 +1,5 @@
-import { DocumentTypeCode, DriverPdfReceivedStatus, PrismaClient } from "@prisma/client";
+import { DriverPdfReceivedStatus, PrismaClient } from "@prisma/client";
+import { DocumentTypeCode } from "../src/lib/document-types.js";
 
 const prisma = new PrismaClient();
 const applyChanges = process.argv.includes("--apply");

@@ -1,4 +1,4 @@
-import { DocumentTypeCode, Prisma, UploadStatus } from "@prisma/client";
+import { Prisma, UploadStatus } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { Router } from "express";
 import multer from "multer";
@@ -18,6 +18,7 @@ import {
   resolveDriverRegistryByIdentity
 } from "../../lib/driver-registry.js";
 import { upsertDriverPdfReceivedFromUpload } from "../../lib/driver-pdf-received.js";
+import { DocumentTypeCode, type DocumentTypeCode as DocumentTypeCodeValue } from "../../lib/document-types.js";
 
 const router = Router();
 const MAX_UPLOAD_FILES_PER_REQUEST = 100;
@@ -67,7 +68,7 @@ function uploadOwnerScope(auth: NonNullable<Express.Request["auth"]>) {
   return canSeeAllUploads(auth) ? {} : { usuarioId: auth.userId };
 }
 
-function isPaymentMirrorUpload(upload: { documentType?: DocumentTypeCode | null; status: UploadStatus | string }) {
+function isPaymentMirrorUpload(upload: { documentType?: DocumentTypeCodeValue | string | null; status: UploadStatus | string }) {
   if (upload.documentType === DocumentTypeCode.nota_fiscal) {
     return false;
   }
@@ -265,7 +266,7 @@ async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseNam
   } as const;
 }
 
-async function reconcilePendingUploadsFromRegistry() {
+export async function reconcilePendingUploadsFromRegistry() {
   const pendingUploads = await prisma.uploadPdf.findMany({
     where: {
       status: UploadStatus.pendente,
@@ -315,32 +316,30 @@ async function reconcilePendingUploadsFromRegistry() {
       continue;
     }
 
-    const updated = await prisma.uploadPdf.update({
+    const claimed = await prisma.uploadPdf.updateMany({
       where: {
-        id: upload.id
+        id: upload.id,
+        motoristaId: null,
+        status: UploadStatus.pendente
       },
       data: {
         motoristaId,
         status: UploadStatus.processado
-      },
-      select: {
-        id: true,
-        motoristaId: true,
-        periodoPagamentoId: true,
-        basePagamentoId: true,
-        nomeOriginal: true,
-        caminhoArquivo: true
       }
     });
 
+    if (claimed.count === 0) {
+      continue;
+    }
+
     if (upload.periodoPagamento?.status === "aprovado") {
       await upsertDriverPdfReceivedFromUpload({
-        uploadPdfId: updated.id,
-        motoristaId: updated.motoristaId || motoristaId,
-        periodId: updated.periodoPagamentoId || "",
-        basePaymentId: updated.basePagamentoId || "",
-        fileName: updated.nomeOriginal,
-        storageKey: updated.caminhoArquivo,
+        uploadPdfId: upload.id,
+        motoristaId,
+        periodId: upload.periodoPagamentoId || "",
+        basePaymentId: upload.basePagamentoId || "",
+        fileName: upload.nomeOriginal,
+        storageKey: upload.caminhoArquivo,
         createdByUserId: null
       });
     }

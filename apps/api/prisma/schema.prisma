@@ -27,11 +27,6 @@ enum UploadStatus {
   removido
 }
 
-enum DocumentTypeCode {
-  espelho
-  nota_fiscal
-}
-
 enum TicketStatus {
   aberto
   em_andamento
@@ -285,7 +280,7 @@ model UploadPdf {
   nomeArquivo        String        @map("nome_arquivo") @db.VarChar(255)
   nomeOriginal       String        @map("nome_original") @db.VarChar(255)
   caminhoArquivo     String        @map("caminho_arquivo")
-  documentType       DocumentTypeCode? @map("document_type")
+  documentType       String?       @map("document_type") @db.Text
   content            Bytes?        @map("content")
   versao             Int           @default(1)
   status             UploadStatus
@@ -511,7 +506,7 @@ model DriverPdfReceived {
   basePagamentoId      String?                 @map("base_pagamento_id") @db.Uuid
   nomeArquivo          String?                 @map("nome_arquivo") @db.VarChar(255)
   caminhoArquivo       String?                 @map("caminho_arquivo")
-  documentType         DocumentTypeCode?       @map("document_type")
+  documentType         String?                 @map("document_type") @db.Text
   tipoArquivo          String?                 @map("tipo_arquivo") @db.VarChar(80)
   uploadEm             DateTime                @default(now()) @map("upload_em")
   usuarioId            String?                 @map("usuario_id") @db.Uuid

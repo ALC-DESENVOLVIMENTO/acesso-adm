@@ -1,4 +1,5 @@
-import { DocumentTypeCode, DriverPdfReceivedStatus, Prisma } from "@prisma/client";
+import { DriverPdfReceivedStatus, Prisma } from "@prisma/client";
+import { DocumentTypeCode, type DocumentTypeCode as DocumentTypeCodeValue } from "./document-types.js";
 import { prisma } from "./prisma.js";
 
 const noteStatuses: DriverPdfReceivedStatus[] = [
@@ -112,7 +113,7 @@ function buildReceivedWhere(input: {
   return null;
 }
 
-async function setDriverPdfDocumentType(id: string, documentType: DocumentTypeCode) {
+async function setDriverPdfDocumentType(id: string, documentType: DocumentTypeCodeValue) {
   await prisma.$executeRaw(Prisma.sql`
     update "driver_pdf_received"
        set "document_type" = ${documentType}

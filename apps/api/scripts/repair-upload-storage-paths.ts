@@ -1,4 +1,5 @@
-import { DocumentTypeCode, DriverPdfReceivedStatus, PrismaClient, UploadStatus } from "@prisma/client";
+import { DriverPdfReceivedStatus, PrismaClient, UploadStatus } from "@prisma/client";
+import { DocumentTypeCode, type DocumentTypeCode as DocumentTypeCodeValue } from "../src/lib/document-types.js";
 import { isPaymentMirrorStorageKey } from "../src/lib/storage.js";
 
 const prisma = new PrismaClient();
@@ -25,7 +26,7 @@ type UploadRow = {
 type MirrorRow = {
   id: string;
   uploadPdfId: string | null;
-  documentType: DocumentTypeCode | null;
+  documentType: DocumentTypeCodeValue | null;
   status: DriverPdfReceivedStatus;
   nomeArquivo: string | null;
   caminhoArquivo: string | null;
