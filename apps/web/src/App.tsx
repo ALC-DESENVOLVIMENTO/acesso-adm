@@ -1354,7 +1354,10 @@ function App() {
         type: uploadedTotal > 0 ? "success" : "error",
         text:
           failedFiles.length > 0
-            ? `${uploadedTotal} PDF(s) enviado(s). ${failedFiles.length} arquivo(s) precisam de revisao.`
+            ? `${uploadedTotal} PDF(s) enviado(s). ${failedFiles.length} arquivo(s) precisam de revisao. ${failedFiles
+                .slice(0, 3)
+                .map((file) => `${file.fileName}: ${file.message}`)
+                .join(" | ")}`
             : `${uploadedTotal} PDF(s) enviado(s) com sucesso.`
       });
       await Promise.all([loadUploadsData(), loadDashboardSummary()]);

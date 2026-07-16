@@ -229,7 +229,11 @@ async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseNam
 
     if (!match) {
       return {
-        error: `Motorista duplicado ou sem identificacao suficiente para o arquivo ${file.originalname}. Informe CPF ou CNPJ para validar o pre-cadastro.`
+        pending: true,
+        motoristaNome: identity.name || file.originalname,
+        motoristaCpf: identity.cpf || "",
+        motoristaCnpj: identity.cnpj || null,
+        baseName: selectedBaseName
       } as const;
     }
   }
@@ -244,7 +248,11 @@ async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseNam
 
   if (!motoristaId) {
     return {
-      error: `Não foi possível sincronizar o motorista ${match.nome} no banco de dados.`
+      pending: true,
+      motoristaNome: match.nome,
+      motoristaCpf: match.cpfDigits || match.cpf || "",
+      motoristaCnpj: match.cnpj || null,
+      baseName: match.base || selectedBaseName
     } as const;
   }
 
