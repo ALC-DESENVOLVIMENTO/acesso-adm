@@ -1,15 +1,25 @@
 import { prisma } from "./prisma.js";
 
 const DRIVER_REGISTRY_TABLE = "driver_registry_entities";
-const DRIVER_REGISTRY_NAME_CANDIDATES = [
-  "display_name",
+const DRIVER_REGISTRY_SEARCH_NAME_CANDIDATES = [
   "normalized_name",
+  "display_name",
   "nome",
   "name",
   "full_name",
   "nome_completo",
   "driver_name",
   "razao_social"
+];
+const DRIVER_REGISTRY_DISPLAY_NAME_CANDIDATES = [
+  "display_name",
+  "nome",
+  "name",
+  "full_name",
+  "nome_completo",
+  "driver_name",
+  "razao_social",
+  "normalized_name"
 ];
 const DRIVER_REGISTRY_CPF_CANDIDATES = [
   "cpf",
@@ -178,17 +188,7 @@ function mapRegistryRow(row: DriverRegistryRow): DriverRegistryMatch {
 
   return {
     externalId: String(getRecordValue(row, ["id", "uuid", "codigo", "driver_id", "identificador"]) || ""),
-    nome:
-      getRecordValue(row, [
-        "display_name",
-        "normalized_name",
-        "nome",
-        "name",
-        "full_name",
-        "nome_completo",
-        "driver_name",
-        "razao_social"
-      ]) || "Sem nome",
+    nome: getRecordValue(row, DRIVER_REGISTRY_DISPLAY_NAME_CANDIDATES) || "Sem nome",
     cpf,
     cpfDigits: digitsOnly(cpf),
     cnpj: getRecordValue(row, [...DRIVER_REGISTRY_CNPJ_CANDIDATES, "cnpj"]) || null,
@@ -233,7 +233,7 @@ export async function searchDriverRegistryMatches(options: {
     return [];
   }
 
-  const nameColumn = getColumn(metadata, DRIVER_REGISTRY_NAME_CANDIDATES);
+  const nameColumn = getColumn(metadata, DRIVER_REGISTRY_SEARCH_NAME_CANDIDATES);
   const cpfColumn = getColumn(metadata, [...DRIVER_REGISTRY_CPF_CANDIDATES, "cpf_numero", "cpf_cnpj"]);
   const cnpjColumn = getColumn(metadata, DRIVER_REGISTRY_CNPJ_CANDIDATES);
 
