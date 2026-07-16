@@ -766,9 +766,7 @@ function App() {
 
       try {
         if (activeView === "dashboard") {
-          if (!dashboardLoaded) {
-            await loadDashboardSummary();
-          }
+          await loadDashboardSummary();
 
           return;
         }
@@ -776,22 +774,22 @@ function App() {
         const tasks: Promise<unknown>[] = [];
 
         if (activeView === "users") {
-          if (canSeeUsersData && !usersLoaded) {
+          if (canSeeUsersData) {
             tasks.push(loadUsersData());
           }
         }
 
         if (activeView === "pdfs") {
-          if (canSeePdfData && !uploadsLoaded) {
+          if (canSeePdfData) {
             tasks.push(loadUploadsData());
           }
 
-          if (canSeePeriodData && !periodDataLoaded) {
+          if (canSeePeriodData) {
             tasks.push(loadPeriodData());
           }
         }
 
-        if ((activeView === "periods" || activeView === "financeiro") && canSeePeriodData && !periodDataLoaded) {
+        if ((activeView === "periods" || activeView === "financeiro") && canSeePeriodData) {
           tasks.push(loadPeriodData());
         }
 
@@ -835,11 +833,7 @@ function App() {
     canSeePeriodData,
     canSeeUsersData,
     currentUser,
-    dashboardLoaded,
-    periodDataLoaded,
     token,
-    uploadsLoaded,
-    usersLoaded,
     view
   ]);
 
