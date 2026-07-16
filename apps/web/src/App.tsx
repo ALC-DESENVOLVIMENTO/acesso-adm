@@ -1326,13 +1326,37 @@ function App() {
     });
 
     try {
-      const response = await uploadPdfs(token, files, fields, (progress) => {
-        setUploadProgress({
-          ...progress,
-          label: "Enviando PDFs..."
+      const uploadBatchSize = 10;
+      const fileBatches: File[][] = [];
+      for (let index = 0; index < files.length; index += uploadBatchSize) {
+        fileBatches.push(files.slice(index, index + uploadBatchSize));
+      }
+
+      let uploadedTotal = 0;
+      const failedFiles: Array<{ fileName: string; message: string }> = [];
+
+      for (let index = 0; index < fileBatches.length; index += 1) {
+        const batch = fileBatches[index];
+        const response = await uploadPdfs(token, batch, fields, (progress) => {
+          setUploadProgress({
+            ...progress,
+            label: `Enviando lote ${index + 1}/${fileBatches.length}...`
+          });
         });
+
+        uploadedTotal += response.uploaded ?? batch.length;
+        if (response.failed?.length) {
+          failedFiles.push(...response.failed);
+        }
+      }
+
+      setFlashMessage({
+        type: uploadedTotal > 0 ? "success" : "error",
+        text:
+          failedFiles.length > 0
+            ? `${uploadedTotal} PDF(s) enviado(s). ${failedFiles.length} arquivo(s) precisam de revisao.`
+            : `${uploadedTotal} PDF(s) enviado(s) com sucesso.`
       });
-      setFlashMessage({ type: "success", text: response.message });
       await Promise.all([loadUploadsData(), loadDashboardSummary()]);
       navigateToRoute("pdfs");
     } catch (error) {

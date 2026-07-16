@@ -511,16 +511,18 @@ router.post("/", upload.array("files", MAX_UPLOAD_FILES_PER_REQUEST), (req, res)
       })
     );
 
-    const validationError = resolvedFiles.find((item) => "error" in item);
+    const validationErrors = resolvedFiles.flatMap((item) =>
+      "error" in item
+        ? [
+            {
+              fileName: item.file.originalname,
+              message: item.error
+            }
+          ]
+        : []
+    );
 
-    if (validationError && "error" in validationError) {
-      res.status(400).json({
-        message: validationError.error
-      });
-      return;
-    }
-
-    const validFiles = resolvedFiles as Array<
+    const validFiles = resolvedFiles.filter((item) => !("error" in item)) as Array<
       {
         file: Express.Multer.File;
         motoristaId?: string | null;
@@ -532,64 +534,78 @@ router.post("/", upload.array("files", MAX_UPLOAD_FILES_PER_REQUEST), (req, res)
       }
     >;
 
+    if (validFiles.length === 0) {
+      res.status(400).json({
+        message: validationErrors[0]?.message || "Nenhum PDF valido para upload.",
+        uploaded: 0,
+        failed: validationErrors
+      });
+      return;
+    }
+
     const storageFolder = ["uploads", `periodos/${periodId}`, `bases/${basePaymentId}`].join("/");
-    const preparedFiles = await mapWithConcurrency(
+    const processedFiles = await mapWithConcurrency(
       validFiles,
       STORAGE_UPLOAD_CONCURRENCY,
       async (item) => {
         const { file, motoristaId, motoristaNome, motoristaCpf, baseName } = item;
         const storageKey = assertPaymentMirrorStorageKey(createStorageKey(storageFolder, file.originalname));
 
-        await uploadObject({
-          key: storageKey,
-          body: file.buffer,
-          contentType: file.mimetype
-        });
+        try {
+          await uploadObject({
+            key: storageKey,
+            body: file.buffer,
+            contentType: file.mimetype
+          });
 
-        return {
-          file,
-          storageKey,
-          motoristaId,
-          motoristaNome,
-          motoristaCpf,
-          baseName,
-          baseMismatch: normalizeText(baseName || "") !== normalizeText(selectedBase.nome)
-        };
+          const created = await prisma.uploadPdf.create({
+            data: {
+              id: randomUUID(),
+              nomeArquivo: file.originalname,
+              nomeOriginal: file.originalname,
+              caminhoArquivo: storageKey,
+              documentType: DocumentTypeCode.espelho,
+              versao: 1,
+              status: UploadStatus.pendente,
+              usuarioId: auth.userId,
+              motoristaId: motoristaId || null,
+              periodoPagamentoId: periodId,
+              basePagamentoId: basePaymentId
+            },
+            select: {
+              id: true
+            }
+          });
+
+          return {
+            ok: true as const,
+            id: created.id,
+            fileName: file.originalname,
+            motoristaNome,
+            motoristaCpf,
+            baseName,
+            baseMismatch: normalizeText(baseName || "") !== normalizeText(selectedBase.nome)
+          };
+        } catch (error) {
+          return {
+            ok: false as const,
+            fileName: file.originalname,
+            message: error instanceof Error ? error.message : "Falha desconhecida ao processar arquivo."
+          };
+        }
       }
     );
 
-    for (const prepared of preparedFiles) {
-      const motoristaIdSql = prepared.motoristaId
-        ? Prisma.sql`cast(${prepared.motoristaId} as uuid)`
-        : Prisma.sql`null`;
-      await prisma.$executeRaw(Prisma.sql`
-        insert into "uploads_pdf" (
-          "id",
-          "nome_arquivo",
-          "nome_original",
-          "caminho_arquivo",
-          "document_type",
-          "versao",
-          "status",
-          "usuario_id",
-          "motorista_id",
-          "periodo_pagamento_id",
-          "base_pagamento_id"
-        ) values (
-          cast(${randomUUID()} as uuid),
-          ${prepared.file.originalname},
-          ${prepared.file.originalname},
-          ${prepared.storageKey},
-          ${DocumentTypeCode.espelho},
-          ${1},
-          cast(${UploadStatus.pendente} as "UploadStatus"),
-          cast(${auth.userId} as uuid),
-          ${motoristaIdSql},
-          cast(${periodId} as uuid),
-          cast(${basePaymentId} as uuid)
-        )
-      `);
-    }
+    const uploadedFiles = processedFiles.filter((item) => item.ok);
+    const failedFiles = [
+      ...validationErrors,
+      ...processedFiles
+        .filter((item) => !item.ok)
+        .map((item) => ({
+          fileName: item.fileName,
+          message: item.message
+        }))
+    ];
 
     await prisma.logAuditoria.create({
       data: {
@@ -600,6 +616,8 @@ router.post("/", upload.array("files", MAX_UPLOAD_FILES_PER_REQUEST), (req, res)
         userAgent: req.get("user-agent") || null,
         detalhes: {
           quantidade: files.length,
+          enviados: uploadedFiles.length,
+          falhas: failedFiles,
           arquivos: files.map((file) => file.originalname),
           periodId,
           basePaymentId
@@ -607,8 +625,13 @@ router.post("/", upload.array("files", MAX_UPLOAD_FILES_PER_REQUEST), (req, res)
       }
     });
 
-    res.status(201).json({
-      message: "Upload concluído com sucesso."
+    res.status(failedFiles.length > 0 ? 207 : 201).json({
+      message:
+        failedFiles.length > 0
+          ? `${uploadedFiles.length} PDF(s) enviado(s). ${failedFiles.length} arquivo(s) precisam de revisao.`
+          : "Upload concluido com sucesso.",
+      uploaded: uploadedFiles.length,
+      failed: failedFiles
     });
   })().catch((error) => {
     res.status(500).json({

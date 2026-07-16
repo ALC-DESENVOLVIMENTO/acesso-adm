@@ -1122,7 +1122,11 @@ export function uploadPdfs(
   const formData = new FormData();
   files.forEach((file) => formData.append("files", file));
 
-  return requestUpload<{ message: string }>({
+  return requestUpload<{
+    message: string;
+    uploaded?: number;
+    failed?: Array<{ fileName: string; message: string }>;
+  }>({
     path: "/uploads",
     token,
     body: formData,
