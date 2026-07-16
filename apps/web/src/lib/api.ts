@@ -62,6 +62,7 @@ export type DashboardSummary = {
     pdfsSent: number;
     notesReceived: number;
     notesPending: number;
+    paidDrivers: number;
   }>;
   recentActivities: DashboardActivity[];
   recentActivitiesTotal: number;

@@ -2790,6 +2790,10 @@ function DashboardScreen({
                       <strong>{period.notesPending}</strong>
                       <small>Notas fiscais pendentes</small>
                     </span>
+                    <span>
+                      <strong>{period.paidDrivers}</strong>
+                      <small>Motoristas pagos</small>
+                    </span>
                   </div>
                 </article>
               ))

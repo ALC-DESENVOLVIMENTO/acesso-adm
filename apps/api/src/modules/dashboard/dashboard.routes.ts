@@ -75,6 +75,30 @@ function resolveActivityIcon(entity: string, action: string) {
   return "pdf";
 }
 
+function humanizeAction(action: string) {
+  const labels: Record<string, string> = {
+    criar_periodo_pagamento: "Período criado",
+    editar_periodo_pagamento: "Período alterado",
+    alterar_status_periodo_pagamento: "Status do período alterado",
+    finalizar_periodo_pagamento: "Período finalizado",
+    reativar_periodo_pagamento: "Período reativado",
+    excluir_periodo_pagamento: "Período excluído",
+    upload_pdf: "Espelho enviado",
+    substituir_pdf: "Espelho substituído",
+    excluir_pdf: "Espelho removido",
+    review_period_base_upload: "Base do período revisada"
+  };
+
+  return (
+    labels[action] ||
+    action
+      .split("_")
+      .filter(Boolean)
+      .map((part, index) => (index === 0 ? part.charAt(0).toUpperCase() + part.slice(1) : part))
+      .join(" ")
+  );
+}
+
 function resolveActivityTitle(entity: string, action: string, details: unknown) {
   const parsedDetails = readDetails(details);
   const fileName = readDetailString(parsedDetails, "arquivo", "fileName", "nomeArquivo");
@@ -82,15 +106,23 @@ function resolveActivityTitle(entity: string, action: string, details: unknown) 
   const motoristaName = readDetailString(parsedDetails, "nomeMotorista", "motoristaNome");
 
   if (action === "criar_periodo_pagamento") {
-    return periodName ? `Periodo criado: ${periodName}` : "Periodo de pagamento criado";
+    return periodName ? `Período criado: ${periodName}` : "Período de pagamento criado";
   }
 
   if (action === "editar_periodo_pagamento") {
-    return periodName ? `Periodo alterado: ${periodName}` : "Periodo de pagamento alterado";
+    return periodName ? `Período alterado: ${periodName}` : "Período de pagamento alterado";
   }
 
   if (action === "alterar_status_periodo_pagamento") {
-    return periodName ? `Status do periodo alterado: ${periodName}` : "Status do periodo alterado";
+    return periodName ? `Status do período alterado: ${periodName}` : "Status do período alterado";
+  }
+
+  if (action === "finalizar_periodo_pagamento") {
+    return periodName ? `Período finalizado: ${periodName}` : "Período finalizado";
+  }
+
+  if (action === "reativar_periodo_pagamento") {
+    return periodName ? `Período reativado: ${periodName}` : "Período reativado";
   }
 
   if (action === "upload_pdf") {
@@ -107,25 +139,25 @@ function resolveActivityTitle(entity: string, action: string, details: unknown) 
 
   if (action.startsWith("dashboard_backfill_")) {
     if (entity === "periodo_pagamento" && periodName) {
-      return `Historico do periodo: ${periodName}`;
+      return `Histórico do período: ${periodName}`;
     }
 
     if ((entity === "upload_pdf" || entity === "driver_pdf_received") && fileName) {
-      return `Historico do arquivo: ${fileName}`;
+      return `Histórico do arquivo: ${fileName}`;
     }
 
     if (motoristaName) {
-      return `Historico do motorista: ${motoristaName}`;
+      return `Histórico do motorista: ${motoristaName}`;
     }
 
-    return `Historico ${entity}`;
+    return `Histórico ${entity.replace(/_/g, " ")}`;
   }
 
   if (fileName) {
-    return `${action}: ${fileName}`;
+    return `${humanizeAction(action)}: ${fileName}`;
   }
 
-  return `${action} em ${entity}`;
+  return `${humanizeAction(action)} em ${entity.replace(/_/g, " ")}`;
 }
 
 function mapActivity(log: {
@@ -172,6 +204,33 @@ async function fetchOperationalActivities() {
   });
 
   return logs.map(mapActivity);
+}
+
+function buildUploadScopeKey(upload: { id: string; motoristaId: string | null; basePagamentoId: string | null }) {
+  return `${upload.motoristaId || upload.id}|${upload.basePagamentoId || "sem-base"}`;
+}
+
+function buildReceiptScopeKey(
+  receipt: { id: string; motoristaId: string | null; basePagamentoId: string | null; uploadPdfId: string | null },
+  uploadById: Map<string, { id: string; motoristaId: string | null; basePagamentoId: string | null }>
+) {
+  const upload = receipt.uploadPdfId ? uploadById.get(receipt.uploadPdfId) : null;
+
+  return `${receipt.motoristaId || upload?.motoristaId || receipt.uploadPdfId || receipt.id}|${
+    receipt.basePagamentoId || upload?.basePagamentoId || "sem-base"
+  }`;
+}
+
+function isNotaFiscalReceipt(receipt: { status: string; documentType: string | null; tipoArquivo: string | null }) {
+  const type = `${receipt.documentType || ""} ${receipt.tipoArquivo || ""}`.toLowerCase();
+
+  if (type.includes("nota")) {
+    return true;
+  }
+
+  return ["nota_fiscal_recebida", "nota_fiscal_em_analise", "nota_fiscal_aprovada", "nota_fiscal_rejeitada"].includes(
+    receipt.status
+  );
 }
 
 router.get("/summary", (_req, res) => {
@@ -228,38 +287,83 @@ router.get("/summary", (_req, res) => {
     ]);
 
     const periodIds = recentPeriods.map((period) => period.id);
-    const [uploadsByPeriod, notesByPeriod] = await Promise.all([
-      prisma.uploadPdf.groupBy({
-        by: ["periodoPagamentoId"],
-        where: {
-          periodoPagamentoId: { in: periodIds },
-          status: { not: "removido" }
-        },
-        _count: { _all: true }
-      }),
-      prisma.driverPdfReceived.groupBy({
-        by: ["periodoPagamentoId"],
-        where: {
-          periodoPagamentoId: { in: periodIds },
-          status: {
-            in: [
-              "nota_fiscal_recebida",
-              "nota_fiscal_em_analise",
-              "nota_fiscal_aprovada",
-              "nota_fiscal_rejeitada",
-              "processo_concluido"
-            ]
-          }
-        },
-        _count: { _all: true }
-      })
-    ]);
+    const periodUploads = await prisma.uploadPdf.findMany({
+      where: {
+        periodoPagamentoId: { in: periodIds },
+        status: { not: "removido" }
+      },
+      select: {
+        id: true,
+        periodoPagamentoId: true,
+        motoristaId: true,
+        basePagamentoId: true,
+        substituiUploadId: true,
+        statusPagamento: true,
+        documentType: true
+      }
+    });
+    const uploadById = new Map(periodUploads.map((upload) => [upload.id, upload] as const));
+    const uploadIds = periodUploads.map((upload) => upload.id);
+    const periodReceipts = await prisma.driverPdfReceived.findMany({
+      where: {
+        OR: [{ periodoPagamentoId: { in: periodIds } }, { uploadPdfId: { in: uploadIds } }]
+      },
+      select: {
+        id: true,
+        periodoPagamentoId: true,
+        uploadPdfId: true,
+        motoristaId: true,
+        basePagamentoId: true,
+        status: true,
+        documentType: true,
+        tipoArquivo: true
+      }
+    });
+    const childUploadIds = new Set(
+      periodUploads.map((upload) => upload.substituiUploadId).filter((value): value is string => Boolean(value))
+    );
+    const latestUploadsByPeriod = new Map<string, Map<string, (typeof periodUploads)[number]>>();
 
-    const pdfsByPeriodId = new Map(uploadsByPeriod.map((item) => [item.periodoPagamentoId, item._count._all]));
-    const notesByPeriodId = new Map(notesByPeriod.map((item) => [item.periodoPagamentoId, item._count._all]));
+    for (const upload of periodUploads) {
+      if (childUploadIds.has(upload.id) || upload.documentType === "nota_fiscal") {
+        continue;
+      }
+
+      const periodId = upload.periodoPagamentoId;
+      if (!periodId) {
+        continue;
+      }
+
+      const current = latestUploadsByPeriod.get(periodId) || new Map<string, (typeof periodUploads)[number]>();
+      current.set(buildUploadScopeKey(upload), upload);
+      latestUploadsByPeriod.set(periodId, current);
+    }
+
+    const notesByPeriodId = new Map<string, Set<string>>();
+
+    for (const receipt of periodReceipts) {
+      if (!isNotaFiscalReceipt(receipt)) {
+        continue;
+      }
+
+      const upload = receipt.uploadPdfId ? uploadById.get(receipt.uploadPdfId) : null;
+      const periodId = receipt.periodoPagamentoId || upload?.periodoPagamentoId;
+
+      if (!periodId) {
+        continue;
+      }
+
+      const current = notesByPeriodId.get(periodId) || new Set<string>();
+      current.add(buildReceiptScopeKey(receipt, uploadById));
+      notesByPeriodId.set(periodId, current);
+    }
+
     const periodSummaries = recentPeriods.map((period) => {
-      const pdfsSent = pdfsByPeriodId.get(period.id) || 0;
-      const notesReceived = notesByPeriodId.get(period.id) || 0;
+      const periodUploadMap = latestUploadsByPeriod.get(period.id) || new Map<string, (typeof periodUploads)[number]>();
+      const pdfsSent = periodUploadMap.size;
+      const notesReceived = notesByPeriodId.get(period.id)?.size || 0;
+      const paidDrivers = Array.from(periodUploadMap.values()).filter((upload) => upload.statusPagamento === "PAGO")
+        .length;
 
       return {
         id: period.id,
@@ -269,7 +373,8 @@ router.get("/summary", (_req, res) => {
         status: period.status,
         pdfsSent,
         notesReceived,
-        notesPending: Math.max(pdfsSent - notesReceived, 0)
+        notesPending: Math.max(pdfsSent - notesReceived, 0),
+        paidDrivers
       };
     });
 
