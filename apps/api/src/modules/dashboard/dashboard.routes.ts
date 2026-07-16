@@ -206,8 +206,15 @@ async function fetchOperationalActivities() {
   return logs.map(mapActivity);
 }
 
-function buildUploadScopeKey(upload: { id: string; motoristaId: string | null; basePagamentoId: string | null }) {
-  return `${upload.motoristaId || upload.id}|${upload.basePagamentoId || "sem-base"}`;
+function buildUploadScopeKeyFromReceipt(
+  upload: { id: string; motoristaId: string | null; basePagamentoId: string | null },
+  receiptsByUploadId: Map<string, Array<{ motoristaId: string | null; basePagamentoId: string | null }>>
+) {
+  const receipt = receiptsByUploadId.get(upload.id)?.find((item) => item.motoristaId || item.basePagamentoId);
+
+  return `${upload.motoristaId || receipt?.motoristaId || upload.id}|${
+    upload.basePagamentoId || receipt?.basePagamentoId || "sem-base"
+  }`;
 }
 
 function buildReceiptScopeKey(
@@ -287,9 +294,27 @@ router.get("/summary", (_req, res) => {
     ]);
 
     const periodIds = recentPeriods.map((period) => period.id);
+    const directPeriodReceipts = await prisma.driverPdfReceived.findMany({
+      where: {
+        periodoPagamentoId: { in: periodIds }
+      },
+      select: {
+        id: true,
+        periodoPagamentoId: true,
+        uploadPdfId: true,
+        motoristaId: true,
+        basePagamentoId: true,
+        status: true,
+        documentType: true,
+        tipoArquivo: true
+      }
+    });
+    const directReceiptUploadIds = Array.from(
+      new Set(directPeriodReceipts.map((receipt) => receipt.uploadPdfId).filter((value): value is string => Boolean(value)))
+    );
     const periodUploads = await prisma.uploadPdf.findMany({
       where: {
-        periodoPagamentoId: { in: periodIds },
+        OR: [{ periodoPagamentoId: { in: periodIds } }, { id: { in: directReceiptUploadIds } }],
         status: { not: "removido" }
       },
       select: {
@@ -322,6 +347,23 @@ router.get("/summary", (_req, res) => {
     const childUploadIds = new Set(
       periodUploads.map((upload) => upload.substituiUploadId).filter((value): value is string => Boolean(value))
     );
+    const periodIdByUploadId = new Map<string, string>();
+    const receiptsByUploadId = new Map<string, Array<(typeof periodReceipts)[number]>>();
+
+    for (const receipt of periodReceipts) {
+      if (!receipt.uploadPdfId) {
+        continue;
+      }
+
+      const current = receiptsByUploadId.get(receipt.uploadPdfId) || [];
+      current.push(receipt);
+      receiptsByUploadId.set(receipt.uploadPdfId, current);
+
+      if (receipt.periodoPagamentoId && periodIds.includes(receipt.periodoPagamentoId)) {
+        periodIdByUploadId.set(receipt.uploadPdfId, receipt.periodoPagamentoId);
+      }
+    }
+
     const latestUploadsByPeriod = new Map<string, Map<string, (typeof periodUploads)[number]>>();
 
     for (const upload of periodUploads) {
@@ -329,13 +371,13 @@ router.get("/summary", (_req, res) => {
         continue;
       }
 
-      const periodId = upload.periodoPagamentoId;
+      const periodId = upload.periodoPagamentoId || periodIdByUploadId.get(upload.id);
       if (!periodId) {
         continue;
       }
 
       const current = latestUploadsByPeriod.get(periodId) || new Map<string, (typeof periodUploads)[number]>();
-      current.set(buildUploadScopeKey(upload), upload);
+      current.set(buildUploadScopeKeyFromReceipt(upload, receiptsByUploadId), upload);
       latestUploadsByPeriod.set(periodId, current);
     }
 
