@@ -3587,7 +3587,7 @@ function PdfsScreen({
   const [selectedBaseId, setSelectedBaseId] = useState("");
   const [expandedBatchKey, setExpandedBatchKey] = useState("");
 
-  const availablePeriods = useMemo(() => periods.filter((period) => period.status === "disponivel"), [periods]);
+  const availablePeriods = useMemo(() => periods.filter((period) => period.active !== false), [periods]);
   const selectedPeriod = availablePeriods.find((period) => period.id === selectedPeriodId) || null;
   const allowedBases = selectedPeriod
     ? selectedPeriod.paymentType === "mensal"

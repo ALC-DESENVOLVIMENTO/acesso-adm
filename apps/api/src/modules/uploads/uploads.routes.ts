@@ -484,6 +484,13 @@ router.post("/", upload.array("files", MAX_UPLOAD_FILES_PER_REQUEST), (req, res)
       return;
     }
 
+    if (period.ativo === false) {
+      res.status(400).json({
+        message: "Periodo finalizado no Financeiro. Reative a visibilidade para anexar espelhos de pagamento."
+      });
+      return;
+    }
+
     const selectedBase = period.bases.find((item) => item.basePagamentoId === basePaymentId)?.basePagamento;
 
     if (!selectedBase) {
