@@ -1254,7 +1254,7 @@ export function FinanceiroScreen({
                   <tr>
                     <th>Motorista</th>
                     <th>Favorecido</th>
-                    <th>CPF</th>
+                    <th>CNPJ</th>
                     <th>Valor total</th>
                     <th>Base</th>
                     <th>Status processo</th>
@@ -1268,7 +1268,7 @@ export function FinanceiroScreen({
                       <tr key={row.processoId}>
                         <td>{row.nomeMotorista}</td>
                         <td>{row.nomeFavorecido}</td>
-                        <td>{row.cpfFavorecido}</td>
+                        <td>{row.cnpjFavorecido}</td>
                         <td>{row.valorTotalPdfFormatado}</td>
                         <td>{row.baseMotorista}</td>
                         <td>{row.statusProcesso}</td>

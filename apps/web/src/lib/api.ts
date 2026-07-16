@@ -349,7 +349,7 @@ export type FinanceiroAptosPagamentoRow = {
   motoristaId: string;
   nomeMotorista: string;
   nomeFavorecido: string;
-  cpfFavorecido: string;
+  cnpjFavorecido: string;
   valorTotalPdf: number;
   valorTotalPdfFormatado: string;
   baseMotorista: string;

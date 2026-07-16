@@ -8,7 +8,8 @@ process.env.DATABASE_URL ||= "postgresql://user:password@localhost:5432/test";
 
 const {
   buildWorkbook,
-  evaluateAptidao
+  evaluateAptidao,
+  resolveBeneficiaryCnpj
 } = await import("./financeiro-apagar.js");
 
 function makeUpload() {
@@ -74,6 +75,27 @@ test("evaluateAptidao blocks already paid items", () => {
   assert.equal(evaluation.motivoExclusao, "Pagamento ja realizado");
 });
 
+test("resolveBeneficiaryCnpj uses the registry CNPJ and never falls back to CPF", () => {
+  const registryMatch = {
+    externalId: "registry-1",
+    nome: "Joao da Silva",
+    cpf: "12345678901",
+    cpfDigits: "12345678901",
+    cnpj: "00123456000199",
+    base: "CONTAGEM",
+    raw: {
+      cpf_favorecido: "98765432100",
+      cnpj_digits: "00123456000199"
+    }
+  };
+
+  assert.equal(resolveBeneficiaryCnpj(registryMatch), "00123456000199");
+  assert.equal(
+    resolveBeneficiaryCnpj({ ...registryMatch, cnpj: null, raw: { cpf_favorecido: "98765432100" } }),
+    ""
+  );
+});
+
 test("buildWorkbook creates the expected sheets and headers", () => {
   const preview: AptosPagamentoPreview = {
     periodoId: "periodo-1",
@@ -91,7 +113,7 @@ test("buildWorkbook creates the expected sheets and headers", () => {
         motoristaId: "motorista-1",
         nomeMotorista: "Joao da Silva",
         nomeFavorecido: "Joao da Silva",
-        cpfFavorecido: "12345678901",
+        cnpjFavorecido: "00123456000199",
         valorTotalPdf: 1500.5,
         valorTotalPdfFormatado: "R$ 1.500,50",
         baseMotorista: "CONTAGEM",
@@ -107,8 +129,8 @@ test("buildWorkbook creates the expected sheets and headers", () => {
         motoristaId: "motorista-2",
         nomeMotorista: "Maria",
         periodo: "Semana 1 a 7",
-        motivo: "CPF do favorecido ausente",
-        campo: "cpf_favorecido"
+        motivo: "CNPJ do favorecido ausente",
+        campo: "cnpj_favorecido"
       }
     ]
   };
@@ -120,6 +142,9 @@ test("buildWorkbook creates the expected sheets and headers", () => {
 
   const sheet = workbook.Sheets["Aptos para Pagamento"];
   assert.equal(sheet.A1?.v, "Nome Motorista");
+  assert.equal(sheet.C1?.v, "CNPJ do Favorecido");
+  assert.equal(sheet.C2?.v, "00123456000199");
+  assert.equal(sheet.C2?.t, "s");
   assert.equal(sheet.E1?.v, "Base do Motorista");
   assert.equal(sheet.D2?.v, 1500.5);
 });
