@@ -2066,8 +2066,21 @@ function App() {
         ) : null}
 
         {activitiesModalOpen ? (
-          <div className="modal-overlay" role="presentation">
-            <div className="modal-card modal-card--activities" role="dialog" aria-modal="true" aria-labelledby="activities-title">
+          <div
+            className="modal-overlay"
+            role="presentation"
+            onClick={() => {
+              setActivitiesModalOpen(false);
+              setActivitiesSearch("");
+            }}
+          >
+            <div
+              className="modal-card modal-card--activities"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="activities-title"
+              onClick={(event) => event.stopPropagation()}
+            >
               <div className="modal-card__header">
                 <div>
                   <p className="eyebrow">Auditoria operacional</p>

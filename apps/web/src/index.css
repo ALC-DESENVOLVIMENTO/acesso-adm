@@ -2960,7 +2960,7 @@ button {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: 120;
   display: grid;
   place-items: center;
   padding: 24px;
@@ -2969,6 +2969,8 @@ button {
 }
 
 .modal-card {
+  position: relative;
+  z-index: 121;
   width: min(920px, 100%);
   max-height: min(90vh, 900px);
   overflow: auto;
@@ -4035,7 +4037,7 @@ body.theme-dark .modal-card{
 body.theme-dark .modal-overlay{
   position: fixed !important;
   inset: 0 !important;
-  z-index: 80 !important;
+  z-index: 120 !important;
   display: grid !important;
   place-items: center !important;
   background: rgba(0, 0, 0, 0.68) !important;

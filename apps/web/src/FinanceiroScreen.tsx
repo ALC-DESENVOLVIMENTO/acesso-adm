@@ -1469,8 +1469,18 @@ export function FinanceiroScreen({
       )}
 
       {periodModalOpen ? (
-        <div className="modal-overlay">
-          <div className="modal-card modal-card--crm modal-card--finance">
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            setPeriodModalOpen(false);
+            setEditingPeriod(null);
+            setPeriodForm(initialPeriodForm);
+          }}
+        >
+          <div
+            className="modal-card modal-card--crm modal-card--finance"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="modal-card__header">
               <div>
                 <h3>{editingPeriod ? "Editar período" : "Criar período"}</h3>
@@ -1565,8 +1575,8 @@ export function FinanceiroScreen({
       ) : null}
 
       {deleteTarget ? (
-        <div className="modal-overlay">
-          <div className="modal-card modal-card--confirm">
+        <div className="modal-overlay" onClick={() => setDeleteTarget(null)}>
+          <div className="modal-card modal-card--confirm" onClick={(event) => event.stopPropagation()}>
             <div className="modal-card__header">
               <div>
                 <h3>Excluir período</h3>
