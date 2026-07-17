@@ -3,8 +3,7 @@ import {
   PrismaClient,
   AccessLevelCode,
   PermissionOverrideType,
-  PaymentFrequencyCode,
-  UploadStatus
+  PaymentFrequencyCode
 } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -442,40 +441,13 @@ async function main() {
     });
   }
 
-  const uploadSeeds = [
-    {
-      nomeArquivo: "conhecimento_12345_v1.pdf",
-      nomeOriginal: "Conhecimento_12345.pdf",
-      caminhoArquivo: "/uploads/conhecimento_12345_v1.pdf",
-      versao: 1,
-      status: UploadStatus.processado,
-      usuarioId: amandaUser.id,
-      motoristaId: motoristaLucas.id
-    },
-    {
-      nomeArquivo: "romaneio_99987_v1.pdf",
-      nomeOriginal: "Romaneio_99987.pdf",
-      caminhoArquivo: "/uploads/romaneio_99987_v1.pdf",
-      versao: 1,
-      status: UploadStatus.pendente,
-      usuarioId: lukaUser.id,
-      motoristaId: motoristaMarina.id
-    }
-  ];
-
-  for (const upload of uploadSeeds) {
-    const exists = await prisma.uploadPdf.findFirst({
-      where: {
-        nomeArquivo: upload.nomeArquivo
+  await prisma.uploadPdf.deleteMany({
+    where: {
+      nomeArquivo: {
+        in: ["conhecimento_12345_v1.pdf", "romaneio_99987_v1.pdf"]
       }
-    });
-
-    if (!exists) {
-      await prisma.uploadPdf.create({
-        data: upload
-      });
     }
-  }
+  });
 }
 
 main()
