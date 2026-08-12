@@ -41,6 +41,12 @@ const REQUIRED_UPLOAD_TABLE_COLUMNS: CompatibilityColumn[] = [
     comment: "Adicionar CNPJ extraido do espelho em uploads_pdf"
   },
   {
+    table: "uploads_pdf",
+    column: "motivo_pendencia",
+    typeSql: "VARCHAR(80)",
+    comment: "Adicionar motivo da pendencia de cadastro em uploads_pdf"
+  },
+  {
     table: "driver_pdf_received",
     column: "content",
     typeSql: "BYTEA",

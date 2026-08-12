@@ -887,6 +887,13 @@ async function loadMotoristaDetail(motoristaId: string) {
       visualizadoEm: true,
         aprovadoEm: true,
         rejeitadoEm: true,
+        sefazStatus: true,
+        sefazActive: true,
+        sefazChecked: true,
+        sefazStatusCode: true,
+        sefazStatusMessage: true,
+        accessKey: true,
+        invoiceValidation: true,
         caminhoArquivo: true,
         content: true,
         nomeArquivo: true
@@ -978,6 +985,13 @@ async function loadMotoristaDetail(motoristaId: string) {
         notaFiscalStatus: formatPaymentStatusLabel(noteStatus),
         notaFiscalEnviadaEm: noteSentAt ? toIso(noteSentAt) : null,
         notaFiscalRecebidaEm: noteReceivedAt ? toIso(noteReceivedAt) : null,
+        sefazStatus: noteReceipt?.sefazStatus || null,
+        sefazActive: noteReceipt?.sefazActive ?? null,
+        sefazCheckedEm: noteReceipt?.sefazChecked ? toIso(noteReceipt.sefazChecked) : null,
+        sefazStatusCode: noteReceipt?.sefazStatusCode || null,
+        sefazStatusMessage: noteReceipt?.sefazStatusMessage || null,
+        accessKey: noteReceipt?.accessKey || null,
+        invoiceValidation: noteReceipt?.invoiceValidation || null,
         pago: paid,
         atualizadoEm: toIso(
           upload.statusPagamentoAtualizadoEm ||

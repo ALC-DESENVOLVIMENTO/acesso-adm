@@ -99,6 +99,7 @@ type UploadHistoryItem = Awaited<ReturnType<typeof prisma.uploadPdf.findMany>>[n
 
 function serializeUpload(upload: UploadHistoryItem) {
   const storageUrl = resolvePaymentMirrorUrl(upload);
+  const pendingReason = upload.motivoPendencia || (upload.motoristaId ? null : "pre_cadastro_nao_encontrado");
 
   return {
     id: upload.id,
@@ -112,6 +113,9 @@ function serializeUpload(upload: UploadHistoryItem) {
     periodName: upload.periodoPagamento?.nome || null,
     baseId: upload.basePagamentoId,
     baseName: upload.basePagamento?.nome || null,
+    motoristaId: upload.motoristaId,
+    motoristaName: upload.motoristaNomeExtraido,
+    pendingReason,
     replacedUploadId: upload.substituiUploadId,
     downloadUrl: storageUrl
   };
@@ -216,7 +220,8 @@ async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseNam
       motoristaNome: identity.name || file.originalname,
       motoristaCpf: identity.cpf || "",
       motoristaCnpj: identity.cnpj || null,
-      baseName: selectedBaseName
+      baseName: selectedBaseName,
+      pendingReason: "pre_cadastro_nao_encontrado"
     } as const;
   }
 
@@ -241,7 +246,8 @@ async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseNam
         motoristaNome: identity.name || file.originalname,
         motoristaCpf: identity.cpf || "",
         motoristaCnpj: identity.cnpj || null,
-        baseName: selectedBaseName
+        baseName: selectedBaseName,
+        pendingReason: "pre_cadastro_ambiguo"
       } as const;
     }
   }
@@ -260,7 +266,8 @@ async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseNam
       motoristaNome: match.nome,
       motoristaCpf: match.cpfDigits || match.cpf || "",
       motoristaCnpj: match.cnpj || null,
-      baseName: match.base || selectedBaseName
+      baseName: match.base || selectedBaseName,
+      pendingReason: "pre_cadastro_incompleto"
     } as const;
   }
 
@@ -335,7 +342,8 @@ export async function reconcilePendingUploadsFromRegistry() {
       },
       data: {
         motoristaId,
-        status: UploadStatus.processado
+        status: UploadStatus.processado,
+        motivoPendencia: null
       }
     });
 
@@ -551,6 +559,7 @@ router.post("/", upload.array("files", MAX_UPLOAD_FILES_PER_REQUEST), (req, res)
         motoristaCnpj: string | null;
         baseName: string;
         pending?: boolean;
+        pendingReason?: string;
       }
     >;
 
@@ -568,7 +577,7 @@ router.post("/", upload.array("files", MAX_UPLOAD_FILES_PER_REQUEST), (req, res)
       validFiles,
       STORAGE_UPLOAD_CONCURRENCY,
       async (item) => {
-        const { file, motoristaId, motoristaNome, motoristaCpf, motoristaCnpj, baseName } = item;
+        const { file, motoristaId, motoristaNome, motoristaCpf, motoristaCnpj, baseName, pendingReason } = item;
         const storageKey = assertPaymentMirrorStorageKey(createStorageKey(storageFolder, file.originalname));
 
         try {
@@ -591,6 +600,7 @@ router.post("/", upload.array("files", MAX_UPLOAD_FILES_PER_REQUEST), (req, res)
               motoristaId: motoristaId || null,
               motoristaNomeExtraido: motoristaNome,
               motoristaCnpjExtraido: motoristaCnpj,
+              motivoPendencia: motoristaId ? null : pendingReason || "pre_cadastro_nao_encontrado",
               periodoPagamentoId: periodId,
               basePagamentoId: basePaymentId
             },

@@ -1191,6 +1191,13 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
         rejeitadoEm: true,
         motivoRejeicao: true,
         observacoes: true,
+        sefazStatus: true,
+        sefazActive: true,
+        sefazChecked: true,
+        sefazStatusCode: true,
+        sefazStatusMessage: true,
+        accessKey: true,
+        invoiceValidation: true,
         caminhoArquivo: true,
         nomeArquivo: true
       }
@@ -1311,6 +1318,13 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
                   : currentStatus === "pdf_enviado_ao_motorista"
                     ? "Pendente"
                     : "Pendente",
+        sefazStatus: noteReceipt?.sefazStatus || null,
+        sefazActive: noteReceipt?.sefazActive ?? null,
+        sefazCheckedEm: toIso(noteReceipt?.sefazChecked || null),
+        sefazStatusCode: noteReceipt?.sefazStatusCode || null,
+        sefazStatusMessage: noteReceipt?.sefazStatusMessage || null,
+        accessKey: noteReceipt?.accessKey || null,
+        invoiceValidation: noteReceipt?.invoiceValidation || null,
         caminhoArquivo: mirrorDownloadUrl,
         notaFiscalDownloadUrl: noteDownloadUrl
       };

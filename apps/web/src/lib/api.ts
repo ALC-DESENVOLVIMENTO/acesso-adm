@@ -85,6 +85,9 @@ export type UploadRow = {
   periodName?: string | null;
   baseId?: string | null;
   baseName?: string | null;
+  motoristaId?: string | null;
+  motoristaName?: string | null;
+  pendingReason?: "pre_cadastro_nao_encontrado" | "pre_cadastro_ambiguo" | "pre_cadastro_incompleto" | string | null;
   replacedUploadId?: string | null;
 };
 
@@ -233,6 +236,13 @@ export type FinanceiroMotoristaRow = {
   ultimaAtualizacao: string | null;
   atendimentoStatus: string;
   statusNotaFiscal: string;
+  sefazStatus?: string | null;
+  sefazActive?: boolean | null;
+  sefazCheckedEm?: string | null;
+  sefazStatusCode?: string | null;
+  sefazStatusMessage?: string | null;
+  accessKey?: string | null;
+  invoiceValidation?: string | null;
   caminhoArquivo: string | null;
   notaFiscalDownloadUrl: string | null;
 };
@@ -485,6 +495,13 @@ export type AtendimentoDetail = {
     pdfEnviadoEm: string | null;
     pdfVisualizadoEm: string | null;
     notaFiscalStatus: string;
+    sefazStatus?: string | null;
+    sefazActive?: boolean | null;
+    sefazCheckedEm?: string | null;
+    sefazStatusCode?: string | null;
+    sefazStatusMessage?: string | null;
+    accessKey?: string | null;
+    invoiceValidation?: string | null;
     notaFiscalEnviadaEm: string | null;
     notaFiscalRecebidaEm: string | null;
     pago: boolean;

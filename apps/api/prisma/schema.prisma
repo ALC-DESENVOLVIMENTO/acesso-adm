@@ -288,6 +288,7 @@ model UploadPdf {
   motoristaId        String?       @map("motorista_id") @db.Uuid
   motoristaNomeExtraido String?    @map("motorista_nome_extraido") @db.VarChar(180)
   motoristaCnpjExtraido String?    @map("motorista_cnpj_extraido") @db.VarChar(20)
+  motivoPendencia     String?      @map("motivo_pendencia") @db.VarChar(80)
   periodoPagamentoId String?       @map("periodo_pagamento_id") @db.Uuid
   basePagamentoId    String?       @map("base_pagamento_id") @db.Uuid
   substituiUploadId  String?       @map("substitui_upload_id") @db.Uuid
@@ -521,6 +522,13 @@ model DriverPdfReceived {
   rejeitadoEm          DateTime?               @map("rejeitado_em")
   rejeitadoPorId       String?                 @map("rejeitado_por_id") @db.Uuid
   motivoRejeicao       String?                 @map("motivo_rejeicao")
+  sefazStatus          String?                 @map("sefaz_status") @db.VarChar(40)
+  sefazActive          Boolean?               @map("sefaz_active")
+  sefazChecked         DateTime?              @map("sefaz_checked")
+  sefazStatusCode      String?                 @map("sefaz_status_code") @db.VarChar(40)
+  sefazStatusMessage   String?                 @map("sefaz_status_message")
+  accessKey            String?                 @map("access_key") @db.VarChar(44)
+  invoiceValidation    String?                 @map("invoice_validation") @db.VarChar(40)
   atualizadoEm         DateTime                @updatedAt @map("atualizado_em")
   content              Bytes?                  @map("content")
   fullName             String?                 @map("full_name")

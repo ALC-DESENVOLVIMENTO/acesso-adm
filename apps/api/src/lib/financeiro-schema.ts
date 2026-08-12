@@ -78,6 +78,14 @@ export async function ensureFinanceiroCompatibilitySchema() {
   await ensureColumn("uploads_pdf", "codigo_obb", "VARCHAR(80)");
   await ensureColumn("uploads_pdf", "usuario_atualizacao_id", "UUID");
 
+  await ensureColumn("driver_pdf_received", "sefaz_status", "VARCHAR(40)");
+  await ensureColumn("driver_pdf_received", "sefaz_active", "BOOLEAN");
+  await ensureColumn("driver_pdf_received", "sefaz_checked", "TIMESTAMPTZ(6)");
+  await ensureColumn("driver_pdf_received", "sefaz_status_code", "VARCHAR(40)");
+  await ensureColumn("driver_pdf_received", "sefaz_status_message", "TEXT");
+  await ensureColumn("driver_pdf_received", "access_key", "VARCHAR(44)");
+  await ensureColumn("driver_pdf_received", "invoice_validation", "VARCHAR(40)");
+
   await ensureTable(`
 CREATE TABLE IF NOT EXISTS "${DB_SCHEMA}"."importacoes_financeiras" (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -3696,6 +3696,22 @@ function PdfsScreen({
     );
   }, [visibleUploads]);
 
+  const uploadStatusLabel = (row: UploadRow) => {
+    if (row.status !== "pendente" || !row.pendingReason) {
+      return row.status;
+    }
+
+    if (row.pendingReason === "pre_cadastro_ambiguo") {
+      return "Pré-cadastro ambíguo";
+    }
+
+    if (row.pendingReason === "pre_cadastro_incompleto") {
+      return "Pré-cadastro incompleto";
+    }
+
+    return "Aguardando pré-cadastro";
+  };
+
   return (
     <div className="screen">
       <section className="screen__intro">
@@ -3858,7 +3874,7 @@ function PdfsScreen({
                         <div>
                           <strong>{row.fileName}</strong>
                           <span>
-                            {row.status} - {new Date(row.sentAt).toLocaleString("pt-BR")}
+                            {uploadStatusLabel(row)} - {new Date(row.sentAt).toLocaleString("pt-BR")}
                           </span>
                         </div>
 
@@ -5131,6 +5147,13 @@ function AtendimentoScreen({
                             <div><strong>NF recebida</strong><span>{item.notaFiscalRecebidaEm ? new Date(item.notaFiscalRecebidaEm).toLocaleString("pt-BR") : "Não informado"}</span></div>
                             <div><strong>Data de pagamento</strong><span>{item.dataPagamento ? new Date(item.dataPagamento).toLocaleString("pt-BR") : "Não informado"}</span></div>
                           </div>
+
+                          {item.sefazStatus ? (
+                            <div className="crm-payment-card__sefaz-status">
+                              <strong>Validação SEFAZ</strong>
+                              <span>{item.sefazStatus}{item.sefazCheckedEm ? ` - ${new Date(item.sefazCheckedEm).toLocaleString("pt-BR")}` : ""}</span>
+                            </div>
+                          ) : null}
 
                           <div className="crm-payment-card__actions">
                             {item.pdfDownloadUrl ? (
