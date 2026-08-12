@@ -4,21 +4,24 @@ const DB_SCHEMA = process.env.DB_SCHEMA || "portal_administrativo";
 
 async function ensureType(typeName: string, values: string[]) {
   const valuesSql = values.map((value) => `'${value.replace(/'/g, "''")}'`).join(", ");
+  const existing = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
+    `SELECT EXISTS (
+      SELECT 1
+      FROM pg_type t
+      JOIN pg_namespace n ON n.oid = t.typnamespace
+      WHERE t.typname = '${typeName}'
+        AND n.nspname = '${DB_SCHEMA}'
+    ) AS exists`
+  );
 
-  await prisma.$executeRawUnsafe(`
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_type t
-    JOIN pg_namespace n ON n.oid = t.typnamespace
-    WHERE t.typname = '${typeName}'
-      AND n.nspname = '${DB_SCHEMA}'
-  ) THEN
-    CREATE TYPE "${DB_SCHEMA}"."${typeName}" AS ENUM (${valuesSql});
-  END IF;
-END $$;
-`);
+  if (existing[0]?.exists) {
+    return;
+  }
+
+  // Keep this as one SQL command: Prisma sends prepared statements to PostgreSQL.
+  await prisma.$executeRawUnsafe(
+    `CREATE TYPE "${DB_SCHEMA}"."${typeName}" AS ENUM (${valuesSql})`
+  );
 }
 
 async function ensureColumn(table: string, column: string, sqlType: string, defaultClause = "") {
@@ -30,10 +33,6 @@ ALTER TABLE "${DB_SCHEMA}"."${table}"
 }
 
 async function ensureTable(sql: string) {
-  await prisma.$executeRawUnsafe(sql);
-}
-
-async function ensureStatement(sql: string) {
   await prisma.$executeRawUnsafe(sql);
 }
 
@@ -107,22 +106,23 @@ CREATE TABLE IF NOT EXISTS "${DB_SCHEMA}"."importacoes_financeiras" (
 );
 `);
 
-  await ensureStatement(`
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1
-    FROM pg_constraint c
-    JOIN pg_class t ON t.oid = c.conrelid
-    JOIN pg_namespace n ON n.oid = t.relnamespace
-    WHERE n.nspname = '${DB_SCHEMA}'
-      AND t.relname = 'importacoes_financeiras'
-      AND c.conname = 'importacoes_financeiras_hash_arquivo_key'
-  ) THEN
-    ALTER TABLE "${DB_SCHEMA}"."importacoes_financeiras" DROP CONSTRAINT "importacoes_financeiras_hash_arquivo_key";
-  END IF;
-END $$;
-`);
+  const legacyHashConstraint = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
+    `SELECT EXISTS (
+      SELECT 1
+      FROM pg_constraint c
+      JOIN pg_class t ON t.oid = c.conrelid
+      JOIN pg_namespace n ON n.oid = t.relnamespace
+      WHERE n.nspname = '${DB_SCHEMA}'
+        AND t.relname = 'importacoes_financeiras'
+        AND c.conname = 'importacoes_financeiras_hash_arquivo_key'
+    ) AS exists`
+  );
+
+  if (legacyHashConstraint[0]?.exists) {
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE "${DB_SCHEMA}"."importacoes_financeiras" DROP CONSTRAINT "importacoes_financeiras_hash_arquivo_key"`
+    );
+  }
 
   await ensureTable(`
 CREATE TABLE IF NOT EXISTS "${DB_SCHEMA}"."importacoes_financeiras_itens" (

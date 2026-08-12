@@ -44,7 +44,7 @@ function runCommand(command: string, args: string[], cwd: string) {
   });
 }
 
-async function main() {
+export async function runBootstrap() {
   const currentFile = fileURLToPath(import.meta.url);
   const apiRoot = path.resolve(path.dirname(currentFile), "..");
 
@@ -69,7 +69,9 @@ async function main() {
   await runCommand("npm", ["run", "db:seed"], apiRoot);
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  runBootstrap().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
