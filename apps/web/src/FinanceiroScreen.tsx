@@ -94,6 +94,13 @@ const initialSummary: FinanceiroSummary = {
   concluded: 0
 };
 
+function normalizeFinanceiroSummary(summary: FinanceiroSummary | null | undefined): FinanceiroSummary {
+  return {
+    ...initialSummary,
+    ...(summary || {})
+  };
+}
+
 const initialPeriodForm: PeriodFormState = {
   name: "",
   startDate: "",
@@ -363,29 +370,33 @@ export function FinanceiroScreen({
   }, [attendanceFilter, cpfTerm, motoristas, searchTerm, statusFilter]);
 
   const loadSummary = async () => {
+    if (!token) {
+      return;
+    }
+
     const data = await fetchFinanceiroSummary(token);
-    setSummary(data);
+    setSummary(normalizeFinanceiroSummary(data));
   };
 
   const loadBaseCards = async (periodId: string) => {
-    if (!periodId) {
+    if (!token || !periodId) {
       setBaseCards([]);
       return;
     }
 
     const data = await fetchFinanceiroBases(token, periodId);
-    setBaseCards(data);
+    setBaseCards(Array.isArray(data) ? data : []);
   };
 
   const loadMotoristas = async (periodId: string, baseId: string) => {
-    if (!periodId) {
+    if (!token || !periodId) {
       setMotoristas([]);
       return;
     }
 
     const data = await fetchFinanceiroMotoristas(token, periodId, baseId);
 
-    setMotoristas(data);
+    setMotoristas(Array.isArray(data) ? data : []);
   };
 
   const loadImportacaoDetalhe = async (importacaoId: string) => {
@@ -464,6 +475,10 @@ export function FinanceiroScreen({
   }, [selectedBaseId, selectedPeriodId, token]);
 
   useEffect(() => {
+    if (!token) {
+      return;
+    }
+
     void (async () => {
       try {
         setErrorMessage("");

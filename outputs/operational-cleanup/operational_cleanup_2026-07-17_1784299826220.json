@@ -1,0 +1,53 @@
+{
+  "startedAt": "2026-07-17T14:50:15.530Z",
+  "finishedAt": "2026-07-17T14:50:26.219Z",
+  "resolvedSchemas": {
+    "uploads_pdf": "portal_administrativo",
+    "driver_pdf_received": "portal_administrativo",
+    "logs_auditoria": "portal_administrativo",
+    "importacoes_financeiras": "portal_administrativo",
+    "importacoes_financeiras_itens": "portal_administrativo",
+    "historico_status_pagamento": "portal_administrativo",
+    "webhook_eventos": "portal_administrativo"
+  },
+  "scope": "Limpeza operacional sem alterar logica: atividades recentes, espelhos enviados, notas do fluxo, importacoes financeiras, historico de status e contagens derivadas do dashboard.",
+  "preserved": [
+    "usuarios",
+    "sessoes",
+    "niveis",
+    "permissoes",
+    "bases_pagamento",
+    "periodos_pagamento",
+    "periodos_pagamento_bases",
+    "motoristas",
+    "driver_registry_entities",
+    "chamados/atendimento"
+  ],
+  "before": {
+    "uploads_pdf": 160,
+    "driver_pdf_received": 61,
+    "logs_auditoria": 937,
+    "importacoes_financeiras": 24,
+    "importacoes_financeiras_itens": 462,
+    "historico_status_pagamento": 3,
+    "webhook_eventos": 9
+  },
+  "deleted": {
+    "webhook_eventos": 9,
+    "historico_status_pagamento": 3,
+    "importacoes_financeiras_itens": 462,
+    "importacoes_financeiras": 24,
+    "driver_pdf_received": 61,
+    "uploads_pdf": 160,
+    "logs_auditoria": 937
+  },
+  "after": {
+    "uploads_pdf": 0,
+    "driver_pdf_received": 0,
+    "logs_auditoria": 0,
+    "importacoes_financeiras": 0,
+    "importacoes_financeiras_itens": 0,
+    "historico_status_pagamento": 0,
+    "webhook_eventos": 0
+  }
+}

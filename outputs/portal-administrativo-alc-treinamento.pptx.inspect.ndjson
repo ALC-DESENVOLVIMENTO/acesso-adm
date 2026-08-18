@@ -1,0 +1,583 @@
+{"kind":"deck","id":"pr/vm6d5a","name":"Deck"}
+{"kind":"layout","layoutId":"2d864eac-9d60-494d-8f62-4b25127d2004","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"b7154090-b5a8-4505-8e4c-03dbb53bee03","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/ndb0ae","slide":1,"title":"Portal","textShapes":5}
+{"kind":"shape","id":"sh/cfqlovmx","slide":1,"bbox":[0,0,1280,720]}
+{"kind":"shape","id":"sh/beh4fq5c","slide":1,"bbox":[704,0,576,720]}
+{"kind":"shape","id":"sh/qd83m54r","slide":1,"bbox":[742,76,430,560]}
+{"kind":"textbox","id":"sh/obqlkvm1","slide":1,"text":"Portal\nAdministrativo","textPreview":"Portal | Administrativo","textChars":21,"textLines":2,"bbox":[86,118,510,150]}
+{"kind":"shape","id":"sh/3ah4bq5g","slide":1,"bbox":[88,300,74,5]}
+{"kind":"textbox","id":"sh/2983il4v","slide":1,"text":"Apresentação das ferramentas e treinamento completo do ciclo operacional","textPreview":"Apresentação das ferramentas e treinamento completo do ciclo operacional","textChars":72,"textLines":1,"bbox":[88,324,530,80]}
+{"kind":"textbox","id":"sh/18fm9gna","slide":1,"text":"Documentos • Períodos • Financeiro • Atendimento","textPreview":"Documentos • Períodos • Financeiro • Atendimento","textChars":48,"textLines":1,"bbox":[88,486,560,34]}
+{"kind":"textbox","id":"sh/g76lgbmp","slide":1,"text":"Guia de uso interno","textPreview":"Guia de uso interno","textChars":19,"textLines":1,"bbox":[828,388,260,34]}
+{"kind":"textbox","id":"sh/mpgvq5w3","slide":1,"text":"Versão de treinamento","textPreview":"Versão de treinamento","textChars":21,"textLines":1,"bbox":[828,430,260,26]}
+{"kind":"image","id":"im/8nqd47yh","slide":1,"name":"","alt":"Logotipo ALC","bbox":[830,118,250,210]}
+{"kind":"notes","id":"nt/ndb0ae","slide":1,"text":""}
+{"kind":"slide","id":"sl/0lcejq","slide":2,"title":"Portal Administrativo","textShapes":22}
+{"kind":"textbox","id":"sh/yx8nad43","slide":2,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/zyhojilo","slide":2,"text":"O portal centraliza o ciclo de documentos e pagamentos","textPreview":"O portal centraliza o ciclo de documentos e pagamentos","textChars":54,"textLines":1,"bbox":[76,96,980,82]}
+{"kind":"textbox","id":"sh/83apgnml","slide":2,"text":"A operação sai de controles dispersos para um fluxo auditável: espelho, aprovação, nota fiscal, pagamento e atendimento.","textPreview":"A operação sai de controles dispersos para um fluxo auditável: espelho, aprovação, nota fiscal, pagamento e atendimento.","textChars":120,"textLines":1,"bbox":[78,178,940,44]}
+{"kind":"shape","id":"sh/94j6ps36","slide":2,"bbox":[78,238,350,160]}
+{"kind":"textbox","id":"sh/m1sned4f","slide":2,"text":"DOCUMENTOS","textPreview":"DOCUMENTOS","textChars":10,"textLines":1,"bbox":[102,256,302,20]}
+{"kind":"textbox","id":"sh/n21onil0","slide":2,"text":"Envio de espelhos","textPreview":"Envio de espelhos","textChars":17,"textLines":1,"bbox":[102,282,302,34]}
+{"kind":"textbox","id":"sh/o76543m1","slide":2,"text":"Usuários enviam PDFs em lote, por período e base. O sistema vincula motorista, registra histórico e controla substituições.","textPreview":"Usuários enviam PDFs em lote, por período e base. O sistema vincula motorista, registra histórico e controla substituições.","textChars":123,"textLines":1,"bbox":[102,320,302,64]}
+{"kind":"shape","id":"sh/p8f6d8nm","slide":2,"bbox":[465,238,350,160]}
+{"kind":"textbox","id":"sh/14fmlc3q","slide":2,"text":"FINANCEIRO","textPreview":"FINANCEIRO","textChars":10,"textLines":1,"bbox":[489,256,302,20]}
+{"kind":"textbox","id":"sh/036ls725","slide":2,"text":"Notas e pagamentos","textPreview":"Notas e pagamentos","textChars":18,"textLines":1,"bbox":[489,282,302,34]}
+{"kind":"textbox","id":"sh/f2x4jmlk","slide":2,"text":"Notas fiscais são acompanhadas por período. A planilha financeira atualiza status como Pago, Bloqueado e Pendente.","textPreview":"Notas fiscais são acompanhadas por período. A planilha financeira atualiza status como Pago, Bloqueado e Pendente.","textChars":114,"textLines":1,"bbox":[489,320,302,64]}
+{"kind":"shape","id":"sh/eho3qhkz","slide":2,"bbox":[852,238,350,160]}
+{"kind":"textbox","id":"sh/p8zmpw3m","slide":2,"text":"ATENDIMENTO","textPreview":"ATENDIMENTO","textChars":11,"textLines":1,"bbox":[876,256,302,20]}
+{"kind":"textbox","id":"sh/o7qlwr21","slide":2,"text":"CRM do motorista","textPreview":"CRM do motorista","textChars":16,"textLines":1,"bbox":[876,282,302,34]}
+{"kind":"textbox","id":"sh/n6h4nmlg","slide":2,"text":"O histórico reúne dados cadastrais, pagamentos, PDFs, notas, chamados e interações de suporte.","textPreview":"O histórico reúne dados cadastrais, pagamentos, PDFs, notas, chamados e interações de suporte.","textChars":94,"textLines":1,"bbox":[876,320,302,64]}
+{"kind":"shape","id":"sh/2583uhkb","slide":2,"bbox":[78,428,350,172]}
+{"kind":"textbox","id":"sh/xczmtw3y","slide":2,"text":"GESTÃO","textPreview":"GESTÃO","textChars":6,"textLines":1,"bbox":[102,446,302,20]}
+{"kind":"textbox","id":"sh/cbq50r2d","slide":2,"text":"Períodos e bases","textPreview":"Períodos e bases","textChars":16,"textLines":1,"bbox":[102,472,302,34]}
+{"kind":"textbox","id":"sh/wrixczel","slide":2,"text":"N3/N4 criam períodos, vinculam bases, aprovam envios e controlam visibilidade no Financeiro.","textPreview":"N3/N4 criam períodos, vinculam bases, aprovam envios e controlam visibilidade no Financeiro.","textChars":92,"textLines":1,"bbox":[102,510,302,76]}
+{"kind":"shape","id":"sh/hsryl4v6","slide":2,"bbox":[465,428,350,172]}
+{"kind":"textbox","id":"sh/up0fa9wf","slide":2,"text":"AUDITORIA","textPreview":"AUDITORIA","textChars":9,"textLines":1,"bbox":[489,446,302,20]}
+{"kind":"textbox","id":"sh/vq9wjud0","slide":2,"text":"Rastreabilidade","textPreview":"Rastreabilidade","textChars":15,"textLines":1,"bbox":[489,472,302,34]}
+{"kind":"textbox","id":"sh/4v2xgjex","slide":2,"text":"Logs, histórico de uploads, status e sessões ajudam a investigar operações e mudanças críticas.","textPreview":"Logs, histórico de uploads, status e sessões ajudam a investigar operações e mudanças críticas.","textChars":95,"textLines":1,"bbox":[489,510,302,76]}
+{"kind":"shape","id":"sh/5gbypov2","slide":2,"bbox":[852,428,350,172]}
+{"kind":"textbox","id":"sh/it0fe9wr","slide":2,"text":"INTEGRAÇÃO","textPreview":"INTEGRAÇÃO","textChars":10,"textLines":1,"bbox":[876,446,302,20]}
+{"kind":"textbox","id":"sh/3utgnedc","slide":2,"text":"PDFOnline","textPreview":"PDFOnline","textChars":9,"textLines":1,"bbox":[876,472,302,34]}
+{"kind":"textbox","id":"sh/kzyx4fed","slide":2,"text":"Webhooks conectam o portal administrativo ao portal do motorista para visualização, notas fiscais e pagamentos.","textPreview":"Webhooks conectam o portal administrativo ao portal do motorista para visualização, notas fiscais e pagamentos.","textChars":111,"textLines":1,"bbox":[876,510,302,76]}
+{"kind":"textbox","id":"sh/lk7edkfy","slide":2,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 2","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 2","textChars":74,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/4vqlcv25","slide":2,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,82,68]}
+{"kind":"notes","id":"nt/0lcejq","slide":2,"text":""}
+{"kind":"slide","id":"sl/q3tguo","slide":3,"title":"Portal Administrativo","textShapes":12}
+{"kind":"textbox","id":"sh/q5g3u94n","slide":3,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/r6p4nel8","slide":3,"text":"Cada perfil acessa apenas o que precisa operar","textPreview":"Cada perfil acessa apenas o que precisa operar","textChars":46,"textLines":1,"bbox":[76,96,980,82]}
+{"kind":"textbox","id":"sh/43elszmx","slide":3,"text":"O controle por módulos e permissões reduz risco operacional e separa execução, aprovação e administração.","textPreview":"O controle por módulos e permissões reduz risco operacional e separa execução, aprovação e administração.","textChars":105,"textLines":1,"bbox":[78,178,940,44]}
+{"kind":"shape","id":"sh/5472l4n2","slide":3,"bbox":[86,246,250,210]}
+{"kind":"textbox","id":"sh/i1w3qp4r","slide":3,"text":"N1 / N2","textPreview":"N1 / N2","textChars":7,"textLines":1,"bbox":[110,268,202,34]}
+{"kind":"textbox","id":"sh/325kju5c","slide":3,"text":"Operam módulos liberados, como envio de PDFs ou atendimento, conforme permissões concedidas.","textPreview":"Operam módulos liberados, como envio de PDFs ou atendimento, conforme permissões concedidas.","textChars":92,"textLines":1,"bbox":[110,308,202,134]}
+{"kind":"shape","id":"sh/gfelozml","slide":3,"bbox":[372,246,250,210]}
+{"kind":"textbox","id":"sh/hgn2hkn6","slide":3,"text":"N3","textPreview":"N3","textChars":2,"textLines":1,"bbox":[396,268,202,34]}
+{"kind":"textbox","id":"sh/x43ih4jq","slide":3,"text":"Aprova períodos, revisa bases, acompanha ciclos e acessa dados operacionais amplos.","textPreview":"Aprova períodos, revisa bases, acompanha ciclos e acessa dados operacionais amplos.","textChars":83,"textLines":1,"bbox":[396,308,202,134]}
+{"kind":"shape","id":"sh/w3uhoz25","slide":3,"bbox":[658,246,250,210]}
+{"kind":"textbox","id":"sh/v210fu1k","slide":3,"text":"N4","textPreview":"N4","textChars":2,"textLines":1,"bbox":[682,268,202,34]}
+{"kind":"textbox","id":"sh/a1szmpkz","slide":3,"text":"Administra usuários, permissões, bases, configurações sensíveis e auditorias.","textPreview":"Administra usuários, permissões, bases, configurações sensíveis e auditorias.","textChars":77,"textLines":1,"bbox":[682,308,202,134]}
+{"kind":"shape","id":"sh/90jidkje","slide":3,"bbox":[944,246,250,210]}
+{"kind":"textbox","id":"sh/8zahkf2t","slide":3,"text":"Segurança","textPreview":"Segurança","textChars":9,"textLines":1,"bbox":[968,268,202,34]}
+{"kind":"textbox","id":"sh/ne10ba18","slide":3,"text":"Sessão autenticada, primeiro acesso, troca de senha, foto de perfil e histórico de sessão por usuário.","textPreview":"Sessão autenticada, primeiro acesso, troca de senha, foto de perfil e histórico de sessão por usuário.","textChars":102,"textLines":1,"bbox":[968,308,202,134]}
+{"kind":"textbox","id":"sh/mdszi5k3","slide":3,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 3","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 3","textChars":74,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/cfq183ut","slide":3,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,82,68]}
+{"kind":"notes","id":"nt/q3tguo","slide":3,"text":""}
+{"kind":"slide","id":"sl/ktnl3d","slide":4,"title":"Portal Administrativo","textShapes":5}
+{"kind":"shape","id":"sh/8feh0zml","slide":4,"bbox":[0,0,1280,720]}
+{"kind":"shape","id":"sh/7e507u50","slide":4,"bbox":[0,0,400,720]}
+{"kind":"textbox","id":"sh/lcni54nu","slide":4,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/kbuhwzmp","slide":4,"text":"CICLO OPERACIONAL","textPreview":"CICLO OPERACIONAL","textChars":17,"textLines":1,"bbox":[96,178,460,24]}
+{"kind":"textbox","id":"sh/zalg3u54","slide":4,"text":"Do espelho ao pagamento","textPreview":"Do espelho ao pagamento","textChars":23,"textLines":1,"bbox":[96,222,760,130]}
+{"kind":"textbox","id":"sh/y9czup4j","slide":4,"text":"O fluxo foi desenhado para separar status de arquivo, status da nota fiscal e status financeiro do pagamento.","textPreview":"O fluxo foi desenhado para separar status de arquivo, status da nota fiscal e status financeiro do pagamento.","textChars":109,"textLines":1,"bbox":[100,378,780,86]}
+{"kind":"textbox","id":"sh/587ihone","slide":4,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 4","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 4","textChars":74,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/zmtw7uhs","slide":4,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1104,38,78,64]}
+{"kind":"notes","id":"nt/ktnl3d","slide":4,"text":""}
+{"kind":"slide","id":"sl/alsf2b","slide":5,"title":"Portal Administrativo","textShapes":26}
+{"kind":"textbox","id":"sh/p0j6x8va","slide":5,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/ozapo3up","slide":5,"text":"O ciclo completo tem oito etapas principais","textPreview":"O ciclo completo tem oito etapas principais","textChars":43,"textLines":1,"bbox":[76,100,840,54]}
+{"kind":"textbox","id":"sh/bm18zydg","slide":5,"text":"Cada etapa gera registro e alimenta telas diferentes do portal.","textPreview":"Cada etapa gera registro e alimenta telas diferentes do portal.","textChars":63,"textLines":1,"bbox":[78,158,820,30]}
+{"kind":"shape","id":"sh/q1s7qtcv","slide":5,"bbox":[78,258,240,112]}
+{"kind":"textbox","id":"sh/dojq18bm","slide":5,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[98,276,46,30]}
+{"kind":"textbox","id":"sh/cnaps3u1","slide":5,"text":"Criar período","textPreview":"Criar período","textChars":13,"textLines":1,"bbox":[152,280,140,54]}
+{"kind":"textbox","id":"sh/r6honedw","slide":5,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[326,292,34,34]}
+{"kind":"shape","id":"sh/65o7e9cr","slide":5,"bbox":[370,258,240,112]}
+{"kind":"textbox","id":"sh/svm1076t","slide":5,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[390,276,46,30]}
+{"kind":"textbox","id":"sh/dwv2tc7e","slide":5,"text":"Enviar espelhos","textPreview":"Enviar espelhos","textChars":15,"textLines":1,"bbox":[444,280,140,54]}
+{"kind":"textbox","id":"sh/qtkjyxon","slide":5,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[618,292,34,34]}
+{"kind":"shape","id":"sh/rudkr2p8","slide":5,"bbox":[662,258,240,112]}
+{"kind":"textbox","id":"sh/0zml476p","slide":5,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[682,276,46,30]}
+{"kind":"textbox","id":"sh/10v2xc7a","slide":5,"text":"Aprovar período","textPreview":"Aprovar período","textChars":15,"textLines":1,"bbox":[736,280,140,54]}
+{"kind":"textbox","id":"sh/ex432hoj","slide":5,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[910,292,34,34]}
+{"kind":"shape","id":"sh/fydkvmp4","slide":5,"bbox":[954,258,240,112]}
+{"kind":"textbox","id":"sh/g321sn6l","slide":5,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[974,276,46,30]}
+{"kind":"textbox","id":"sh/h4b2ls76","slide":5,"text":"Motorista visualiza","textPreview":"Motorista visualiza","textChars":19,"textLines":1,"bbox":[1028,280,140,54]}
+{"kind":"shape","id":"sh/xojq9kvi","slide":5,"bbox":[78,428,240,112]}
+{"kind":"textbox","id":"sh/wna90fux","slide":5,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[98,446,46,30]}
+{"kind":"textbox","id":"sh/bm187ads","slide":5,"text":"Motorista envia NF","textPreview":"Motorista envia NF","textChars":18,"textLines":1,"bbox":[152,450,140,54]}
+{"kind":"textbox","id":"sh/alsry5w7","slide":5,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[326,462,34,34]}
+{"kind":"shape","id":"sh/lcjqd4vu","slide":5,"bbox":[370,428,240,112]}
+{"kind":"textbox","id":"sh/kba94zu9","slide":5,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[390,446,46,30]}
+{"kind":"textbox","id":"sh/ja18budo","slide":5,"text":"Validar NF","textPreview":"Validar NF","textChars":10,"textLines":1,"bbox":[444,450,140,54]}
+{"kind":"textbox","id":"sh/y9sr2pc3","slide":5,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[618,462,34,34]}
+{"kind":"shape","id":"sh/tg3ah4vq","slide":5,"bbox":[662,428,240,112]}
+{"kind":"textbox","id":"sh/8fu98zu5","slide":5,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[682,446,46,30]}
+{"kind":"textbox","id":"sh/ql4n21cn","slide":5,"text":"Atualizar pagamento","textPreview":"Atualizar pagamento","textChars":19,"textLines":1,"bbox":[736,450,140,54]}
+{"kind":"textbox","id":"sh/rmxob6t8","slide":5,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[910,462,34,34]}
+{"kind":"shape","id":"sh/sn654but","slide":5,"bbox":[954,428,240,112]}
+{"kind":"textbox","id":"sh/dof6dgbe","slide":5,"text":"08","textPreview":"08","textChars":2,"textLines":1,"bbox":[974,446,46,30]}
+{"kind":"textbox","id":"sh/epon61sz","slide":5,"text":"Acompanhar CRM","textPreview":"Acompanhar CRM","textChars":14,"textLines":1,"bbox":[1028,450,140,54]}
+{"kind":"textbox","id":"sh/fqxof6tk","slide":5,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 5","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 5","textChars":74,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/jahozu1k","slide":5,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,86,72]}
+{"kind":"notes","id":"nt/alsf2b","slide":5,"text":""}
+{"kind":"slide","id":"sl/x3c1r0","slide":6,"title":"Portal Administrativo","textShapes":10}
+{"kind":"textbox","id":"sh/0zutc3ql","slide":6,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/103u58r6","slide":6,"text":"Dashboard: leitura rápida da operação","textPreview":"Dashboard: leitura rápida da operação","textChars":37,"textLines":1,"bbox":[76,96,980,82]}
+{"kind":"textbox","id":"sh/m1cbed8r","slide":6,"text":"A tela inicial consolida indicadores, períodos recentes e atividades operacionais auditadas.","textPreview":"A tela inicial consolida indicadores, períodos recentes e atividades operacionais auditadas.","textChars":92,"textLines":1,"bbox":[78,178,940,44]}
+{"kind":"shape","id":"sh/n2lc7i9w","slide":6,"bbox":[86,242,330,170]}
+{"kind":"textbox","id":"sh/o3edgnqh","slide":6,"text":"Resumo Geral","textPreview":"Resumo Geral","textChars":12,"textLines":1,"bbox":[110,264,282,34]}
+{"kind":"textbox","id":"sh/94nu9sr2","slide":6,"text":"Mostra PDFs enviados, notas recebidas, notas pendentes e motoristas pagos por período.","textPreview":"Mostra PDFs enviados, notas recebidas, notas pendentes e motoristas pagos por período.","textChars":86,"textLines":1,"bbox":[110,304,282,94]}
+{"kind":"shape","id":"sh/a5wvid8n","slide":6,"bbox":[474,242,330,170]}
+{"kind":"textbox","id":"sh/b65cbi98","slide":6,"text":"Atividades Recentes","textPreview":"Atividades Recentes","textChars":19,"textLines":1,"bbox":[498,264,282,34]}
+{"kind":"textbox","id":"sh/jalsbq58","slide":6,"text":"Exibe movimentações relevantes: criação de período, envio, substituição, histórico e alterações do fluxo.","textPreview":"Exibe movimentações relevantes: criação de período, envio, substituição, histórico e alterações do fluxo.","textChars":105,"textLines":1,"bbox":[498,304,282,94]}
+{"kind":"shape","id":"sh/i9cb2lo3","slide":6,"bbox":[862,242,330,170]}
+{"kind":"textbox","id":"sh/5c3ud0ne","slide":6,"text":"Atalhos","textPreview":"Atalhos","textChars":7,"textLines":1,"bbox":[886,264,282,34]}
+{"kind":"textbox","id":"sh/kbut4v6t","slide":6,"text":"Acesso rápido aos módulos liberados para o usuário, com atualização ao navegar entre telas.","textPreview":"Acesso rápido aos módulos liberados para o usuário, com atualização ao navegar entre telas.","textChars":91,"textLines":1,"bbox":[886,304,282,94]}
+{"kind":"textbox","id":"sh/v61s7q5c","slide":6,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 6","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 6","textChars":74,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/mtszmdwz","slide":6,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,82,68]}
+{"kind":"notes","id":"nt/x3c1r0","slide":6,"text":""}
+{"kind":"slide","id":"sl/7sn04w","slide":7,"title":"Portal Administrativo","textShapes":12}
+{"kind":"textbox","id":"sh/yhw36d4f","slide":7,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/ji54zil0","slide":7,"text":"Envio de PDFs: onde nasce o espelho de pagamento","textPreview":"Envio de PDFs: onde nasce o espelho de pagamento","textChars":48,"textLines":1,"bbox":[76,96,980,82]}
+{"kind":"textbox","id":"sh/87ylcnmh","slide":7,"text":"O usuário seleciona período e base, envia PDFs em lote e acompanha a fila de documentos por usuário.","textPreview":"O usuário seleciona período e base, envia PDFs em lote e acompanha a fila de documentos por usuário.","textChars":100,"textLines":1,"bbox":[78,178,940,44]}
+{"kind":"shape","id":"sh/t87m5s32","slide":7,"bbox":[80,238,260,195]}
+{"kind":"textbox","id":"sh/65g3ad4r","slide":7,"text":"1. Selecionar contexto","textPreview":"1. Selecionar contexto","textChars":22,"textLines":1,"bbox":[104,260,212,34]}
+{"kind":"textbox","id":"sh/76p43ilc","slide":7,"text":"Escolha o período de pagamento e a base correta antes do upload.","textPreview":"Escolha o período de pagamento e a base correta antes do upload.","textChars":64,"textLines":1,"bbox":[104,300,212,119]}
+{"kind":"shape","id":"sh/obul0jmd","slide":7,"bbox":[370,238,260,195]}
+{"kind":"textbox","id":"sh/9cn2to3y","slide":7,"text":"2. Enviar em lote","textPreview":"2. Enviar em lote","textChars":17,"textLines":1,"bbox":[394,260,212,34]}
+{"kind":"textbox","id":"sh/t8nexkfu","slide":7,"text":"Até 100 PDFs por requisição, com validação de motorista e registro no bucket.","textPreview":"Até 100 PDFs por requisição, com validação de motorista e registro no bucket.","textChars":77,"textLines":1,"bbox":[394,300,212,119]}
+{"kind":"shape","id":"sh/8nedofep","slide":7,"bbox":[660,238,260,195]}
+{"kind":"textbox","id":"sh/7m5wvax4","slide":7,"text":"3. Conferir fila","textPreview":"3. Conferir fila","textChars":16,"textLines":1,"bbox":[684,260,212,34]}
+{"kind":"textbox","id":"sh/6lwvm5wj","slide":7,"text":"A fila mostra lotes, status, download, histórico, substituição e remoção.","textPreview":"A fila mostra lotes, status, download, histórico, substituição e remoção.","textChars":73,"textLines":1,"bbox":[684,300,212,119]}
+{"kind":"shape","id":"sh/hc7e1kf6","slide":7,"bbox":[950,238,250,195]}
+{"kind":"textbox","id":"sh/gbedsfel","slide":7,"text":"4. Tratar exceções","textPreview":"4. Tratar exceções","textChars":18,"textLines":1,"bbox":[974,260,202,34]}
+{"kind":"textbox","id":"sh/va5wzax0","slide":7,"text":"Quando não há pré-cadastro, o PDF fica aguardando vínculo do motorista.","textPreview":"Quando não há pré-cadastro, o PDF fica aguardando vínculo do motorista.","textChars":71,"textLines":1,"bbox":[974,300,202,119]}
+{"kind":"textbox","id":"sh/u9wvq5wf","slide":7,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 7","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 7","textChars":74,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/47i9svy1","slide":7,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,82,68]}
+{"kind":"notes","id":"nt/7sn04w","slide":7,"text":""}
+{"kind":"slide","id":"sl/vzwqyp","slide":8,"title":"Portal Administrativo","textShapes":10}
+{"kind":"textbox","id":"sh/m9sbyhcv","slide":8,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/nalsrmtg","slide":8,"text":"Criação de Período controla a liberação do ciclo","textPreview":"Criação de Período controla a liberação do ciclo","textChars":48,"textLines":1,"bbox":[76,96,980,82]}
+{"kind":"textbox","id":"sh/wfut4rux","slide":8,"text":"N3/N4 criam períodos, vinculam bases, aprovam o envio e controlam a visibilidade no Financeiro sem quebrar o fluxo operacional.","textPreview":"N3/N4 criam períodos, vinculam bases, aprovam o envio e controlam a visibilidade no Financeiro sem quebrar o fluxo operacional.","textChars":127,"textLines":1,"bbox":[78,178,940,44]}
+{"kind":"shape","id":"sh/xg3uxwbi","slide":8,"bbox":[86,238,335,190]}
+{"kind":"textbox","id":"sh/adcb21cr","slide":8,"text":"Períodos criados","textPreview":"Períodos criados","textChars":16,"textLines":1,"bbox":[110,260,287,34]}
+{"kind":"textbox","id":"sh/belsv6tc","slide":8,"text":"Lista todos os períodos cadastrados e permite acompanhar bases, PDFs e situação.","textPreview":"Lista todos os períodos cadastrados e permite acompanhar bases, PDFs e situação.","textChars":80,"textLines":1,"bbox":[110,300,287,114]}
+{"kind":"shape","id":"sh/k3et8but","slide":8,"bbox":[472,238,335,190]}
+{"kind":"textbox","id":"sh/l4nu1gbe","slide":8,"text":"Aprovação do período","textPreview":"Aprovação do período","textChars":20,"textLines":1,"bbox":[496,260,287,34]}
+{"kind":"textbox","id":"sh/ps3mlgvu","slide":8,"text":"Após todos enviarem, o N3 aprova o período para liberar espelhos no portal do motorista.","textPreview":"Após todos enviarem, o N3 aprova o período para liberar espelhos no portal do motorista.","textChars":88,"textLines":1,"bbox":[496,300,287,114]}
+{"kind":"shape","id":"sh/oralsbu9","slide":8,"bbox":[858,238,335,190]}
+{"kind":"textbox","id":"sh/3q14j6do","slide":8,"text":"Visibilidade financeira","textPreview":"Visibilidade financeira","textChars":23,"textLines":1,"bbox":[882,260,287,34]}
+{"kind":"textbox","id":"sh/25s3q1c3","slide":8,"text":"O botão Ativo/Finalizado afeta somente a tela Financeiro, não a lógica de aprovação dos espelhos.","textPreview":"O botão Ativo/Finalizado afeta somente a tela Financeiro, não a lógica de aprovação dos espelhos.","textChars":97,"textLines":1,"bbox":[882,300,287,114]}
+{"kind":"textbox","id":"sh/dw3mpgvq","slide":8,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 8","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 8","textChars":74,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/wvetkvqh","slide":8,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,82,68]}
+{"kind":"notes","id":"nt/vzwqyp","slide":8,"text":""}
+{"kind":"slide","id":"sl/8uma4r","slide":9,"title":"Portal Administrativo","textShapes":10}
+{"kind":"shape","id":"sh/r25wfyhw","slide":9,"bbox":[0,0,1280,720]}
+{"kind":"textbox","id":"sh/d47yh8z2","slide":9,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/idwfi90f","slide":9,"text":"PDFOnline envia eventos de volta ao portal","textPreview":"PDFOnline envia eventos de volta ao portal","textChars":42,"textLines":1,"bbox":[76,96,980,82]}
+{"kind":"textbox","id":"sh/3e5wbeh0","slide":9,"text":"A integração mantém o administrativo sincronizado com o comportamento do motorista no portal externo.","textPreview":"A integração mantém o administrativo sincronizado com o comportamento do motorista no portal externo.","textChars":101,"textLines":1,"bbox":[78,178,940,44]}
+{"kind":"shape","id":"sh/4zexkjil","slide":9,"bbox":[84,235,350,170]}
+{"kind":"textbox","id":"sh/50nedozq","slide":9,"text":"Visualização do espelho","textPreview":"Visualização do espelho","textChars":23,"textLines":1,"bbox":[108,257,302,34]}
+{"kind":"textbox","id":"sh/u9cfe903","slide":9,"text":"Registra apenas a primeira visualização do motorista, evitando atualização contínua do horário.","textPreview":"Registra apenas a primeira visualização do motorista, evitando atualização contínua do horário.","textChars":95,"textLines":1,"bbox":[108,297,302,94]}
+{"kind":"shape","id":"sh/valw7eho","slide":9,"bbox":[466,235,350,170]}
+{"kind":"textbox","id":"sh/3mpsri50","slide":9,"text":"Nota fiscal","textPreview":"Nota fiscal","textChars":11,"textLines":1,"bbox":[490,257,302,34]}
+{"kind":"textbox","id":"sh/2lgrydof","slide":9,"text":"Recebe status de nota fiscal: recebida, em análise, aprovada, rejeitada ou processo concluído.","textPreview":"Recebe status de nota fiscal: recebida, em análise, aprovada, rejeitada ou processo concluído.","textChars":94,"textLines":1,"bbox":[490,297,302,94]}
+{"kind":"shape","id":"sh/po7at8n6","slide":9,"bbox":[848,235,350,170]}
+{"kind":"textbox","id":"sh/onyt036l","slide":9,"text":"Pagamento","textPreview":"Pagamento","textChars":9,"textLines":1,"bbox":[872,257,302,34]}
+{"kind":"textbox","id":"sh/bqpsvi5c","slide":9,"text":"O portal administrativo envia status financeiro para o PDFOnline por webhook com histórico e retry.","textPreview":"O portal administrativo envia status financeiro para o PDFOnline por webhook com histórico e retry.","textChars":99,"textLines":1,"bbox":[872,297,302,94]}
+{"kind":"textbox","id":"sh/qpgb2dor","slide":9,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 9","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 9","textChars":74,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/t4rihkzu","slide":9,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,82,68]}
+{"kind":"notes","id":"nt/8uma4r","slide":9,"text":""}
+{"kind":"slide","id":"sl/vnn2ay","slide":10,"title":"Portal Administrativo","textShapes":12}
+{"kind":"textbox","id":"sh/rulcna5s","slide":10,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/qtcve547","slide":10,"text":"Notas Fiscais acompanha motorista por período","textPreview":"Notas Fiscais acompanha motorista por período","textChars":45,"textLines":1,"bbox":[76,96,980,82]}
+{"kind":"textbox","id":"sh/ps3ulkn2","slide":10,"text":"A aba permite ver o status individual: espelho enviado, visualização, NF enviada, status do processo e atendimento.","textPreview":"A aba permite ver o status individual: espelho enviado, visualização, NF enviada, status do processo e atendimento.","textChars":115,"textLines":1,"bbox":[78,178,940,44]}
+{"kind":"shape","id":"sh/4rudcfmh","slide":10,"bbox":[86,238,250,210]}
+{"kind":"textbox","id":"sh/36lcja5w","slide":10,"text":"Abrir","textPreview":"Abrir","textChars":5,"textLines":1,"bbox":[110,260,202,34]}
+{"kind":"textbox","id":"sh/25cva54b","slide":10,"text":"Abre o CRM do motorista para consulta completa do cadastro e histórico.","textPreview":"Abre o CRM do motorista para consulta completa do cadastro e histórico.","textChars":71,"textLines":1,"bbox":[110,300,202,134]}
+{"kind":"shape","id":"sh/9o7ex436","slide":10,"bbox":[372,238,250,210]}
+{"kind":"textbox","id":"sh/onedozml","slide":10,"text":"Visualizar Nota Fiscal","textPreview":"Visualizar Nota Fiscal","textChars":22,"textLines":1,"bbox":[396,260,202,34]}
+{"kind":"textbox","id":"sh/a9gfidcv","slide":10,"text":"Abre a nota fiscal anexada pelo motorista no PDFOnline.","textPreview":"Abre a nota fiscal anexada pelo motorista no PDFOnline.","textChars":55,"textLines":1,"bbox":[396,300,202,134]}
+{"kind":"shape","id":"sh/bapwritg","slide":10,"bbox":[658,238,250,210]}
+{"kind":"textbox","id":"sh/cbyxknu1","slide":10,"text":"Abrir PDF","textPreview":"Abrir PDF","textChars":9,"textLines":1,"bbox":[682,260,202,34]}
+{"kind":"textbox","id":"sh/xc7etsbm","slide":10,"text":"Abre o espelho de pagamento enviado pelo administrativo.","textPreview":"Abre o espelho de pagamento enviado pelo administrativo.","textChars":56,"textLines":1,"bbox":[682,300,202,134]}
+{"kind":"shape","id":"sh/2lwfedcz","slide":10,"bbox":[944,238,250,210]}
+{"kind":"textbox","id":"sh/3m5wnyt4","slide":10,"text":"Filtros","textPreview":"Filtros","textChars":7,"textLines":1,"bbox":[968,260,202,34]}
+{"kind":"textbox","id":"sh/o7exg3up","slide":10,"text":"Busca por nome, CPF, status e situação de atendimento.","textPreview":"Busca por nome, CPF, status e situação de atendimento.","textChars":54,"textLines":1,"bbox":[968,300,202,134]}
+{"kind":"textbox","id":"sh/p8nep8ba","slide":10,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 10","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 10","textChars":75,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/l8jmx8na","slide":10,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,82,68]}
+{"kind":"notes","id":"nt/vnn2ay","slide":10,"text":""}
+{"kind":"slide","id":"sl/wrhtq4","slide":11,"title":"Portal Administrativo","textShapes":10}
+{"kind":"textbox","id":"sh/d4fyhon2","slide":11,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/c36x8jmh","slide":11,"text":"Financeiro tem três abas para fechar o ciclo","textPreview":"Financeiro tem três abas para fechar o ciclo","textChars":44,"textLines":1,"bbox":[76,96,980,82]}
+{"kind":"textbox","id":"sh/3ydgbe50","slide":11,"text":"A tela reúne exportação de notas, geração de pagamentos aptos e atualização de status financeiro por planilha.","textPreview":"A tela reúne exportação de notas, geração de pagamentos aptos e atualização de status financeiro por planilha.","textChars":110,"textLines":1,"bbox":[78,178,940,44]}
+{"kind":"shape","id":"sh/2d4f294f","slide":11,"bbox":[86,235,340,220]}
+{"kind":"textbox","id":"sh/p0vydonq","slide":11,"text":"Notas Fiscais","textPreview":"Notas Fiscais","textChars":13,"textLines":1,"bbox":[110,257,292,34]}
+{"kind":"textbox","id":"sh/4zmx4jm5","slide":11,"text":"Seleciona período e exporta notas fiscais em massa, sem misturar espelhos de pagamento.","textPreview":"Seleciona período e exporta notas fiscais em massa, sem misturar espelhos de pagamento.","textChars":87,"textLines":1,"bbox":[110,297,292,144]}
+{"kind":"shape","id":"sh/fatw7u5o","slide":11,"bbox":[470,235,340,220]}
+{"kind":"textbox","id":"sh/u9kfyp43","slide":11,"text":"A pagar","textPreview":"A pagar","textChars":7,"textLines":1,"bbox":[494,257,292,34]}
+{"kind":"textbox","id":"sh/cnmd0zmd","slide":11,"text":"Lista motoristas aptos: espelho aprovado, nota fiscal enviada e validada, sem bloqueio ou pagamento concluído.","textPreview":"Lista motoristas aptos: espelho aprovado, nota fiscal enviada e validada, sem bloqueio ou pagamento concluído.","textChars":110,"textLines":1,"bbox":[494,297,292,144]}
+{"kind":"shape","id":"sh/dovut43y","slide":11,"bbox":[854,235,340,220]}
+{"kind":"textbox","id":"sh/ql4byp4n","slide":11,"text":"Atualizar Pagamentos","textPreview":"Atualizar Pagamentos","textChars":20,"textLines":1,"bbox":[878,257,292,34]}
+{"kind":"textbox","id":"sh/rmdcrul8","slide":11,"text":"Importa Excel, pré-visualiza linha a linha, confirma status e dispara webhook para o PDFOnline.","textPreview":"Importa Excel, pré-visualiza linha a linha, confirma status e dispara webhook para o PDFOnline.","textChars":95,"textLines":1,"bbox":[878,297,292,144]}
+{"kind":"textbox","id":"sh/4jmtwfmh","slide":11,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 11","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 11","textChars":75,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/re1sz6xs","slide":11,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,82,68]}
+{"kind":"notes","id":"nt/wrhtq4","slide":11,"text":""}
+{"kind":"slide","id":"sl/wu155l","slide":12,"title":"Portal Administrativo","textShapes":12}
+{"kind":"textbox","id":"sh/cz25svy9","slide":12,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/d0bm10zu","slide":12,"text":"Atualizar Pagamentos transforma a planilha em status oficial","textPreview":"Atualizar Pagamentos transforma a planilha em status oficial","textChars":60,"textLines":1,"bbox":[76,96,980,82]}
+{"kind":"textbox","id":"sh/2t0nml07","slide":12,"text":"O processo é seguro: pré-visualização antes da confirmação, histórico do status e rastreio de webhooks.","textPreview":"O processo é seguro: pré-visualização antes da confirmação, histórico do status e rastreio de webhooks.","textChars":103,"textLines":1,"bbox":[78,178,940,44]}
+{"kind":"shape","id":"sh/3u94v6hc","slide":12,"bbox":[80,238,260,200]}
+{"kind":"textbox","id":"sh/4vi5obix","slide":12,"text":"Planilha","textPreview":"Planilha","textChars":8,"textLines":1,"bbox":[104,260,212,34]}
+{"kind":"textbox","id":"sh/pwrmxgzi","slide":12,"text":"Usa a aba Resumido e a coluna M para classificar PAGO, PENDENTE, BLOQUEADO ou NOTA FISCAL PENDENTE.","textPreview":"Usa a aba Resumido e a coluna M para classificar PAGO, PENDENTE, BLOQUEADO ou NOTA FISCAL PENDENTE.","textChars":99,"textLines":1,"bbox":[104,300,212,124]}
+{"kind":"shape","id":"sh/u5gni10v","slide":12,"bbox":[370,238,260,200]}
+{"kind":"textbox","id":"sh/f6p4r6hg","slide":12,"text":"Prévia","textPreview":"Prévia","textChars":6,"textLines":1,"bbox":[394,260,212,34]}
+{"kind":"textbox","id":"sh/nyt072pk","slide":12,"text":"Mostra motorista, CNPJ do favorecido, status atual, novo status, regra aplicada e validação.","textPreview":"Mostra motorista, CNPJ do favorecido, status atual, novo status, regra aplicada e validação.","textChars":92,"textLines":1,"bbox":[394,300,212,124]}
+{"kind":"shape","id":"sh/mxkjex8f","slide":12,"bbox":[660,238,260,200]}
+{"kind":"textbox","id":"sh/90bi9c7q","slide":12,"text":"Confirmação","textPreview":"Confirmação","textChars":11,"textLines":1,"bbox":[684,260,212,34]}
+{"kind":"textbox","id":"sh/oz21g7q5","slide":12,"text":"Atualiza pagamentos válidos, registra histórico e preserva mudanças anteriores.","textPreview":"Atualiza pagamentos válidos, registra histórico e preserva mudanças anteriores.","textChars":79,"textLines":1,"bbox":[684,300,212,124]}
+{"kind":"shape","id":"sh/b2d0bmpw","slide":12,"bbox":[950,238,250,200]}
+{"kind":"textbox","id":"sh/a1kjih8b","slide":12,"text":"Webhook","textPreview":"Webhook","textChars":7,"textLines":1,"bbox":[974,260,202,34]}
+{"kind":"textbox","id":"sh/x4vidc72","slide":12,"text":"Envia o status ao PDFOnline. Falhas ficam pendentes para reprocessamento.","textPreview":"Envia o status ao PDFOnline. Falhas ficam pendentes para reprocessamento.","textChars":73,"textLines":1,"bbox":[974,300,202,124]}
+{"kind":"textbox","id":"sh/w3m1krqh","slide":12,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 12","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 12","textChars":75,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/atwzip03","slide":12,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,82,68]}
+{"kind":"notes","id":"nt/wu155l","slide":12,"text":""}
+{"kind":"slide","id":"sl/dfnqlr","slide":13,"title":"Portal Administrativo","textShapes":10}
+{"kind":"textbox","id":"sh/ixgbmxkb","slide":13,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/jypsv2lw","slide":13,"text":"A pagar exporta somente quem está pronto para pagamento","textPreview":"A pagar exporta somente quem está pronto para pagamento","textChars":55,"textLines":1,"bbox":[76,96,980,82]}
+{"kind":"textbox","id":"sh/snits72t","slide":13,"text":"A planilha de aptos evita pagar motoristas com pendências de aprovação, nota fiscal, bloqueio ou dados obrigatórios.","textPreview":"A planilha de aptos evita pagar motoristas com pendências de aprovação, nota fiscal, bloqueio ou dados obrigatórios.","textChars":116,"textLines":1,"bbox":[78,178,940,44]}
+{"kind":"shape","id":"sh/tora1cjy","slide":13,"bbox":[86,238,335,190]}
+{"kind":"textbox","id":"sh/61gbqhkn","slide":13,"text":"Critérios de aptidão","textPreview":"Critérios de aptidão","textChars":20,"textLines":1,"bbox":[110,260,287,34]}
+{"kind":"textbox","id":"sh/rm9szm18","slide":13,"text":"Espelho aprovado, nota fiscal enviada e validada, processo aguardando pagamento e status financeiro ainda não pago.","textPreview":"Espelho aprovado, nota fiscal enviada e validada, processo aguardando pagamento e status financeiro ainda não pago.","textChars":115,"textLines":1,"bbox":[110,300,287,114]}
+{"kind":"shape","id":"sh/8re9gn29","slide":13,"bbox":[472,238,335,190]}
+{"kind":"textbox","id":"sh/9snaps3u","slide":13,"text":"Dados exportados","textPreview":"Dados exportados","textChars":16,"textLines":1,"bbox":[496,260,287,34]}
+{"kind":"textbox","id":"sh/xobmx432","slide":13,"text":"Nome do motorista, nome do favorecido, CNPJ do favorecido, valor total do PDF e base do motorista.","textPreview":"Nome do motorista, nome do favorecido, CNPJ do favorecido, valor total do PDF e base do motorista.","textChars":98,"textLines":1,"bbox":[496,300,287,114]}
+{"kind":"shape","id":"sh/cn2lozmx","slide":13,"bbox":[858,238,335,190]}
+{"kind":"textbox","id":"sh/bm94vulc","slide":13,"text":"Inconsistências","textPreview":"Inconsistências","textChars":15,"textLines":1,"bbox":[882,260,287,34]}
+{"kind":"textbox","id":"sh/al03mp4r","slide":13,"text":"Registros com dados obrigatórios ausentes são sinalizados antes da exportação.","textPreview":"Registros com dados obrigatórios ausentes são sinalizados antes da exportação.","textChars":78,"textLines":1,"bbox":[882,300,287,114]}
+{"kind":"textbox","id":"sh/lcbm1o3e","slide":13,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 13","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 13","textChars":75,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/cvqdo7e9","slide":13,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,82,68]}
+{"kind":"notes","id":"nt/dfnqlr","slide":13,"text":""}
+{"kind":"slide","id":"sl/swm1rc","slide":14,"title":"Portal Administrativo","textShapes":12}
+{"kind":"textbox","id":"sh/gnyl8zml","slide":14,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/1o7mh436","slide":14,"text":"Atendimento concentra o histórico do motorista","textPreview":"Atendimento concentra o histórico do motorista","textChars":46,"textLines":1,"bbox":[76,96,980,82]}
+{"kind":"textbox","id":"sh/6hw32p4j","slide":14,"text":"O CRM oferece visão única para suporte, conferência operacional e investigação de pendências.","textPreview":"O CRM oferece visão única para suporte, conferência operacional e investigação de pendências.","textChars":93,"textLines":1,"bbox":[78,178,940,44]}
+{"kind":"shape","id":"sh/ri54bul4","slide":14,"bbox":[84,238,250,215]}
+{"kind":"textbox","id":"sh/sjel4fmp","slide":14,"text":"Dados cadastrais","textPreview":"Dados cadastrais","textChars":16,"textLines":1,"bbox":[108,260,202,34]}
+{"kind":"textbox","id":"sh/tknmdk3a","slide":14,"text":"Consulta e edição de informações do motorista e favorecido.","textPreview":"Consulta e edição de informações do motorista e favorecido.","textChars":59,"textLines":1,"bbox":[108,300,202,139]}
+{"kind":"shape","id":"sh/qd03e94n","slide":14,"bbox":[368,238,250,215]}
+{"kind":"textbox","id":"sh/be94nel8","slide":14,"text":"Histórico de pagamentos","textPreview":"Histórico de pagamentos","textChars":23,"textLines":1,"bbox":[392,260,202,34]}
+{"kind":"textbox","id":"sh/3yxsnml8","slide":14,"text":"Mostra períodos, espelho enviado, visualizado, NF recebida, data de pagamento e status.","textPreview":"Mostra períodos, espelho enviado, visualizado, NF recebida, data de pagamento e status.","textChars":87,"textLines":1,"bbox":[392,300,202,139]}
+{"kind":"shape","id":"sh/ixobehkn","slide":14,"bbox":[652,238,250,215]}
+{"kind":"textbox","id":"sh/50zupw3e","slide":14,"text":"Chamados","textPreview":"Chamados","textChars":8,"textLines":1,"bbox":[676,260,202,34]}
+{"kind":"textbox","id":"sh/4z6tgr2t","slide":14,"text":"Registra atendimentos, anexos, movimentações e encerramento de solicitações.","textPreview":"Registra atendimentos, anexos, movimentações e encerramento de solicitações.","textChars":76,"textLines":1,"bbox":[676,300,202,139]}
+{"kind":"shape","id":"sh/rmhcr6l4","slide":14,"bbox":[936,238,250,215]}
+{"kind":"textbox","id":"sh/q18bi1kz","slide":14,"text":"Notas internas","textPreview":"Notas internas","textChars":14,"textLines":1,"bbox":[960,260,202,34]}
+{"kind":"textbox","id":"sh/dozutg3a","slide":14,"text":"Documenta observações e classificações para acompanhamento administrativo.","textPreview":"Documenta observações e classificações para acompanhamento administrativo.","textChars":74,"textLines":1,"bbox":[960,300,202,139]}
+{"kind":"textbox","id":"sh/snqtkb2p","slide":14,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 14","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 14","textChars":75,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/m90zypwj","slide":14,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,82,68]}
+{"kind":"notes","id":"nt/swm1rc","slide":14,"text":""}
+{"kind":"slide","id":"sl/x0eu97","slide":15,"title":"Portal Administrativo","textShapes":10}
+{"kind":"textbox","id":"sh/fqp4vud8","slide":15,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/upg3mpwn","slide":15,"text":"Cadastro de usuários também é controle operacional","textPreview":"Cadastro de usuários também é controle operacional","textChars":50,"textLines":1,"bbox":[76,96,980,82]}
+{"kind":"textbox","id":"sh/pwrm1ova","slide":15,"text":"Usuários, permissões e histórico de sessão ajudam a manter responsabilidade e governança.","textPreview":"Usuários, permissões e histórico de sessão ajudam a manter responsabilidade e governança.","textChars":89,"textLines":1,"bbox":[78,178,940,44]}
+{"kind":"shape","id":"sh/4vilsjep","slide":15,"bbox":[86,238,335,190]}
+{"kind":"textbox","id":"sh/3u94zed4","slide":15,"text":"Cadastro","textPreview":"Cadastro","textChars":8,"textLines":1,"bbox":[110,260,287,34]}
+{"kind":"textbox","id":"sh/2tg3q9wz","slide":15,"text":"Cria usuários, define nível N1 a N4, módulos e permissões efetivas.","textPreview":"Cria usuários, define nível N1 a N4, módulos e permissões efetivas.","textChars":67,"textLines":1,"bbox":[110,300,287,114]}
+{"kind":"shape","id":"sh/50n2pkv6","slide":15,"bbox":[472,238,335,190]}
+{"kind":"textbox","id":"sh/kzelgfel","slide":15,"text":"Segurança","textPreview":"Segurança","textChars":9,"textLines":1,"bbox":[496,260,287,34]}
+{"kind":"textbox","id":"sh/ixkfehwb","slide":15,"text":"Primeiro acesso, reset de senha, bloqueio, ativação e desativação de usuários.","textPreview":"Primeiro acesso, reset de senha, bloqueio, ativação e desativação de usuários.","textChars":78,"textLines":1,"bbox":[496,300,287,114]}
+{"kind":"shape","id":"sh/3ytgnmxw","slide":15,"bbox":[858,238,335,190]}
+{"kind":"textbox","id":"sh/4z2xgreh","slide":15,"text":"Sessões","textPreview":"Sessões","textChars":7,"textLines":1,"bbox":[882,260,287,34]}
+{"kind":"textbox","id":"sh/50bypcf2","slide":15,"text":"Histórico resumido de login, logout, IP, dispositivo e tempo estimado de atividade.","textPreview":"Histórico resumido de login, logout, IP, dispositivo e tempo estimado de atividade.","textChars":83,"textLines":1,"bbox":[882,300,287,114]}
+{"kind":"textbox","id":"sh/qlkzihwn","slide":15,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 15","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 15","textChars":75,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/dwna1kzq","slide":15,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,82,68]}
+{"kind":"notes","id":"nt/x0eu97","slide":15,"text":""}
+{"kind":"slide","id":"sl/2uhp0m","slide":16,"title":"Portal Administrativo","textShapes":12}
+{"kind":"textbox","id":"sh/36x8za9c","slide":16,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/25o765sr","slide":16,"text":"Rotina recomendada para a operação","textPreview":"Rotina recomendada para a operação","textChars":34,"textLines":1,"bbox":[76,96,980,82]}
+{"kind":"textbox","id":"sh/14fqx0r6","slide":16,"text":"A rotina abaixo reduz retrabalho e mantém os dados consistentes entre administrativo, PDFOnline e financeiro.","textPreview":"A rotina abaixo reduz retrabalho e mantém os dados consistentes entre administrativo, PDFOnline e financeiro.","textChars":109,"textLines":1,"bbox":[78,178,940,44]}
+{"kind":"shape","id":"sh/g3mp4val","slide":16,"bbox":[80,228,250,240]}
+{"kind":"textbox","id":"sh/f2d8vq90","slide":16,"text":"Antes do envio","textPreview":"Antes do envio","textChars":14,"textLines":1,"bbox":[104,250,202,34]}
+{"kind":"textbox","id":"sh/e1472lsv","slide":16,"text":"Criar período, revisar bases, confirmar pré-cadastro dos motoristas e orientar usuários responsáveis.","textPreview":"Criar período, revisar bases, confirmar pré-cadastro dos motoristas e orientar usuários responsáveis.","textChars":101,"textLines":1,"bbox":[104,290,202,164]}
+{"kind":"shape","id":"sh/t0vqtgra","slide":16,"bbox":[358,228,250,240]}
+{"kind":"textbox","id":"sh/szmp0bap","slide":16,"text":"Durante o envio","textPreview":"Durante o envio","textChars":15,"textLines":1,"bbox":[382,250,202,34]}
+{"kind":"textbox","id":"sh/2xcza18r","slide":16,"text":"Selecionar período/base, subir PDFs em lote, revisar fila e corrigir arquivos aguardando cadastro.","textPreview":"Selecionar período/base, subir PDFs em lote, revisar fila e corrigir arquivos aguardando cadastro.","textChars":98,"textLines":1,"bbox":[382,290,202,164]}
+{"kind":"shape","id":"sh/3ylgj69c","slide":16,"bbox":[636,228,250,240]}
+{"kind":"textbox","id":"sh/4zuhcbqx","slide":16,"text":"Após o envio","textPreview":"Após o envio","textChars":12,"textLines":1,"bbox":[660,250,202,34]}
+{"kind":"textbox","id":"sh/p03ylwri","slide":16,"text":"N3 aprova período, motoristas visualizam espelho, aprovam e enviam nota fiscal pelo PDFOnline.","textPreview":"N3 aprova período, motoristas visualizam espelho, aprovam e enviam nota fiscal pelo PDFOnline.","textChars":94,"textLines":1,"bbox":[660,290,202,164]}
+{"kind":"shape","id":"sh/u9sf6h8v","slide":16,"bbox":[914,228,250,240]}
+{"kind":"textbox","id":"sh/falgfm9g","slide":16,"text":"Fechamento","textPreview":"Fechamento","textChars":10,"textLines":1,"bbox":[938,250,202,34]}
+{"kind":"textbox","id":"sh/gbuh8rq1","slide":16,"text":"Validar notas, exportar aptos, importar planilha financeira, conferir webhooks e acompanhar CRM.","textPreview":"Validar notas, exportar aptos, importar planilha financeira, conferir webhooks e acompanhar CRM.","textChars":96,"textLines":1,"bbox":[938,290,202,164]}
+{"kind":"textbox","id":"sh/hc3yhwrm","slide":16,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 16","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 16","textChars":75,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/h4ny5k76","slide":16,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,82,68]}
+{"kind":"notes","id":"nt/2uhp0m","slide":16,"text":""}
+{"kind":"slide","id":"sl/8nuy0x","slide":17,"title":"Portal Administrativo","textShapes":8}
+{"kind":"textbox","id":"sh/p4bq1one","slide":17,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/o3298j6t","slide":17,"text":"Checklist de treinamento para novos usuários","textPreview":"Checklist de treinamento para novos usuários","textChars":44,"textLines":1,"bbox":[76,96,980,82]}
+{"kind":"textbox","id":"sh/fy98ve5w","slide":17,"text":"Use esta sequência para capacitar operadores e administradores sem pular etapas críticas.","textPreview":"Use esta sequência para capacitar operadores e administradores sem pular etapas críticas.","textChars":89,"textLines":1,"bbox":[78,178,940,44]}
+{"kind":"shape","id":"sh/ex0729or","slide":17,"bbox":[86,228,520,270]}
+{"kind":"textbox","id":"sh/10rqxon2","slide":17,"text":"Operador","textPreview":"Operador","textChars":8,"textLines":1,"bbox":[110,250,472,34]}
+{"kind":"textbox","id":"sh/gzip4j6h","slide":17,"text":"1. Entrar no portal e alternar tema.\n2. Selecionar módulo liberado.\n3. Enviar PDFs com período e base corretos.\n4. Conferir fila, histórico e substituições.\n5. Abrir CRM quando houver dúvida.","textPreview":"1. Entrar no portal e alternar tema. | 2. Selecionar módulo liberado. | 3. Enviar PDFs com período e base corretos. | 4. Conferir fila, h...","textChars":191,"textLines":5,"bbox":[110,290,472,194]}
+{"kind":"shape","id":"sh/rup8re50","slide":17,"bbox":[674,228,520,270]}
+{"kind":"textbox","id":"sh/6tg7y9of","slide":17,"text":"Administrador / Financeiro","textPreview":"Administrador / Financeiro","textChars":26,"textLines":1,"bbox":[698,250,472,34]}
+{"kind":"textbox","id":"sh/wnqhojyp","slide":17,"text":"1. Criar e aprovar períodos.\n2. Gerenciar bases e permissões.\n3. Exportar notas fiscais e aptos.\n4. Importar status de pagamento.\n5. Reprocessar webhooks e auditar atividades.","textPreview":"1. Criar e aprovar períodos. | 2. Gerenciar bases e permissões. | 3. Exportar notas fiscais e aptos. | 4. Importar status de pagamento. |...","textChars":175,"textLines":5,"bbox":[698,290,472,194]}
+{"kind":"textbox","id":"sh/xozixofa","slide":17,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 17","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 17","textChars":75,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/fyd0vyl0","slide":17,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,82,68]}
+{"kind":"notes","id":"nt/8nuy0x","slide":17,"text":""}
+{"kind":"slide","id":"sl/epjbl3","slide":18,"title":"Portal Administrativo","textShapes":5}
+{"kind":"shape","id":"sh/ml0bylov","slide":18,"bbox":[0,0,1280,720]}
+{"kind":"shape","id":"sh/9ora90n6","slide":18,"bbox":[0,0,400,720]}
+{"kind":"textbox","id":"sh/vq9sba5c","slide":18,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/up0b25or","slide":18,"text":"TREINAMENTO VISUAL","textPreview":"TREINAMENTO VISUAL","textChars":18,"textLines":1,"bbox":[96,178,460,24]}
+{"kind":"textbox","id":"sh/hcbad0ni","slide":18,"text":"Use a tela como roteiro","textPreview":"Use a tela como roteiro","textChars":23,"textLines":1,"bbox":[96,222,760,130]}
+{"kind":"textbox","id":"sh/wbit4v6x","slide":18,"text":"Os próximos slides mostram onde o operador deve clicar e o que conferir em cada etapa do ciclo.","textPreview":"Os próximos slides mostram onde o operador deve clicar e o que conferir em cada etapa do ciclo.","textChars":95,"textLines":1,"bbox":[100,378,780,86]}
+{"kind":"textbox","id":"sh/jetcfa58","slide":18,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 18","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 18","textChars":75,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/9grah4ra","slide":18,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1104,38,78,64]}
+{"kind":"notes","id":"nt/epjbl3","slide":18,"text":""}
+{"kind":"slide","id":"sl/9gizlb","slide":19,"title":"Portal Administrativo","textShapes":17}
+{"kind":"textbox","id":"sh/mx8repkz","slide":19,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/ny1snal4","slide":19,"text":"Login: entrada segura no Portal Administrativo","textPreview":"Login: entrada segura no Portal Administrativo","textChars":46,"textLines":1,"bbox":[76,88,1060,58]}
+{"kind":"textbox","id":"sh/0vq9cf2t","slide":19,"text":"O acesso é feito por e-mail e senha, com controle de perfil e permissões após a autenticação.","textPreview":"O acesso é feito por e-mail e senha, com controle de perfil e permissões após a autenticação.","textChars":93,"textLines":1,"bbox":[78,146,980,42]}
+{"kind":"shape","id":"sh/1wzalk3e","slide":19,"bbox":[72,214,770,420]}
+{"kind":"shape","id":"sh/zuhsjal8","slide":19,"bbox":[576.84,399.36,26,26]}
+{"kind":"textbox","id":"sh/c7q98v2h","slide":19,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[576.84,405.36,26,14]}
+{"kind":"shape","id":"sh/d8zah032","slide":19,"bbox":[576.84,453.68,26,26]}
+{"kind":"textbox","id":"sh/p4bm94vq","slide":19,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[576.84,459.68,26,14]}
+{"kind":"shape","id":"sh/o3ilgzu5","slide":19,"bbox":[591.6,504.12,26,26]}
+{"kind":"textbox","id":"sh/n2947edk","slide":19,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[591.6,510.12,26,14]}
+{"kind":"shape","id":"sh/2103e9cf","slide":19,"bbox":[510.42,476.96,26,26]}
+{"kind":"textbox","id":"sh/10rm54vu","slide":19,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[510.42,482.96,26,14]}
+{"kind":"shape","id":"sh/gzilczu9","slide":19,"bbox":[884,214,320,420]}
+{"kind":"textbox","id":"sh/fy943udo","slide":19,"text":"Campos da tela de login","textPreview":"Campos da tela de login","textChars":23,"textLines":1,"bbox":[912,244,260,34]}
+{"kind":"shape","id":"sh/ex03apc3","slide":19,"bbox":[912,300,34,34]}
+{"kind":"textbox","id":"sh/tw7m1kvi","slide":19,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[912,307,34,18]}
+{"kind":"textbox","id":"sh/sbyl8fux","slide":19,"text":"E-mail: identifica o usuário autorizado.","textPreview":"E-mail: identifica o usuário autorizado.","textChars":40,"textLines":1,"bbox":[960,298,218,58]}
+{"kind":"shape","id":"sh/4rmd4j65","slide":19,"bbox":[912,364,34,34]}
+{"kind":"textbox","id":"sh/5svudo7q","slide":19,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[912,371,34,18]}
+{"kind":"textbox","id":"sh/ip4vi9oz","slide":19,"text":"Senha: valida o acesso ao portal.","textPreview":"Senha: valida o acesso ao portal.","textChars":33,"textLines":1,"bbox":[960,362,218,58]}
+{"kind":"shape","id":"sh/jqdcbepk","slide":19,"bbox":[912,428,34,34]}
+{"kind":"textbox","id":"sh/wn2dgj69","slide":19,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[912,435,34,18]}
+{"kind":"textbox","id":"sh/hovu9o7e","slide":19,"text":"Entrar: abre o sistema conforme permissões.","textPreview":"Entrar: abre o sistema conforme permissões.","textChars":43,"textLines":1,"bbox":[960,426,218,58]}
+{"kind":"shape","id":"sh/u1kve9o3","slide":19,"bbox":[912,492,34,34]}
+{"kind":"textbox","id":"sh/vmtc7epo","slide":19,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[912,499,34,18]}
+{"kind":"textbox","id":"sh/0j6dc36d","slide":19,"text":"Lembrar acesso: uso opcional em máquina confiável.","textPreview":"Lembrar acesso: uso opcional em máquina confiável.","textChars":50,"textLines":1,"bbox":[960,490,218,58]}
+{"kind":"textbox","id":"sh/1kfel87y","slide":19,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 19","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 19","textChars":75,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/kzyhsb61","slide":19,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,82,68]}
+{"kind":"image","id":"im/bu5gv6pk","slide":19,"name":"","alt":"Tela do sistema: Login: entrada segura no Portal Administrativo","bbox":[88,230,738,388]}
+{"kind":"notes","id":"nt/9gizlb","slide":19,"text":""}
+{"kind":"slide","id":"sl/sdb36l","slide":20,"title":"Portal Administrativo","textShapes":17}
+{"kind":"textbox","id":"sh/3ypkze5w","slide":20,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/2xgjq94b","slide":20,"text":"Dashboard: comece pelo resumo operacional","textPreview":"Dashboard: comece pelo resumo operacional","textChars":41,"textLines":1,"bbox":[76,88,1060,58]}
+{"kind":"textbox","id":"sh/do725o3y","slide":20,"text":"A tela inicial ajuda a entender períodos, pendências, PDFs enviados e atividades recentes antes de agir.","textPreview":"A tela inicial ajuda a entender períodos, pendências, PDFs enviados e atividades recentes antes de agir.","textChars":104,"textLines":1,"bbox":[78,146,980,42]}
+{"kind":"shape","id":"sh/cny1wjmt","slide":20,"bbox":[72,214,770,420]}
+{"kind":"shape","id":"sh/qlgju94n","slide":20,"bbox":[274.26,403.24,26,26]}
+{"kind":"textbox","id":"sh/tsnitknu","slide":20,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[274.26,409.24,26,14]}
+{"kind":"shape","id":"sh/8re1kfm9","slide":20,"bbox":[591.6,403.24,26,26]}
+{"kind":"textbox","id":"sh/atcfulsj","slide":20,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[591.6,409.24,26,14]}
+{"kind":"shape","id":"sh/bulg3694","slide":20,"bbox":[340.68,302.36,26,26]}
+{"kind":"textbox","id":"sh/cvuxwbap","slide":20,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[340.68,308.36,26,14]}
+{"kind":"shape","id":"sh/xwnypgra","slide":20,"bbox":[724.44,248.04,26,26]}
+{"kind":"textbox","id":"sh/yxwfylsv","slide":20,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[724.44,254.04,26,14]}
+{"kind":"shape","id":"sh/zy5grq9g","slide":20,"bbox":[884,214,320,420]}
+{"kind":"textbox","id":"sh/kjeh0val","slide":20,"text":"Áreas que devem ser conferidas","textPreview":"Áreas que devem ser conferidas","textChars":30,"textLines":1,"bbox":[912,244,260,34]}
+{"kind":"shape","id":"sh/lknyt0r6","slide":20,"bbox":[912,300,34,34]}
+{"kind":"textbox","id":"sh/mlwz25sr","slide":20,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[912,307,34,18]}
+{"kind":"textbox","id":"sh/7m5gvq9c","slide":20,"text":"Resumo Geral: acompanha períodos e volumes.","textPreview":"Resumo Geral: acompanha períodos e volumes.","textChars":43,"textLines":1,"bbox":[960,298,218,58]}
+{"kind":"shape","id":"sh/3qpwjapk","slide":20,"bbox":[912,364,34,34]}
+{"kind":"textbox","id":"sh/ipgfq5oz","slide":20,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[912,371,34,18]}
+{"kind":"textbox","id":"sh/5s7yl07a","slide":20,"text":"Atividades Recentes: audita movimentações.","textPreview":"Atividades Recentes: audita movimentações.","textChars":42,"textLines":1,"bbox":[960,362,218,58]}
+{"kind":"shape","id":"sh/4ryxsv65","slide":20,"bbox":[912,428,34,34]}
+{"kind":"textbox","id":"sh/vm5wfqp8","slide":20,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[912,435,34,18]}
+{"kind":"textbox","id":"sh/ulwfmlon","slide":20,"text":"Atalhos: acesso rápido aos módulos.","textPreview":"Atalhos: acesso rápido aos módulos.","textChars":35,"textLines":1,"bbox":[960,426,218,58]}
+{"kind":"shape","id":"sh/ho7eh07e","slide":20,"bbox":[912,492,34,34]}
+{"kind":"textbox","id":"sh/gnexov6t","slide":20,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[912,499,34,18]}
+{"kind":"textbox","id":"sh/7y5wbqpc","slide":20,"text":"Perfil: troca tema, dados e senha.","textPreview":"Perfil: troca tema, dados e senha.","textChars":34,"textLines":1,"bbox":[960,490,218,58]}
+{"kind":"textbox","id":"sh/mxwfilor","slide":20,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 20","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 20","textChars":75,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/pwnul0f2","slide":20,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,82,68]}
+{"kind":"image","id":"im/axwbe5gn","slide":20,"name":"","alt":"Tela do sistema: Dashboard: comece pelo resumo operacional","bbox":[88,230,738,388]}
+{"kind":"notes","id":"nt/sdb36l","slide":20,"text":""}
+{"kind":"slide","id":"sl/97oa2q","slide":21,"title":"Portal Administrativo","textShapes":20}
+{"kind":"shape","id":"sh/94be5s3i","slide":21,"bbox":[0,0,1280,720]}
+{"kind":"textbox","id":"sh/n2tw3ilc","slide":21,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/wrmx072t","slide":21,"text":"Envio de PDFs: selecione período e base antes do upload","textPreview":"Envio de PDFs: selecione período e base antes do upload","textChars":55,"textLines":1,"bbox":[76,88,1060,58]}
+{"kind":"textbox","id":"sh/xsve9s3e","slide":21,"text":"Aqui entram somente espelhos de pagamento. A fila deve mostrar os lotes do usuário, salvo perfis N3 ou superiores.","textPreview":"Aqui entram somente espelhos de pagamento. A fila deve mostrar os lotes do usuário, salvo perfis N3 ou superiores.","textChars":114,"textLines":1,"bbox":[78,146,980,42]}
+{"kind":"shape","id":"sh/a54fyxk3","slide":21,"bbox":[72,214,770,420]}
+{"kind":"shape","id":"sh/kvmx4725","slide":21,"bbox":[355.44,341.16,26,26]}
+{"kind":"textbox","id":"sh/lwfedc3q","slide":21,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[355.44,347.16,26,14]}
+{"kind":"shape","id":"sh/5oraxcvq","slide":21,"bbox":[650.64,341.16,26,26]}
+{"kind":"textbox","id":"sh/kni9ore5","slide":21,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[650.64,347.16,26,14]}
+{"kind":"shape","id":"sh/j2psvmd0","slide":21,"bbox":[746.58,341.16,26,26]}
+{"kind":"textbox","id":"sh/i1grmhwf","slide":21,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[746.58,347.16,26,14]}
+{"kind":"shape","id":"sh/tsra1wv2","slide":21,"bbox":[392.34,391.6,26,26]}
+{"kind":"textbox","id":"sh/sri9sreh","slide":21,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[392.34,397.6,26,14]}
+{"kind":"shape","id":"sh/7q9szmdw","slide":21,"bbox":[473.52,496.36,26,26]}
+{"kind":"textbox","id":"sh/6p0rqhwb","slide":21,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[473.52,502.36,26,14]}
+{"kind":"shape","id":"sh/9w7qpsfi","slide":21,"bbox":[884,214,320,420]}
+{"kind":"textbox","id":"sh/8vy9gnex","slide":21,"text":"Onde clicar no envio","textPreview":"Onde clicar no envio","textChars":20,"textLines":1,"bbox":[912,244,260,34]}
+{"kind":"shape","id":"sh/0r21srq5","slide":21,"bbox":[912,300,34,34]}
+{"kind":"textbox","id":"sh/lsbilwrq","slide":21,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[912,307,34,18]}
+{"kind":"textbox","id":"sh/ypkjqh8z","slide":21,"text":"Período: escolha o ciclo de pagamento.","textPreview":"Período: escolha o ciclo de pagamento.","textChars":38,"textLines":1,"bbox":[960,298,218,58]}
+{"kind":"shape","id":"sh/zqt0jm9k","slide":21,"bbox":[912,364,34,34]}
+{"kind":"textbox","id":"sh/8fm1wbqh","slide":21,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[912,371,34,18]}
+{"kind":"textbox","id":"sh/9gvipgrm","slide":21,"text":"Base: selecione a operação correta.","textPreview":"Base: selecione a operação correta.","textChars":35,"textLines":1,"bbox":[960,362,218,58]}
+{"kind":"shape","id":"sh/mtkju18b","slide":21,"bbox":[912,428,34,34]}
+{"kind":"textbox","id":"sh/ned0n69w","slide":21,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[912,435,34,18]}
+{"kind":"textbox","id":"sh/wjm10bqd","slide":21,"text":"Novo upload: anexe espelhos em lote.","textPreview":"Novo upload: anexe espelhos em lote.","textChars":36,"textLines":1,"bbox":[960,426,218,58]}
+{"kind":"shape","id":"sh/xkvitgry","slide":21,"bbox":[912,492,34,34]}
+{"kind":"textbox","id":"sh/7eh4jat0","slide":21,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[912,499,34,18]}
+{"kind":"textbox","id":"sh/6d83q5sf","slide":21,"text":"Busca/filtro: localize arquivo ou status.","textPreview":"Busca/filtro: localize arquivo ou status.","textChars":41,"textLines":1,"bbox":[960,490,218,58]}
+{"kind":"shape","id":"sh/tgzmlkb6","slide":21,"bbox":[912,556,34,34]}
+{"kind":"textbox","id":"sh/sfqlsfal","slide":21,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[912,563,34,18]}
+{"kind":"textbox","id":"sh/jaxkfat4","slide":21,"text":"Fila: baixe, substitua ou remova PDFs.","textPreview":"Fila: baixe, substitua ou remova PDFs.","textChars":38,"textLines":1,"bbox":[960,554,218,58]}
+{"kind":"textbox","id":"sh/i9o3m5sj","slide":21,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 21","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 21","textChars":75,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/n25ovi98","slide":21,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,82,68]}
+{"kind":"image","id":"im/a5gnqx8j","slide":21,"name":"","alt":"Tela do sistema: Envio de PDFs: selecione período e base antes do upload","bbox":[88,230,738,388]}
+{"kind":"notes","id":"nt/97oa2q","slide":21,"text":""}
+{"kind":"slide","id":"sl/jn7fyl","slide":22,"title":"Portal Administrativo","textShapes":20}
+{"kind":"textbox","id":"sh/lonexc7y","slide":22,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/0nexo7qd","slide":22,"text":"Criação de Período: liberação sem quebrar o fluxo","textPreview":"Criação de Período: liberação sem quebrar o fluxo","textChars":49,"textLines":1,"bbox":[76,88,1060,58]}
+{"kind":"textbox","id":"sh/rylwr29w","slide":22,"text":"N3/N4 criam, acompanham e aprovam períodos; a visibilidade no Financeiro é separada da aprovação operacional.","textPreview":"N3/N4 criam, acompanham e aprovam períodos; a visibilidade no Financeiro é separada da aprovação operacional.","textChars":109,"textLines":1,"bbox":[78,146,980,42]}
+{"kind":"shape","id":"sh/qxcvix8b","slide":22,"bbox":[72,214,770,420]}
+{"kind":"shape","id":"sh/czuxknqh","slide":22,"bbox":[709.68,282.96,26,26]}
+{"kind":"textbox","id":"sh/vupw3mp0","slide":22,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[709.68,288.96,26,14]}
+{"kind":"shape","id":"sh/atgfuh8f","slide":22,"bbox":[266.88,348.92,26,26]}
+{"kind":"textbox","id":"sh/knmdg325","slide":22,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[266.88,354.92,26,14]}
+{"kind":"shape","id":"sh/love983a","slide":22,"bbox":[370.2,430.4,26,26]}
+{"kind":"textbox","id":"sh/yl4vetkz","slide":22,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[370.2,436.4,26,14]}
+{"kind":"shape","id":"sh/jmdc7ylk","slide":22,"bbox":[148.8,523.52,26,26]}
+{"kind":"textbox","id":"sh/wz2dcj2t","slide":22,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[148.8,529.52,26,14]}
+{"kind":"shape","id":"sh/x0bu5o3e","slide":22,"bbox":[717.06,531.28,26,26]}
+{"kind":"textbox","id":"sh/axkvatkn","slide":22,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[717.06,537.28,26,14]}
+{"kind":"shape","id":"sh/bytc3el8","slide":22,"bbox":[884,214,320,420]}
+{"kind":"textbox","id":"sh/ov2d8j2x","slide":22,"text":"Controles do período","textPreview":"Controles do período","textChars":20,"textLines":1,"bbox":[912,244,260,34]}
+{"kind":"shape","id":"sh/9wbu1o3i","slide":22,"bbox":[912,300,34,34]}
+{"kind":"textbox","id":"sh/pgj2pgru","slide":22,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[912,307,34,18]}
+{"kind":"textbox","id":"sh/4fa1gba9","slide":22,"text":"Abas: separe criados, ativos e finalizados.","textPreview":"Abas: separe criados, ativos e finalizados.","textChars":43,"textLines":1,"bbox":[960,298,218,58]}
+{"kind":"shape","id":"sh/3e1kn69o","slide":22,"bbox":[912,364,34,34]}
+{"kind":"textbox","id":"sh/2dsje1sj","slide":22,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[912,371,34,18]}
+{"kind":"textbox","id":"sh/hcj2lwry","slide":22,"text":"Card do período: acompanhe datas e bases.","textPreview":"Card do período: acompanhe datas e bases.","textChars":41,"textLines":1,"bbox":[960,362,218,58]}
+{"kind":"shape","id":"sh/gbq1crad","slide":22,"bbox":[912,428,34,34]}
+{"kind":"textbox","id":"sh/fahkj69s","slide":22,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[912,435,34,18]}
+{"kind":"textbox","id":"sh/u98ja1s7","slide":22,"text":"Bases: confira PDFs por operação.","textPreview":"Bases: confira PDFs por operação.","textChars":33,"textLines":1,"bbox":[960,426,218,58]}
+{"kind":"shape","id":"sh/1832x0r2","slide":22,"bbox":[912,492,34,34]}
+{"kind":"textbox","id":"sh/07ulovah","slide":22,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[912,499,34,18]}
+{"kind":"textbox","id":"sh/ydozix8z","slide":22,"text":"Visibilidade: controla só o Financeiro.","textPreview":"Visibilidade: controla só o Financeiro.","textChars":39,"textLines":1,"bbox":[960,490,218,58]}
+{"kind":"shape","id":"sh/jexgr2pk","slide":22,"bbox":[912,556,34,34]}
+{"kind":"textbox","id":"sh/kf6hk7q5","slide":22,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[912,563,34,18]}
+{"kind":"textbox","id":"sh/lgfyts7q","slide":22,"text":"Ações: reabrir, aprovar ou excluir.","textPreview":"Ações: reabrir, aprovar ou excluir.","textChars":35,"textLines":1,"bbox":[960,554,218,58]}
+{"kind":"textbox","id":"sh/ap4zed83","slide":22,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 22","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 22","textChars":75,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/ni9cbmxs","slide":22,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,82,68]}
+{"kind":"image","id":"im/0fyd07eh","slide":22,"name":"","alt":"Tela do sistema: Criação de Período: liberação sem quebrar o fluxo","bbox":[88,230,738,388]}
+{"kind":"notes","id":"nt/jn7fyl","slide":22,"text":""}
+{"kind":"slide","id":"sl/a74kta","slide":23,"title":"Portal Administrativo","textShapes":20}
+{"kind":"textbox","id":"sh/7udcby5g","slide":23,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/6t4b2t4v","slide":23,"text":"Notas Fiscais: acompanhe o motorista dentro do período","textPreview":"Notas Fiscais: acompanhe o motorista dentro do período","textChars":54,"textLines":1,"bbox":[76,88,1060,58]}
+{"kind":"textbox","id":"sh/5svu98nq","slide":23,"text":"A aba mostra espelho enviado, visualização, nota fiscal enviada, status do processo e ações de abertura.","textPreview":"A aba mostra espelho enviado, visualização, nota fiscal enviada, status do processo e ações de abertura.","textChars":104,"textLines":1,"bbox":[78,146,980,42]}
+{"kind":"shape","id":"sh/krmt03m5","slide":23,"bbox":[72,214,770,420]}
+{"kind":"shape","id":"sh/ip4byt4z","slide":23,"bbox":[340.68,434.28,26,26]}
+{"kind":"textbox","id":"sh/pozulsnu","slide":23,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[340.68,440.28,26,14]}
+{"kind":"shape","id":"sh/onqdcnm9","slide":23,"bbox":[680.16,434.28,26,26]}
+{"kind":"textbox","id":"sh/298b6tg7","slide":23,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[680.16,440.28,26,14]}
+{"kind":"shape","id":"sh/nahsfyxs","slide":23,"bbox":[355.44,473.08,26,26]}
+{"kind":"textbox","id":"sh/obqt83yd","slide":23,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[355.44,479.08,26,14]}
+{"kind":"shape","id":"sh/pczahofi","slide":23,"bbox":[665.4,550.68,26,26]}
+{"kind":"textbox","id":"sh/elob29gv","slide":23,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[665.4,556.68,26,14]}
+{"kind":"shape","id":"sh/f6xsbexg","slide":23,"bbox":[709.68,558.44,26,26]}
+{"kind":"textbox","id":"sh/076t4jy1","slide":23,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[709.68,564.44,26,14]}
+{"kind":"shape","id":"sh/18zadofm","slide":23,"bbox":[884,214,320,420]}
+{"kind":"textbox","id":"sh/yhsbedwf","slide":23,"text":"Filtros e ações da linha","textPreview":"Filtros e ações da linha","textChars":24,"textLines":1,"bbox":[912,244,260,34]}
+{"kind":"shape","id":"sh/z21cnix0","slide":23,"bbox":[912,300,34,34]}
+{"kind":"textbox","id":"sh/vmt8fadc","slide":23,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[912,307,34,18]}
+{"kind":"textbox","id":"sh/ulk765wr","slide":23,"text":"Busca por nome/CPF: localiza motorista.","textPreview":"Busca por nome/CPF: localiza motorista.","textChars":39,"textLines":1,"bbox":[960,298,218,58]}
+{"kind":"shape","id":"sh/hobqh0vi","slide":23,"bbox":[912,364,34,34]}
+{"kind":"textbox","id":"sh/gn2p8fex","slide":23,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[912,371,34,18]}
+{"kind":"textbox","id":"sh/3qd8jad8","slide":23,"text":"Status: filtre o estágio do processo.","textPreview":"Status: filtre o estágio do processo.","textChars":37,"textLines":1,"bbox":[960,362,218,58]}
+{"kind":"shape","id":"sh/ip47a5wn","slide":23,"bbox":[912,428,34,34]}
+{"kind":"textbox","id":"sh/5cvqlkve","slide":23,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[912,435,34,18]}
+{"kind":"textbox","id":"sh/4rm9cfet","slide":23,"text":"Situação do atendimento: veja pendências.","textPreview":"Situação do atendimento: veja pendências.","textChars":41,"textLines":1,"bbox":[960,426,218,58]}
+{"kind":"shape","id":"sh/red8nudk","slide":23,"bbox":[912,492,34,34]}
+{"kind":"textbox","id":"sh/qd4repwz","slide":23,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[912,499,34,18]}
+{"kind":"textbox","id":"sh/oj6p4zax","slide":23,"text":"Visualizar NF: abre nota do motorista.","textPreview":"Visualizar NF: abre nota do motorista.","textChars":38,"textLines":1,"bbox":[960,490,218,58]}
+{"kind":"shape","id":"sh/pkfqx4bi","slide":23,"bbox":[912,556,34,34]}
+{"kind":"textbox","id":"sh/2ho72ps7","slide":23,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[912,563,34,18]}
+{"kind":"textbox","id":"sh/nixovutc","slide":23,"text":"Abrir PDF: abre espelho de pagamento.","textPreview":"Abrir PDF: abre espelho de pagamento.","textChars":37,"textLines":1,"bbox":[960,554,218,58]}
+{"kind":"textbox","id":"sh/0fmp0fa1","slide":23,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 23","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 23","textChars":75,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/1w3ed47m","slide":23,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,82,68]}
+{"kind":"image","id":"im/mxcf69or","slide":23,"name":"","alt":"Tela do sistema: Notas Fiscais: acompanhe o motorista dentro do período","bbox":[88,230,738,388]}
+{"kind":"notes","id":"nt/a74kta","slide":23,"text":""}
+{"kind":"slide","id":"sl/a0q17p","slide":24,"title":"Portal Administrativo","textShapes":20}
+{"kind":"textbox","id":"sh/t4fulcfu","slide":24,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/s36tc7y9","slide":24,"text":"Atualizar Pagamentos: valide a planilha antes de confirmar","textPreview":"Atualizar Pagamentos: valide a planilha antes de confirmar","textChars":58,"textLines":1,"bbox":[76,88,1060,58]}
+{"kind":"textbox","id":"sh/jydcf2xs","slide":24,"text":"A importação usa a aba Resumido e a coluna M para atualizar o status financeiro com prévia e auditoria.","textPreview":"A importação usa a aba Resumido e a coluna M para atualizar o status financeiro com prévia e auditoria.","textChars":103,"textLines":1,"bbox":[78,146,980,42]}
+{"kind":"shape","id":"sh/id4b6xg7","slide":24,"bbox":[72,214,770,420]}
+{"kind":"shape","id":"sh/kzmt87yd","slide":24,"bbox":[119.28,395.48,26,26]}
+{"kind":"textbox","id":"sh/3uhcrmxw","slide":24,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[119.28,401.48,26,14]}
+{"kind":"shape","id":"sh/298vihwb","slide":24,"bbox":[141.42,430.4,26,26]}
+{"kind":"textbox","id":"sh/s3y9cry9","slide":24,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[141.42,436.4,26,14]}
+{"kind":"shape","id":"sh/t47alwfu","slide":24,"bbox":[709.68,395.48,26,26]}
+{"kind":"textbox","id":"sh/61gra1g3","slide":24,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[709.68,401.48,26,14]}
+{"kind":"shape","id":"sh/72psjmxo","slide":24,"bbox":[488.28,488.6,26,26]}
+{"kind":"textbox","id":"sh/kze98ryd","slide":24,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[488.28,494.6,26,14]}
+{"kind":"shape","id":"sh/507qhwfi","slide":24,"bbox":[215.22,430.4,26,26]}
+{"kind":"textbox","id":"sh/ixwr6hg7","slide":24,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[215.22,436.4,26,14]}
+{"kind":"shape","id":"sh/jy58fmxs","slide":24,"bbox":[884,214,320,420]}
+{"kind":"textbox","id":"sh/wve947y1","slide":24,"text":"Fluxo de importação","textPreview":"Fluxo de importação","textChars":19,"textLines":1,"bbox":[912,244,260,34]}
+{"kind":"shape","id":"sh/xwnqdcfm","slide":24,"bbox":[912,300,34,34]}
+{"kind":"textbox","id":"sh/dsf6h8ra","slide":24,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[912,307,34,18]}
+{"kind":"textbox","id":"sh/cr6p83qp","slide":24,"text":"Escolher arquivo: anexe Excel financeiro.","textPreview":"Escolher arquivo: anexe Excel financeiro.","textChars":41,"textLines":1,"bbox":[960,298,218,58]}
+{"kind":"shape","id":"sh/bqxofy9k","slide":24,"bbox":[912,364,34,34]}
+{"kind":"textbox","id":"sh/qpo76t8z","slide":24,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[912,371,34,18]}
+{"kind":"textbox","id":"sh/pov6dore","slide":24,"text":"Gerar pré-visualização: valida linhas.","textPreview":"Gerar pré-visualização: valida linhas.","textChars":38,"textLines":1,"bbox":[960,362,218,58]}
+{"kind":"shape","id":"sh/o3mp4jqt","slide":24,"bbox":[912,428,34,34]}
+{"kind":"textbox","id":"sh/32doby98","slide":24,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[912,435,34,18]}
+{"kind":"textbox","id":"sh/21472t8n","slide":24,"text":"Filtro: revise válidos, alertas ou todos.","textPreview":"Filtro: revise válidos, alertas ou todos.","textChars":41,"textLines":1,"bbox":[960,426,218,58]}
+{"kind":"shape","id":"sh/9kzqps7i","slide":24,"bbox":[912,492,34,34]}
+{"kind":"textbox","id":"sh/8jqpgnqx","slide":24,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[912,499,34,18]}
+{"kind":"textbox","id":"sh/65k3apof","slide":24,"text":"Tabela: confira status atual e novo.","textPreview":"Tabela: confira status atual e novo.","textChars":36,"textLines":1,"bbox":[960,490,218,58]}
+{"kind":"shape","id":"sh/r6t4jup0","slide":24,"bbox":[912,556,34,34]}
+{"kind":"textbox","id":"sh/s72lcz6l","slide":24,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[912,563,34,18]}
+{"kind":"textbox","id":"sh/t8bmlk76","slide":24,"text":"Confirmar importação: grava pagamentos.","textPreview":"Confirmar importação: grava pagamentos.","textChars":39,"textLines":1,"bbox":[960,554,218,58]}
+{"kind":"textbox","id":"sh/i10365oj","slide":24,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 24","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 24","textChars":75,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/nu58b6hc","slide":24,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,82,68]}
+{"kind":"image","id":"im/0rup0ry1","slide":24,"name":"","alt":"Tela do sistema: Atualizar Pagamentos: valide a planilha antes de confirmar","bbox":[88,230,738,388]}
+{"kind":"notes","id":"nt/a0q17p","slide":24,"text":""}
+{"kind":"slide","id":"sl/clp59j","slide":25,"title":"Portal Administrativo","textShapes":17}
+{"kind":"shape","id":"sh/vmhgvyd0","slide":25,"bbox":[0,0,1280,720]}
+{"kind":"textbox","id":"sh/x8zyx8v6","slide":25,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/mhozy9cj","slide":25,"text":"Atendimento: consulte o CRM para resolver exceções","textPreview":"Atendimento: consulte o CRM para resolver exceções","textChars":50,"textLines":1,"bbox":[76,88,1060,58]}
+{"kind":"textbox","id":"sh/nihgred4","slide":25,"text":"O CRM reúne cadastro, histórico, PDFs, pagamentos, notas internas e chamados do motorista.","textPreview":"O CRM reúne cadastro, histórico, PDFs, pagamentos, notas internas e chamados do motorista.","textChars":90,"textLines":1,"bbox":[78,146,980,42]}
+{"kind":"shape","id":"sh/8jqh0jup","slide":25,"bbox":[72,214,770,420]}
+{"kind":"shape","id":"sh/6dszadcn","slide":25,"bbox":[296.4,379.96,26,26]}
+{"kind":"textbox","id":"sh/7e103id8","slide":25,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[296.4,385.96,26,14]}
+{"kind":"shape","id":"sh/v6987ylw","slide":25,"bbox":[650.64,411,26,26]}
+{"kind":"textbox","id":"sh/a5gret4b","slide":25,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[650.64,417,26,14]}
+{"kind":"shape","id":"sh/hsrq983m","slide":25,"bbox":[414.48,496.36,26,26]}
+{"kind":"textbox","id":"sh/wri9g3mh","slide":25,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[414.48,502.36,26,14]}
+{"kind":"shape","id":"sh/ju98bils","slide":25,"bbox":[399.72,550.68,26,26]}
+{"kind":"textbox","id":"sh/it0rid47","slide":25,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[399.72,556.68,26,14]}
+{"kind":"shape","id":"sh/5wrqd83y","slide":25,"bbox":[884,214,320,420]}
+{"kind":"textbox","id":"sh/4vi9knmd","slide":25,"text":"Como usar o CRM","textPreview":"Como usar o CRM","textChars":15,"textLines":1,"bbox":[912,244,260,34]}
+{"kind":"shape","id":"sh/rytsfil4","slide":25,"bbox":[912,300,34,34]}
+{"kind":"textbox","id":"sh/6xkrmd4j","slide":25,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[912,307,34,18]}
+{"kind":"textbox","id":"sh/2t4behor","slide":25,"text":"Busca: digite nome ou CPF do motorista.","textPreview":"Busca: digite nome ou CPF do motorista.","textChars":39,"textLines":1,"bbox":[960,298,218,58]}
+{"kind":"shape","id":"sh/3udcnm5c","slide":25,"bbox":[912,364,34,34]}
+{"kind":"textbox","id":"sh/ovmtgr6h","slide":25,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[912,371,34,18]}
+{"kind":"textbox","id":"sh/pwfupwn2","slide":25,"text":"Lista: selecione o cadastro correto.","textPreview":"Lista: selecione o cadastro correto.","textChars":36,"textLines":1,"bbox":[960,362,218,58]}
+{"kind":"shape","id":"sh/ep4bahof","slide":25,"bbox":[912,428,34,34]}
+{"kind":"textbox","id":"sh/fqdcjm50","slide":25,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[912,435,34,18]}
+{"kind":"textbox","id":"sh/grmtcr6l","slide":25,"text":"Dados carregados: aguarde o painel abrir.","textPreview":"Dados carregados: aguarde o painel abrir.","textChars":41,"textLines":1,"bbox":[960,426,218,58]}
+{"kind":"shape","id":"sh/1svulcn6","slide":25,"bbox":[912,492,34,34]}
+{"kind":"textbox","id":"sh/ylovm1oz","slide":25,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[912,499,34,18]}
+{"kind":"textbox","id":"sh/zmxcv65k","slide":25,"text":"Abas do CRM: consulte histórico e chamados.","textPreview":"Abas do CRM: consulte histórico e chamados.","textChars":43,"textLines":1,"bbox":[960,490,218,58]}
+{"kind":"textbox","id":"sh/9sj614by","slide":25,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 25","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 25","textChars":75,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/tojydkja","slide":25,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,82,68]}
+{"kind":"image","id":"im/grax8z21","slide":25,"name":"","alt":"Tela do sistema: Atendimento: consulte o CRM para resolver exceções","bbox":[88,230,738,388]}
+{"kind":"notes","id":"nt/clp59j","slide":25,"text":""}
+{"kind":"slide","id":"sl/sb5hfp","slide":26,"title":"Portal Administrativo","textShapes":10}
+{"kind":"shape","id":"sh/8v2xkvel","slide":26,"bbox":[0,0,1280,720]}
+{"kind":"textbox","id":"sh/mtkfilwf","slide":26,"text":"Portal Administrativo","textPreview":"Portal Administrativo","textChars":21,"textLines":1,"bbox":[76,38,360,26]}
+{"kind":"textbox","id":"sh/lsbe9gva","slide":26,"text":"O portal só funciona bem quando o ciclo é respeitado","textPreview":"O portal só funciona bem quando o ciclo é respeitado","textChars":52,"textLines":1,"bbox":[76,96,980,82]}
+{"kind":"textbox","id":"sh/0r2xgbep","slide":26,"text":"A regra principal é simples: espelho é uma coisa, nota fiscal é outra, status financeiro é a verdade do pagamento.","textPreview":"A regra principal é simples: espelho é uma coisa, nota fiscal é outra, status financeiro é a verdade do pagamento.","textChars":114,"textLines":1,"bbox":[78,178,940,44]}
+{"kind":"shape","id":"sh/zqtwn6d4","slide":26,"bbox":[92,238,320,195]}
+{"kind":"textbox","id":"sh/ypkfe1wj","slide":26,"text":"Não misturar documentos","textPreview":"Não misturar documentos","textChars":23,"textLines":1,"bbox":[116,260,272,34]}
+{"kind":"textbox","id":"sh/5ofylkve","slide":26,"text":"Espelho de pagamento fica na fila de PDFs. Nota fiscal vem do PDFOnline e é acompanhada em Financeiro.","textPreview":"Espelho de pagamento fica na fila de PDFs. Nota fiscal vem do PDFOnline e é acompanhada em Financeiro.","textChars":102,"textLines":1,"bbox":[116,300,272,119]}
+{"kind":"shape","id":"sh/knmxsfet","slide":26,"bbox":[480,238,320,195]}
+{"kind":"textbox","id":"sh/25kvqlcn","slide":26,"text":"Não pular validação","textPreview":"Não pular validação","textChars":19,"textLines":1,"bbox":[504,260,272,34]}
+{"kind":"textbox","id":"sh/36tczqd8","slide":26,"text":"A importação financeira deve ser confirmada somente após a prévia indicar correspondência segura.","textPreview":"A importação financeira deve ser confirmada somente após a prévia indicar correspondência segura.","textChars":97,"textLines":1,"bbox":[504,300,272,119]}
+{"kind":"shape","id":"sh/o7mdsbut","slide":26,"bbox":[868,238,320,195]}
+{"kind":"textbox","id":"sh/p8vu1gve","slide":26,"text":"Auditar sempre","textPreview":"Auditar sempre","textChars":14,"textLines":1,"bbox":[892,260,272,34]}
+{"kind":"textbox","id":"sh/ehkvm1cr","slide":26,"text":"Atividades recentes, histórico de pagamentos e CRM são as fontes para investigação operacional.","textPreview":"Atividades recentes, histórico de pagamentos e CRM são as fontes para investigação operacional.","textChars":95,"textLines":1,"bbox":[892,300,272,119]}
+{"kind":"textbox","id":"sh/fitcv6dc","slide":26,"text":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 26","textPreview":"ALC Pereira Filho & Transportes • Treinamento do Portal Administrativo • 26","textChars":75,"textLines":1,"bbox":[76,678,760,22]}
+{"kind":"image","id":"im/m9svmt8n","slide":26,"name":"","alt":"Logotipo ALC Pereira Filho & Transportes","bbox":[1110,34,82,68]}
+{"kind":"notes","id":"nt/sb5hfp","slide":26,"text":""}

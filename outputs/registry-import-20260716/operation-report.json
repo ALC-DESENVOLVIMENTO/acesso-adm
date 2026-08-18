@@ -1,0 +1,1972 @@
+{
+  "completedAt": "2026-07-16T19:30:48.619Z",
+  "sourceReport": {
+    "source": {
+      "worksheet": "Planilha1",
+      "totalRows": 3889,
+      "nonBlankRows": 3889,
+      "blankRows": [],
+      "invalidCpfCount": 6,
+      "invalidCpfRows": [
+        {
+          "row": 363,
+          "name": "ELISANGELA APARECIDA CAMPOS",
+          "value": "275115022879"
+        },
+        {
+          "row": 385,
+          "name": "CARLEONE ALMEIDA SANTOS",
+          "value": "315061177824"
+        },
+        {
+          "row": 1497,
+          "name": "MILENE CEVITHEREZA EMILIANO",
+          "value": "846686444668"
+        },
+        {
+          "row": 2615,
+          "name": "JEFFERSON SERAFIM NUNES",
+          "value": "183636160647"
+        },
+        {
+          "row": 2721,
+          "name": "SERGIO RICARDO AZEVEDO EGGER",
+          "value": "853856964749"
+        },
+        {
+          "row": 2793,
+          "name": "MICHELE MASSOLA MIRANDA",
+          "value": "50177981881349421"
+        }
+      ],
+      "invalidCnpjCount": 5,
+      "invalidCnpjRows": [
+        {
+          "row": 448,
+          "name": "ORLANDO FIRMINO DE OLIVEIRA",
+          "value": "544194930000128"
+        },
+        {
+          "row": 1042,
+          "name": "MATHEUS PEREIRA DIAS",
+          "value": "63514677"
+        },
+        {
+          "row": 1993,
+          "name": "CLEVERSON TEIXEIRA DE OLIVEIRA",
+          "value": "491272550001090"
+        },
+        {
+          "row": 2613,
+          "name": "SABRINA RITA RODRIGUES",
+          "value": "163194089000145"
+        },
+        {
+          "row": 3875,
+          "name": "CARLOS HUMBERTO DA COSTA",
+          "value": "0"
+        }
+      ],
+      "uniqueRowsAfterConsolidation": 3638,
+      "duplicateGroups": 228,
+      "duplicateRows": 251,
+      "duplicateExamples": [
+        {
+          "key": "DOC|45878576880|62638953000137",
+          "rows": [
+            8,
+            3493
+          ],
+          "chosenRow": 3493
+        },
+        {
+          "key": "DOC|10958516758|59288596000110",
+          "rows": [
+            21,
+            2662
+          ],
+          "chosenRow": 2662
+        },
+        {
+          "key": "DOC|05904047681|42792335000130",
+          "rows": [
+            41,
+            43
+          ],
+          "chosenRow": 43
+        },
+        {
+          "key": "DOC|70866778179|58539365000179",
+          "rows": [
+            42,
+            893
+          ],
+          "chosenRow": 42
+        },
+        {
+          "key": "DOC|46286054839|62045642000164",
+          "rows": [
+            56,
+            877
+          ],
+          "chosenRow": 877
+        },
+        {
+          "key": "DOC|35073135881|62048706000180",
+          "rows": [
+            57,
+            61
+          ],
+          "chosenRow": 61
+        },
+        {
+          "key": "DOC|06133958162|62042241000150",
+          "rows": [
+            64,
+            1234
+          ],
+          "chosenRow": 64
+        },
+        {
+          "key": "DOC|34655313889|54394913000169",
+          "rows": [
+            66,
+            3285
+          ],
+          "chosenRow": 3285
+        },
+        {
+          "key": "DOC|80124895115|17583497000110",
+          "rows": [
+            68,
+            93
+          ],
+          "chosenRow": 93
+        },
+        {
+          "key": "DOC|14208845651|57856006000182",
+          "rows": [
+            74,
+            2973
+          ],
+          "chosenRow": 2973
+        },
+        {
+          "key": "DOC|13206792690|52910378000126",
+          "rows": [
+            75,
+            118,
+            1700
+          ],
+          "chosenRow": 1700
+        },
+        {
+          "key": "DOC|10560989610|61970504000129",
+          "rows": [
+            83,
+            341
+          ],
+          "chosenRow": 341
+        },
+        {
+          "key": "DOC|14043761783|61946528000142",
+          "rows": [
+            97,
+            396
+          ],
+          "chosenRow": 396
+        },
+        {
+          "key": "DOC|02057705684|41442186000116",
+          "rows": [
+            123,
+            3754
+          ],
+          "chosenRow": 3754
+        },
+        {
+          "key": "DOC|40621648841|61547244000183",
+          "rows": [
+            159,
+            168,
+            777,
+            3871
+          ],
+          "chosenRow": 3871
+        },
+        {
+          "key": "DOC|44230445873|60112488000170",
+          "rows": [
+            164,
+            167
+          ],
+          "chosenRow": 167
+        },
+        {
+          "key": "DOC|72153202604|60880014000179",
+          "rows": [
+            171,
+            185
+          ],
+          "chosenRow": 185
+        },
+        {
+          "key": "DOC|11623288606|58453955000184",
+          "rows": [
+            173,
+            217
+          ],
+          "chosenRow": 217
+        },
+        {
+          "key": "DOC|09135247606|57676387000118",
+          "rows": [
+            193,
+            741,
+            3523
+          ],
+          "chosenRow": 3523
+        },
+        {
+          "key": "DOC|05372808128|58773835000164",
+          "rows": [
+            195,
+            1957
+          ],
+          "chosenRow": 195
+        },
+        {
+          "key": "DOC|09290654686|55538488000105",
+          "rows": [
+            229,
+            2567
+          ],
+          "chosenRow": 2567
+        },
+        {
+          "key": "DOC|04716152189|49498559000182",
+          "rows": [
+            237,
+            238
+          ],
+          "chosenRow": 238
+        },
+        {
+          "key": "DOC|16697119780|62402814000100",
+          "rows": [
+            248,
+            365,
+            3433
+          ],
+          "chosenRow": 3433
+        },
+        {
+          "key": "DOC|08023990101|42677173000199",
+          "rows": [
+            250,
+            670
+          ],
+          "chosenRow": 670
+        },
+        {
+          "key": "DOC|07387115605|62302923000155",
+          "rows": [
+            256,
+            1236
+          ],
+          "chosenRow": 1236
+        },
+        {
+          "key": "DOC|40240400810|59099173000151",
+          "rows": [
+            264,
+            599
+          ],
+          "chosenRow": 599
+        },
+        {
+          "key": "DOC|00859823180|28273128000148",
+          "rows": [
+            269,
+            274
+          ],
+          "chosenRow": 274
+        },
+        {
+          "key": "DOC|52823573801|57869732000130",
+          "rows": [
+            276,
+            283
+          ],
+          "chosenRow": 283
+        },
+        {
+          "key": "DOC|86131982600|52769987000107",
+          "rows": [
+            282,
+            284
+          ],
+          "chosenRow": 284
+        },
+        {
+          "key": "DOC|12888976692|62477532000171",
+          "rows": [
+            297,
+            299
+          ],
+          "chosenRow": 299
+        },
+        {
+          "key": "DOC|08189172107|57684950000108",
+          "rows": [
+            307,
+            2375
+          ],
+          "chosenRow": 307
+        },
+        {
+          "key": "DOC|73095141149|58656509000177",
+          "rows": [
+            318,
+            349
+          ],
+          "chosenRow": 349
+        },
+        {
+          "key": "DOC|35115854813|49699543000138",
+          "rows": [
+            320,
+            3062
+          ],
+          "chosenRow": 3062
+        },
+        {
+          "key": "DOC|06575164226|62389167000143",
+          "rows": [
+            350,
+            354
+          ],
+          "chosenRow": 354
+        },
+        {
+          "key": "DOC|12742768700|55920350000168",
+          "rows": [
+            359,
+            360
+          ],
+          "chosenRow": 360
+        },
+        {
+          "key": "DOC|41421371820|62430138000188",
+          "rows": [
+            384,
+            390
+          ],
+          "chosenRow": 390
+        },
+        {
+          "key": "DOC|14667171650|62253999000138",
+          "rows": [
+            394,
+            1501
+          ],
+          "chosenRow": 1501
+        },
+        {
+          "key": "DOC|13582706605|38184699000160",
+          "rows": [
+            430,
+            2742
+          ],
+          "chosenRow": 430
+        },
+        {
+          "key": "DOC|01796603147|55783923000159",
+          "rows": [
+            440,
+            1039
+          ],
+          "chosenRow": 1039
+        },
+        {
+          "key": "DOC|36594101870|62383057000174",
+          "rows": [
+            493,
+            1346
+          ],
+          "chosenRow": 1346
+        },
+        {
+          "key": "DOC|08737091603|62877179000117",
+          "rows": [
+            496,
+            1714
+          ],
+          "chosenRow": 496
+        },
+        {
+          "key": "DOC|12235285619|57261412000100",
+          "rows": [
+            534,
+            1876
+          ],
+          "chosenRow": 1876
+        },
+        {
+          "key": "DOC|10518545636|58244194000150",
+          "rows": [
+            535,
+            3136
+          ],
+          "chosenRow": 3136
+        },
+        {
+          "key": "DOC|31772621870|51379624000100",
+          "rows": [
+            551,
+            1792
+          ],
+          "chosenRow": 551
+        },
+        {
+          "key": "DOC|96295341187|37823997000190",
+          "rows": [
+            574,
+            1095
+          ],
+          "chosenRow": 1095
+        },
+        {
+          "key": "DOC|07199470142|57818291000147",
+          "rows": [
+            590,
+            607
+          ],
+          "chosenRow": 607
+        },
+        {
+          "key": "DOC|01376205270|44283592000171",
+          "rows": [
+            605,
+            606
+          ],
+          "chosenRow": 606
+        },
+        {
+          "key": "DOC|02350288196|48952538000122",
+          "rows": [
+            619,
+            876
+          ],
+          "chosenRow": 876
+        },
+        {
+          "key": "DOC|48281990805|60902416000127",
+          "rows": [
+            624,
+            1783
+          ],
+          "chosenRow": 1783
+        },
+        {
+          "key": "DOC|75127946149|60685775000170",
+          "rows": [
+            638,
+            1992
+          ],
+          "chosenRow": 1992
+        }
+      ]
+    },
+    "databaseBefore": {
+      "totalRows": 2083,
+      "duplicateNameCnpjGroups": 7,
+      "duplicateNameCnpjRows": 7,
+      "duplicateCpfCnpjGroups": 43,
+      "duplicateCpfCnpjRows": 46,
+      "duplicateCpfGroups": 115,
+      "duplicateCpfRows": 126
+    },
+    "plan": {
+      "exactNameCnpj": 1705,
+      "matchedCpf": 2,
+      "matchedUniqueName": 0,
+      "newRows": 1931,
+      "ambiguous": 0,
+      "rowsReady": 3638,
+      "duplicateDatabaseRowsToMerge": 34,
+      "ambiguousRows": []
+    }
+  },
+  "before": {
+    "entities": 2083,
+    "registryRecords": 1856,
+    "signupRequests": 1
+  },
+  "operation": {
+    "movedRecords": 35,
+    "movedSignupRequests": 0,
+    "mergedEntities": 34,
+    "updatedEntities": 1707,
+    "insertedEntities": 1925
+  },
+  "changes": {
+    "recordsWithChanges": 1707,
+    "accentOrSpellingCorrections": 559,
+    "fieldChanges": {
+      "base": 527,
+      "display_name": 559,
+      "sexo": 1707,
+      "nome_favorecido": 595,
+      "cpf_favorecido": 1097,
+      "phone": 56,
+      "telefone_favorecido": 65,
+      "validade_gr": 183,
+      "rg": 105,
+      "driver_type": 41,
+      "data_nascimento": 425,
+      "cpf": 24,
+      "placa": 63,
+      "email": 23,
+      "email_favorecido": 32,
+      "cpf_favorecido_digits": 24,
+      "cnpj": 21,
+      "normalized_name": 18,
+      "cpf_digits": 6,
+      "cnpj_digits": 11
+    },
+    "examples": [
+      {
+        "id": "f84b7c13-bbd7-4e5b-850e-bd027cc8d2d6",
+        "excelRows": [
+          2
+        ],
+        "nameBefore": "Mizael De Souza Hirle",
+        "nameAfter": "MIZAEL DE SOUZA HIRLE",
+        "changedFields": [
+          "base",
+          "display_name",
+          "sexo",
+          "nome_favorecido",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "9bf8cb58-bc6c-4e36-9c26-c474763c2bbd",
+        "excelRows": [
+          3
+        ],
+        "nameBefore": "Daniel Miranda de Souza",
+        "nameAfter": "DANIEL MIRANDA DE SOUZA",
+        "changedFields": [
+          "display_name",
+          "sexo",
+          "nome_favorecido",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "f19d4896-c4d0-408b-ae0e-f8f4e7e80558",
+        "excelRows": [
+          4
+        ],
+        "nameBefore": "Francisco de Sales brilhante Dantas",
+        "nameAfter": "FRANCISCO DE SALES BRILHANTE DANTAS",
+        "changedFields": [
+          "display_name",
+          "sexo",
+          "nome_favorecido",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "e7cd2921-afa7-4782-9054-f7f6e4e34355",
+        "excelRows": [
+          5
+        ],
+        "nameBefore": "WELLINGTON COSTA RIBEIRO",
+        "nameAfter": "WELLINGTON COSTA RIBEIRO",
+        "changedFields": [
+          "sexo",
+          "nome_favorecido",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "ad18c9cb-4ba0-4307-bf00-c1d36a1b7baa",
+        "excelRows": [
+          6
+        ],
+        "nameBefore": "ALEX DUTRA VIEIRA",
+        "nameAfter": "ALEX DUTRA VIEIRA",
+        "changedFields": [
+          "base",
+          "sexo"
+        ]
+      },
+      {
+        "id": "cf1c2127-d015-46ae-828d-842f3e819aa6",
+        "excelRows": [
+          8,
+          3493
+        ],
+        "nameBefore": "William Fernandes da Silva",
+        "nameAfter": "WILLIAM FERNANDES DA SILVA",
+        "changedFields": [
+          "display_name",
+          "sexo",
+          "phone",
+          "nome_favorecido",
+          "telefone_favorecido",
+          "validade_gr"
+        ]
+      },
+      {
+        "id": "82b6b7e5-f225-4408-a373-9251c1e85e12",
+        "excelRows": [
+          9
+        ],
+        "nameBefore": "EVELIN MARTINIANO CAMPANELLA",
+        "nameAfter": "EVELIN MARTINIANO CAMPANELLA",
+        "changedFields": [
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "1d25e1ef-8d17-469f-a3e6-c73a41766c7d",
+        "excelRows": [
+          10
+        ],
+        "nameBefore": "BIANNI SALVI",
+        "nameAfter": "BIANNI SALVI",
+        "changedFields": [
+          "rg",
+          "driver_type",
+          "sexo"
+        ]
+      },
+      {
+        "id": "5ce036e3-c61f-4b4a-9f78-69f208e1a0a2",
+        "excelRows": [
+          11
+        ],
+        "nameBefore": "BIANNI SALVI",
+        "nameAfter": "BIANNI SALVI",
+        "changedFields": [
+          "rg",
+          "sexo"
+        ]
+      },
+      {
+        "id": "f0229f27-62aa-4441-b489-0226205f4744",
+        "excelRows": [
+          12
+        ],
+        "nameBefore": "Luis Fernando Silva Oliveira",
+        "nameAfter": "LUIS FERNANDO SILVA OLIVEIRA",
+        "changedFields": [
+          "display_name",
+          "data_nascimento",
+          "sexo",
+          "nome_favorecido"
+        ]
+      },
+      {
+        "id": "82cd448b-ea26-4033-973f-8340d4e6dce7",
+        "excelRows": [
+          14
+        ],
+        "nameBefore": "claudenir aparecido macedo",
+        "nameAfter": "CLAUDENIR APARECIDO MACEDO",
+        "changedFields": [
+          "display_name",
+          "sexo",
+          "nome_favorecido",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "24d3e1bc-9bc3-4abb-8622-d6b3e3717712",
+        "excelRows": [
+          16
+        ],
+        "nameBefore": "Welder Ribeiro Alves",
+        "nameAfter": "WELDER RIBEIRO ALVES",
+        "changedFields": [
+          "display_name",
+          "sexo",
+          "nome_favorecido",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "e417ed19-d6e0-4f8b-a62f-b0e4963a0bef",
+        "excelRows": [
+          17
+        ],
+        "nameBefore": "OTAVIO DOS SANTOS SENA",
+        "nameAfter": "OTAVIO DOS SANTOS SENA",
+        "changedFields": [
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "2db3b613-b171-4b12-8384-bc59b9b08866",
+        "excelRows": [
+          18
+        ],
+        "nameBefore": "FABIANO GUSTAVO DUARTE",
+        "nameAfter": "FABIANO GUSTAVO DUARTE",
+        "changedFields": [
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "8edbb3d2-7a06-40f0-a0d5-3c4e611bf9aa",
+        "excelRows": [
+          19
+        ],
+        "nameBefore": "SUELI RIBEIRO MAXIMIANO",
+        "nameAfter": "SUELI RIBEIRO MAXIMIANO",
+        "changedFields": [
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "67ce3306-79fd-4087-9e63-184dbf2b80b3",
+        "excelRows": [
+          20
+        ],
+        "nameBefore": "ELIAS DOS REIS SOUSA",
+        "nameAfter": "ELIAS DOS REIS SOUSA",
+        "changedFields": [
+          "base",
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "c9470142-2626-42c9-b856-6606b2f7338a",
+        "excelRows": [
+          22
+        ],
+        "nameBefore": "CLAUDIO CANDIDO",
+        "nameAfter": "CLAUDIO CANDIDO",
+        "changedFields": [
+          "base",
+          "cpf",
+          "sexo",
+          "placa",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "0dcce8ce-3e3d-4ed5-9855-3793cc4d9fb7",
+        "excelRows": [
+          23
+        ],
+        "nameBefore": "ELENIR PEREIRA DA COSTA",
+        "nameAfter": "ELENIR PEREIRA DA COSTA",
+        "changedFields": [
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "f13f31d2-f619-4bc8-bd77-e22f2d79f8ca",
+        "excelRows": [
+          24
+        ],
+        "nameBefore": "CLAUDIO CANDIDO",
+        "nameAfter": "CLAUDIO CANDIDO",
+        "changedFields": [
+          "base",
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "ed4096f0-f9ec-444f-b2b0-2f59643cccdf",
+        "excelRows": [
+          25
+        ],
+        "nameBefore": "Plinio Flauzino Cunha",
+        "nameAfter": "PLINIO FLAUZINO CUNHA",
+        "changedFields": [
+          "base",
+          "display_name",
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "6c70c904-2177-4c3d-87be-0a0d7a3c4ad0",
+        "excelRows": [
+          27
+        ],
+        "nameBefore": "Lauro Goncalves Malheiros",
+        "nameAfter": "LAURO GONCALVES MALHEIROS",
+        "changedFields": [
+          "display_name",
+          "data_nascimento",
+          "sexo",
+          "nome_favorecido",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "94bb9e0d-bd0b-46e8-b6bb-7ed849b4666c",
+        "excelRows": [
+          28
+        ],
+        "nameBefore": "Marcos Claudio Machado de Brito",
+        "nameAfter": "MARCOS CLAUDIO MACHADO DE BRITO",
+        "changedFields": [
+          "base",
+          "display_name",
+          "sexo",
+          "nome_favorecido"
+        ]
+      },
+      {
+        "id": "e09c0bf3-d69e-458e-82ed-70a4538716dd",
+        "excelRows": [
+          29
+        ],
+        "nameBefore": "DOUGLAS WILSON BRUNO",
+        "nameAfter": "DOUGLAS WILSON BRUNO",
+        "changedFields": [
+          "base",
+          "sexo"
+        ]
+      },
+      {
+        "id": "975eb235-8947-4ece-a674-3b4ea71ba611",
+        "excelRows": [
+          30
+        ],
+        "nameBefore": "GERALDO WAGNER DE OLIVEIRA",
+        "nameAfter": "GERALDO WAGNER DE OLIVEIRA",
+        "changedFields": [
+          "base",
+          "sexo"
+        ]
+      },
+      {
+        "id": "f9a02619-8af3-45a0-b7d7-aca7ffc729d3",
+        "excelRows": [
+          31
+        ],
+        "nameBefore": "LEANDRO CLAITON ARAUJO",
+        "nameAfter": "LEANDRO CLAITON ARAUJO",
+        "changedFields": [
+          "base",
+          "sexo"
+        ]
+      },
+      {
+        "id": "3c1ba1f0-4a51-4a0b-a0b6-4574c9b0167e",
+        "excelRows": [
+          34
+        ],
+        "nameBefore": "Jovelmiro Carlos Coelho",
+        "nameAfter": "JOVELMIRO CARLOS COELHO",
+        "changedFields": [
+          "display_name",
+          "sexo",
+          "nome_favorecido",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "09d84572-61d4-432a-abdd-61afcc247a4f",
+        "excelRows": [
+          35
+        ],
+        "nameBefore": "CRISTIANO LEAL DE BARROS DE SOUZA",
+        "nameAfter": "CRISTIANO LEAL DE BARROS DE SOUZA",
+        "changedFields": [
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "5a07ae27-2c89-43f3-8000-645654844ab3",
+        "excelRows": [
+          36
+        ],
+        "nameBefore": "NELSON SCARCELE RIBEIRO",
+        "nameAfter": "NELSON SCARCELE RIBEIRO",
+        "changedFields": [
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "bab820e1-05e5-4f9a-83d7-46365dfa78ee",
+        "excelRows": [
+          37
+        ],
+        "nameBefore": "MAGALI NANCI CARNIELO",
+        "nameAfter": "MAGALI NANCI CARNIELO",
+        "changedFields": [
+          "sexo"
+        ]
+      },
+      {
+        "id": "52c4a3b6-e03e-427c-b3a0-e676afcf1049",
+        "excelRows": [
+          38
+        ],
+        "nameBefore": "Cleberson Alexandre Pinheiro Santana",
+        "nameAfter": "CLEBERSON ALEXANDRE PINHEIRO SANTANA",
+        "changedFields": [
+          "display_name",
+          "sexo",
+          "nome_favorecido"
+        ]
+      },
+      {
+        "id": "f501d5f3-728f-46d4-9c9d-cfec5a0e7035",
+        "excelRows": [
+          39
+        ],
+        "nameBefore": "Elias da Costa Andrade",
+        "nameAfter": "ELIAS DA COSTA ANDRADE",
+        "changedFields": [
+          "display_name",
+          "sexo",
+          "nome_favorecido",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "fe50e0a0-d947-44df-8807-05e103920675",
+        "excelRows": [
+          40
+        ],
+        "nameBefore": "JEFFERSON MILLER SILVA NASCIMENTO",
+        "nameAfter": "JEFFERSON MILLER SILVA NASCIMENTO",
+        "changedFields": [
+          "sexo"
+        ]
+      },
+      {
+        "id": "3b2f3655-4d58-46d8-a613-c44d398060c1",
+        "excelRows": [
+          41,
+          43
+        ],
+        "nameBefore": "EDER JOSE DE OLIVEIRA",
+        "nameAfter": "EDER JOSE DE OLIVEIRA",
+        "changedFields": [
+          "base",
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "4fb8823f-341b-496b-a966-4f54b56f4647",
+        "excelRows": [
+          42,
+          893
+        ],
+        "nameBefore": "JOSE CARLOS PIMENTEL JUNIOR",
+        "nameAfter": "JOSE CARLOS PIMENTEL JUNIOR",
+        "changedFields": [
+          "sexo",
+          "placa"
+        ]
+      },
+      {
+        "id": "26b092b4-d0f7-4fc1-b05f-c27697217fee",
+        "excelRows": [
+          44
+        ],
+        "nameBefore": "Alexandre Quintino de jesus santos",
+        "nameAfter": "ALEXANDRE QUINTINO DE JESUS SANTOS",
+        "changedFields": [
+          "base",
+          "display_name",
+          "sexo",
+          "nome_favorecido"
+        ]
+      },
+      {
+        "id": "c12d9270-4c1d-4918-9e90-1a03a7451058",
+        "excelRows": [
+          45
+        ],
+        "nameBefore": "Dione reny de Oliveira",
+        "nameAfter": "DIONE RENY DE OLIVEIRA",
+        "changedFields": [
+          "base",
+          "display_name",
+          "sexo",
+          "nome_favorecido",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "fc42ee3a-0010-49c4-a732-2f01f13937b1",
+        "excelRows": [
+          46
+        ],
+        "nameBefore": "EDUARDA MORGADO ROCHA",
+        "nameAfter": "EDUARDA MORGADO ROCHA",
+        "changedFields": [
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "397b1f41-76dc-43b5-96a3-e04bb6237d1b",
+        "excelRows": [
+          47
+        ],
+        "nameBefore": "Lucas Barbosa Goncalves Tibe",
+        "nameAfter": "LUCAS BARBOSA GONCALVES TIBE",
+        "changedFields": [
+          "display_name",
+          "data_nascimento",
+          "sexo",
+          "nome_favorecido"
+        ]
+      },
+      {
+        "id": "f5fc2ac7-a159-4ea5-9c64-94d1efba017d",
+        "excelRows": [
+          48
+        ],
+        "nameBefore": "Lucas Alves de Arruda",
+        "nameAfter": "LUCAS ALVES DE ARRUDA",
+        "changedFields": [
+          "display_name",
+          "data_nascimento",
+          "sexo",
+          "nome_favorecido"
+        ]
+      },
+      {
+        "id": "2df9aabd-a474-4931-962f-18447fab4a3f",
+        "excelRows": [
+          49
+        ],
+        "nameBefore": "RENATO APARECIDO CESARIO MANCINI",
+        "nameAfter": "RENATO APARECIDO CESARIO MANCINI",
+        "changedFields": [
+          "base",
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "9bb9cf2e-e6aa-45f3-a9c6-7e6f970d8653",
+        "excelRows": [
+          50
+        ],
+        "nameBefore": "DIEGO WILSON DE SOLZA ALVES",
+        "nameAfter": "DIEGO WILSON DE SOLZA ALVES",
+        "changedFields": [
+          "sexo"
+        ]
+      },
+      {
+        "id": "3b362573-cbb9-4cf1-97a7-42e1311f4a74",
+        "excelRows": [
+          51
+        ],
+        "nameBefore": "PEDRO MESSIAS JUNIOR",
+        "nameAfter": "PEDRO MESSIAS JUNIOR",
+        "changedFields": [
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "bdc78819-81d5-4a53-8417-5c2c3f93e66b",
+        "excelRows": [
+          52
+        ],
+        "nameBefore": "DANILO PAULO RIBEIRO",
+        "nameAfter": "DANILO PAULO RIBEIRO",
+        "changedFields": [
+          "sexo"
+        ]
+      },
+      {
+        "id": "d19d0240-3271-444a-a05d-a2d5f968701d",
+        "excelRows": [
+          53
+        ],
+        "nameBefore": "JULIERME GARCIA DE SOUZA",
+        "nameAfter": "JULIERME GARCIA DE SOUZA",
+        "changedFields": [
+          "data_nascimento",
+          "sexo",
+          "nome_favorecido",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "df2253bd-edb8-4ec9-8147-fad21d090fa9",
+        "excelRows": [
+          54
+        ],
+        "nameBefore": "ANDRE APARECIDO FERNANDES",
+        "nameAfter": "ANDRE APARECIDO FERNANDES",
+        "changedFields": [
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "c77e6f08-3bb2-452e-b43e-d23e91cb42f7",
+        "excelRows": [
+          55
+        ],
+        "nameBefore": "Americo reis silva",
+        "nameAfter": "AMERICO REIS SILVA",
+        "changedFields": [
+          "display_name",
+          "data_nascimento",
+          "sexo",
+          "nome_favorecido",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "fe665c39-08eb-441a-be3f-4e8c7747df30",
+        "excelRows": [
+          56,
+          877
+        ],
+        "nameBefore": "SIDNEI DE CASTRO PAIXAO",
+        "nameAfter": "SIDNEI DE CASTRO PAIXAO",
+        "changedFields": [
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "3d632a67-4688-4aaa-879e-8bd94429a828",
+        "excelRows": [
+          57,
+          61
+        ],
+        "nameBefore": "Felipe Braga Pereira",
+        "nameAfter": "FELIPE BRAGA PEREIRA",
+        "changedFields": [
+          "display_name",
+          "data_nascimento",
+          "sexo",
+          "nome_favorecido",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "9e4e119c-d61b-442f-a143-afd14c40ac5f",
+        "excelRows": [
+          58
+        ],
+        "nameBefore": "Douglas Eduardo Garcia",
+        "nameAfter": "DOUGLAS EDUARDO GARCIA",
+        "changedFields": [
+          "display_name",
+          "data_nascimento",
+          "sexo",
+          "nome_favorecido"
+        ]
+      },
+      {
+        "id": "3fa6055c-81d1-4b58-893e-a6642d167b74",
+        "excelRows": [
+          59
+        ],
+        "nameBefore": "MATHEUS SANTOS SILVA",
+        "nameAfter": "MATHEUS SANTOS SILVA",
+        "changedFields": [
+          "base",
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "354eb1dd-e6e2-4943-9eff-4c72d75431c5",
+        "excelRows": [
+          60
+        ],
+        "nameBefore": "Eduardo Araújo Souza",
+        "nameAfter": "EDUARDO ARAUJO SOUZA",
+        "changedFields": [
+          "display_name",
+          "rg",
+          "sexo",
+          "nome_favorecido"
+        ]
+      },
+      {
+        "id": "1fb3b564-a515-43f7-93fa-4159ee96a099",
+        "excelRows": [
+          62
+        ],
+        "nameBefore": "Gean Rodrigo da Silva",
+        "nameAfter": "GEAN RODRIGO DA SILVA",
+        "changedFields": [
+          "display_name",
+          "sexo",
+          "nome_favorecido"
+        ]
+      },
+      {
+        "id": "a48e1518-75d6-4944-a04b-46006d51cf07",
+        "excelRows": [
+          63
+        ],
+        "nameBefore": "valquiria de oliveira bomfim pinheiro",
+        "nameAfter": "VALQUIRIA DE OLIVEIRA BOMFIM PINHEIRO",
+        "changedFields": [
+          "base",
+          "display_name",
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "c72d4b39-51ce-42b6-8c8c-55b9a78f51a5",
+        "excelRows": [
+          64,
+          1234
+        ],
+        "nameBefore": "Maxwell Junior Stasiak Nascimento",
+        "nameAfter": "MAXWELL JUNIOR STASIAK NASCIMENTO",
+        "changedFields": [
+          "display_name",
+          "sexo",
+          "placa",
+          "nome_favorecido",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "64e5312f-b4d5-4b84-ba67-ee18c3a50a50",
+        "excelRows": [
+          65
+        ],
+        "nameBefore": "Carlos Eduardo Fernandes Americo",
+        "nameAfter": "CARLOS EDUARDO FERNANDES AMERICO",
+        "changedFields": [
+          "display_name",
+          "sexo",
+          "nome_favorecido"
+        ]
+      },
+      {
+        "id": "84155de3-489a-4326-8f00-2945519e01d0",
+        "excelRows": [
+          66,
+          3285
+        ],
+        "nameBefore": "marcio luiz da silva",
+        "nameAfter": "MARCIO LUIZ DA SILVA",
+        "changedFields": [
+          "display_name",
+          "rg",
+          "data_nascimento",
+          "sexo",
+          "phone",
+          "nome_favorecido",
+          "cpf_favorecido",
+          "telefone_favorecido",
+          "validade_gr"
+        ]
+      },
+      {
+        "id": "6e0d291f-be99-4144-8443-ba0af6a4e0cc",
+        "excelRows": [
+          67
+        ],
+        "nameBefore": "Marco Túlio de Oliveira Mello",
+        "nameAfter": "MARCO TULIO DE OLIVEIRA MELLO",
+        "changedFields": [
+          "display_name",
+          "sexo",
+          "nome_favorecido"
+        ]
+      },
+      {
+        "id": "3747789d-5716-4a94-8dd4-2c8b99e2744a",
+        "excelRows": [
+          68,
+          93
+        ],
+        "nameBefore": "JANDERSON CORREA DA SILVA",
+        "nameAfter": "JANDERSON CORREA DA SILVA",
+        "changedFields": [
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "45feb7a6-1996-498b-adcb-c433bc74ef87",
+        "excelRows": [
+          69
+        ],
+        "nameBefore": "CARLOS EDUARDO FIGARELA RIBEIRO",
+        "nameAfter": "CARLOS EDUARDO FIGARELA RIBEIRO",
+        "changedFields": [
+          "data_nascimento",
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "5cf9b91a-f3a6-4aa1-9bcf-9b9fc64a4008",
+        "excelRows": [
+          70
+        ],
+        "nameBefore": "Caio Matheus Zucheratto Chicarelli",
+        "nameAfter": "CAIO MATHEUS ZUCHERATTO CHICARELLI",
+        "changedFields": [
+          "display_name",
+          "data_nascimento",
+          "sexo",
+          "nome_favorecido",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "3289635e-2fda-40d6-9761-80215670101c",
+        "excelRows": [
+          71
+        ],
+        "nameBefore": "TALYS DHYLAN SOUZA CLEMENTE",
+        "nameAfter": "TALYS DHYLAN SOUZA CLEMENTE",
+        "changedFields": [
+          "data_nascimento",
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "3921032c-8b65-4114-bbe6-64d32c51d938",
+        "excelRows": [
+          72
+        ],
+        "nameBefore": "UIDER PEREIRA",
+        "nameAfter": "UIDER PEREIRA",
+        "changedFields": [
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "0690b194-5357-407c-975b-b880e2088467",
+        "excelRows": [
+          73
+        ],
+        "nameBefore": "DAVIDSON RODRIGO MOREIRA DE SOUSA",
+        "nameAfter": "DAVIDSON RODRIGO MOREIRA DE SOUSA",
+        "changedFields": [
+          "base",
+          "data_nascimento",
+          "sexo"
+        ]
+      },
+      {
+        "id": "68001535-f7e5-444b-8934-81ddeef7c0ad",
+        "excelRows": [
+          74,
+          2973
+        ],
+        "nameBefore": "Ana Luiza Rodrigues Martins",
+        "nameAfter": "ANA LUIZA RODRIGUES MARTINS",
+        "changedFields": [
+          "display_name",
+          "sexo",
+          "phone",
+          "nome_favorecido",
+          "cpf_favorecido",
+          "telefone_favorecido",
+          "validade_gr"
+        ]
+      },
+      {
+        "id": "30b74efe-6a78-48d7-b843-a0b9761c0e05",
+        "excelRows": [
+          75,
+          118,
+          1700
+        ],
+        "nameBefore": "Lucas de Souza Morais",
+        "nameAfter": "LUCAS DE SOUZA MORAIS",
+        "changedFields": [
+          "display_name",
+          "sexo",
+          "phone",
+          "email",
+          "placa",
+          "nome_favorecido",
+          "cpf_favorecido",
+          "email_favorecido",
+          "telefone_favorecido",
+          "validade_gr"
+        ]
+      },
+      {
+        "id": "9bbf1d68-dc6b-4609-a888-b612630e956b",
+        "excelRows": [
+          76
+        ],
+        "nameBefore": "Fabiano Rodrigo do Nascimento",
+        "nameAfter": "FABIANO RODRIGO DO NASCIMENTO",
+        "changedFields": [
+          "display_name",
+          "sexo",
+          "nome_favorecido"
+        ]
+      },
+      {
+        "id": "e180888b-c794-47f9-bd10-3e5b7dc4c4fa",
+        "excelRows": [
+          77
+        ],
+        "nameBefore": "Claudinei Alexandre da Silva",
+        "nameAfter": "CLAUDINEI ALEXANDRE DA SILVA",
+        "changedFields": [
+          "display_name",
+          "sexo",
+          "nome_favorecido"
+        ]
+      },
+      {
+        "id": "1d7f3669-871e-41dd-90fc-fecb2575c6a9",
+        "excelRows": [
+          78
+        ],
+        "nameBefore": "Jéssica Sousa Silva",
+        "nameAfter": "JESSICA SOUSA SILVA",
+        "changedFields": [
+          "display_name",
+          "sexo",
+          "nome_favorecido"
+        ]
+      },
+      {
+        "id": "60e98660-86b4-4458-8af5-315d72fd57db",
+        "excelRows": [
+          79
+        ],
+        "nameBefore": "Inácio Natan dos Santos Silva",
+        "nameAfter": "INACIO NATAN DOS SANTOS SILVA",
+        "changedFields": [
+          "base",
+          "display_name",
+          "sexo",
+          "nome_favorecido",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "a810503e-1b2a-4b2f-ad06-f7ad656ef494",
+        "excelRows": [
+          80
+        ],
+        "nameBefore": "Higor Alves De Lima",
+        "nameAfter": "HIGOR ALVES DE LIMA",
+        "changedFields": [
+          "display_name",
+          "data_nascimento",
+          "sexo",
+          "nome_favorecido"
+        ]
+      },
+      {
+        "id": "9b704da4-6a49-49cd-8b5c-d32c3f4b5603",
+        "excelRows": [
+          81
+        ],
+        "nameBefore": "CARLOS ALBERTO ACHILLLE",
+        "nameAfter": "CARLOS ALBERTO ACHILLLE",
+        "changedFields": [
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "7ebaf2fd-818e-4890-9975-951546624af4",
+        "excelRows": [
+          82
+        ],
+        "nameBefore": "LEONALDO APARECIDO PEREIRA DE OLIVEIRA",
+        "nameAfter": "LEONALDO APARECIDO PEREIRA DE OLIVEIRA",
+        "changedFields": [
+          "base",
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "169df33c-4f58-404a-8d72-b66c500ee65d",
+        "excelRows": [
+          83,
+          341
+        ],
+        "nameBefore": "GABRIEL SILVA DE AMORIM",
+        "nameAfter": "GABRIEL SILVA DE AMORIM",
+        "changedFields": [
+          "base",
+          "data_nascimento",
+          "sexo"
+        ]
+      },
+      {
+        "id": "e26572fa-a3cb-4129-b04d-99d601b63606",
+        "excelRows": [
+          84
+        ],
+        "nameBefore": "MATHEUS CIRINO CHAVES",
+        "nameAfter": "MATHEUS CIRINO CHAVES",
+        "changedFields": [
+          "base",
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "24c616b9-cbdb-4cc7-b2c4-a7decdc0b566",
+        "excelRows": [
+          85
+        ],
+        "nameBefore": "JEUDE LOPES",
+        "nameAfter": "JEUDE LOPES",
+        "changedFields": [
+          "data_nascimento",
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "9c690e8b-28ba-490f-a1a7-e691d2904fd4",
+        "excelRows": [
+          86
+        ],
+        "nameBefore": "VITOR SANTOS ARRUDA",
+        "nameAfter": "VITOR SANTOS ARRUDA",
+        "changedFields": [
+          "sexo",
+          "nome_favorecido",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "833378af-4b12-49df-9ffe-59e2c7ba344d",
+        "excelRows": [
+          87
+        ],
+        "nameBefore": "Tiago custódio da silva",
+        "nameAfter": "TIAGO CUSTODIO DA SILVA",
+        "changedFields": [
+          "display_name",
+          "sexo",
+          "nome_favorecido"
+        ]
+      },
+      {
+        "id": "7be58fdc-d4e5-4d42-a04e-ea91bbe49954",
+        "excelRows": [
+          88
+        ],
+        "nameBefore": "Rejanne Malta Rodrigues",
+        "nameAfter": "REJANNE MALTA RODRIGUES",
+        "changedFields": [
+          "display_name",
+          "sexo"
+        ]
+      },
+      {
+        "id": "899fb40e-b285-4278-a2aa-2749696e1bea",
+        "excelRows": [
+          89
+        ],
+        "nameBefore": "BRUNO MENDES DOS SANTOS",
+        "nameAfter": "BRUNO MENDES DOS SANTOS",
+        "changedFields": [
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "5205dabe-67a2-4c49-9d57-f13a52d80072",
+        "excelRows": [
+          90
+        ],
+        "nameBefore": "ROBERTO SOUSA",
+        "nameAfter": "ROBERTO SOUSA",
+        "changedFields": [
+          "rg",
+          "sexo"
+        ]
+      },
+      {
+        "id": "d240e027-78be-45c5-9f3b-2a0ff82ccd49",
+        "excelRows": [
+          91
+        ],
+        "nameBefore": "Fernando Augusto Assis Costa",
+        "nameAfter": "FERNANDO AUGUSTO ASSIS COSTA",
+        "changedFields": [
+          "display_name",
+          "sexo",
+          "nome_favorecido"
+        ]
+      },
+      {
+        "id": "80ef3327-363c-4686-82b5-e4daa1a77d75",
+        "excelRows": [
+          92
+        ],
+        "nameBefore": "CLAUDIO MATHEUS CEZARIO FACHINI",
+        "nameAfter": "CLAUDIO MATHEUS CEZARIO FACHINI",
+        "changedFields": [
+          "base",
+          "cpf",
+          "sexo"
+        ]
+      },
+      {
+        "id": "9d6bad64-7270-4bb2-ac44-76953dde8f41",
+        "excelRows": [
+          95
+        ],
+        "nameBefore": "DEIVID SCUTTI",
+        "nameAfter": "DEIVID SCUTTI",
+        "changedFields": [
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "1ab0ae69-f8ab-42ff-9652-14b2ccc7ca7f",
+        "excelRows": [
+          96
+        ],
+        "nameBefore": "THIAGO AUGUSTO PEREIRA MEDINA",
+        "nameAfter": "THIAGO AUGUSTO PEREIRA MEDINA",
+        "changedFields": [
+          "base",
+          "data_nascimento",
+          "sexo"
+        ]
+      },
+      {
+        "id": "799c4f5f-81d0-4e05-95ce-abbd21663662",
+        "excelRows": [
+          97,
+          396
+        ],
+        "nameBefore": "LUCAS DE LIMA",
+        "nameAfter": "LUCAS DE LIMA",
+        "changedFields": [
+          "data_nascimento",
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "53ed5fea-5ba2-4826-b559-5c509ba313fb",
+        "excelRows": [
+          98
+        ],
+        "nameBefore": "Gildemar Ponciano Forte",
+        "nameAfter": "GILDEMAR PONCIANO FORTE",
+        "changedFields": [
+          "display_name",
+          "sexo",
+          "nome_favorecido"
+        ]
+      },
+      {
+        "id": "194770d3-58c2-420a-b5cc-598ed347610e",
+        "excelRows": [
+          99
+        ],
+        "nameBefore": "ADRIANO DE OLIVEIRA SILVA",
+        "nameAfter": "ADRIANO DE OLIVEIRA SILVA",
+        "changedFields": [
+          "data_nascimento",
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "85814466-60e7-46c4-8434-cacd5d7eebc6",
+        "excelRows": [
+          100
+        ],
+        "nameBefore": "ROBSON BERNARDES",
+        "nameAfter": "ROBSON BERNARDES",
+        "changedFields": [
+          "sexo"
+        ]
+      },
+      {
+        "id": "56fb4cd5-6210-458a-8ced-6aa44eb1f9b6",
+        "excelRows": [
+          101
+        ],
+        "nameBefore": "Wellington Tadeu Fraga",
+        "nameAfter": "WELLINGTON TADEU FRAGA",
+        "changedFields": [
+          "display_name",
+          "sexo",
+          "nome_favorecido"
+        ]
+      },
+      {
+        "id": "09879eb0-480c-4d5e-998e-f4e08bd84c5b",
+        "excelRows": [
+          102
+        ],
+        "nameBefore": "RODRIGO ADNAR SANTANA",
+        "nameAfter": "RODRIGO ADNAR SANTANA",
+        "changedFields": [
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "2bd66aa2-502b-4dda-b2e2-a952057cee09",
+        "excelRows": [
+          103
+        ],
+        "nameBefore": "ADRIANO DE OLIVEIRA SILVA",
+        "nameAfter": "ADRIANO DE OLIVEIRA SILVA",
+        "changedFields": [
+          "data_nascimento",
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "e513aa18-b211-4230-842a-a3a1897c1e31",
+        "excelRows": [
+          104
+        ],
+        "nameBefore": "ALAN FELIX  BARBALHO",
+        "nameAfter": "ALAN FELIX BARBALHO",
+        "changedFields": [
+          "display_name",
+          "cpf",
+          "sexo",
+          "nome_favorecido",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "3d502378-1a6a-4bda-8288-268963f40d8e",
+        "excelRows": [
+          105
+        ],
+        "nameBefore": "Jonathan Sander Prestes",
+        "nameAfter": "JONATHAN SANDER PRESTES",
+        "changedFields": [
+          "display_name",
+          "driver_type",
+          "sexo",
+          "nome_favorecido",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "61cd3adc-4075-4608-a99e-589a501f27a5",
+        "excelRows": [
+          106
+        ],
+        "nameBefore": "Marcus Vinicius Rodrigues",
+        "nameAfter": "MARCUS VINICIUS RODRIGUES",
+        "changedFields": [
+          "display_name",
+          "data_nascimento",
+          "sexo",
+          "nome_favorecido",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "1645eb42-adc4-4030-92f9-c4c703f4a7ca",
+        "excelRows": [
+          107
+        ],
+        "nameBefore": "TAIS APARECIDA DA SILVA",
+        "nameAfter": "TAIS APARECIDA DA SILVA",
+        "changedFields": [
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "4a9c2491-d41f-4336-96a4-af103fdcc33e",
+        "excelRows": [
+          108
+        ],
+        "nameBefore": "KAROLINE FERREIRA DE QUEIROZ",
+        "nameAfter": "KAROLINE FERREIRA DE QUEIROZ",
+        "changedFields": [
+          "base",
+          "data_nascimento",
+          "sexo",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "b001ac9f-ce49-47b9-a508-b8e1327b0209",
+        "excelRows": [
+          109
+        ],
+        "nameBefore": "gustavo Junior Barbosa da Silva",
+        "nameAfter": "GUSTAVO JUNIOR BARBOSA DA SILVA",
+        "changedFields": [
+          "base",
+          "display_name",
+          "data_nascimento",
+          "sexo",
+          "nome_favorecido",
+          "cpf_favorecido"
+        ]
+      },
+      {
+        "id": "7f427ee8-0edf-40b5-9713-2fec7bd29395",
+        "excelRows": [
+          110
+        ],
+        "nameBefore": "ISMAEL DE SOUZA SOARES",
+        "nameAfter": "ISMAEL DE SOUZA SOARES",
+        "changedFields": [
+          "base",
+          "sexo"
+        ]
+      },
+      {
+        "id": "1ab64f18-179c-42a0-bb98-2aa0751dc5fd",
+        "excelRows": [
+          111
+        ],
+        "nameBefore": "SILAS SILVA GUIMARAES",
+        "nameAfter": "SILAS SILVA GUIMARAES",
+        "changedFields": [
+          "base",
+          "sexo"
+        ]
+      },
+      {
+        "id": "c890d73a-55e8-4960-be78-4bc8dda922d5",
+        "excelRows": [
+          112
+        ],
+        "nameBefore": "JOSE MATHEUS GONCALVES MIRANDA",
+        "nameAfter": "JOSE MATHEUS GONCALVES MIRANDA",
+        "changedFields": [
+          "base",
+          "sexo"
+        ]
+      }
+    ]
+  },
+  "consolidation": {
+    "spreadsheetRows": 3889,
+    "identitiesBeforeDatabaseKeyConsolidation": 3638,
+    "identitiesAfterDatabaseKeyConsolidation": 3632,
+    "databaseKeyDuplicateGroups": 6,
+    "databaseKeyDuplicateRows": 6,
+    "groups": [
+      {
+        "key": "milene cevithereza emiliano|45552178000183",
+        "sourceRows": [
+          374,
+          1497
+        ],
+        "selectedRow": 374,
+        "selectedCpf": "84668644668",
+        "discardedCpfs": [
+          "846686444668"
+        ],
+        "reason": "CPF valido priorizado; em seguida, linha mais recente"
+      },
+      {
+        "key": "welber lima ribeiro|26272965000127",
+        "sourceRows": [
+          603,
+          961
+        ],
+        "selectedRow": 961,
+        "selectedCpf": "71164132199",
+        "discardedCpfs": [
+          "71164162199"
+        ],
+        "reason": "Linha mais recente da planilha priorizada"
+      },
+      {
+        "key": "ronildo da silva|63471834000103",
+        "sourceRows": [
+          1126,
+          1127
+        ],
+        "selectedRow": 1127,
+        "selectedCpf": "33186298393",
+        "discardedCpfs": [
+          "33186239893"
+        ],
+        "reason": "Linha mais recente da planilha priorizada"
+      },
+      {
+        "key": "sergio vieira monnerat junior|47459293000133",
+        "sourceRows": [
+          1448,
+          2909
+        ],
+        "selectedRow": 2909,
+        "selectedCpf": "10087734761",
+        "discardedCpfs": [
+          "10087733761"
+        ],
+        "reason": "Linha mais recente da planilha priorizada"
+      },
+      {
+        "key": "lucas da silva cunha|65739333000182",
+        "sourceRows": [
+          2353,
+          2586
+        ],
+        "selectedRow": 2586,
+        "selectedCpf": "12157292752",
+        "discardedCpfs": [
+          "12157293752"
+        ],
+        "reason": "Linha mais recente da planilha priorizada"
+      },
+      {
+        "key": "sergio ricardo azevedo egger|32245063000102",
+        "sourceRows": [
+          2458,
+          2721
+        ],
+        "selectedRow": 2458,
+        "selectedCpf": "85356964749",
+        "discardedCpfs": [
+          "853856964749"
+        ],
+        "reason": "CPF valido priorizado; em seguida, linha mais recente"
+      }
+    ]
+  },
+  "after": {
+    "entities": 3974,
+    "sheetIdentitiesFound": 3632,
+    "remainingExactDuplicateGroups": 0
+  }
+}

@@ -1,0 +1,180 @@
+{
+  "workbookPath": "C:/Users/Wesley/Downloads/driver_registry_sem_base_2026-07-16_1784233281422.xlsx",
+  "detectedFilledRows": 21,
+  "uniqueRowsById": 21,
+  "updated": 21,
+  "alreadyMatching": 0,
+  "notFound": [],
+  "remainingWithoutBase": 212,
+  "changed": [
+    {
+      "linha_planilha": 2,
+      "id": "51a0e006-b189-4da4-9c9d-ace6db7f13ec",
+      "nome": "MATHEUS BATISTA GONCALVES",
+      "base": "BARUERI",
+      "before": "",
+      "after": "BARUERI"
+    },
+    {
+      "linha_planilha": 3,
+      "id": "d97b4888-dafd-4223-a4ce-0555d2ee1ce9",
+      "nome": "ADEGILSON MOREIRA RIOS JUNIOR",
+      "base": "ARAPUTANGA",
+      "before": "",
+      "after": "ARAPUTANGA"
+    },
+    {
+      "linha_planilha": 37,
+      "id": "c49a6a2f-b10d-4b3f-8378-14de01bb76f9",
+      "nome": "CARLOS EDUARDO MORAIS DE CASTRO",
+      "base": "GUAXUPE",
+      "before": "",
+      "after": "GUAXUPE"
+    },
+    {
+      "linha_planilha": 41,
+      "id": "15a9570a-5214-458d-8ba9-37a039b4b517",
+      "nome": "Cassiclei Cezar Silva Guimaraes",
+      "base": "CHAPADÃO DO SUL",
+      "before": "",
+      "after": "CHAPADÃO DO SUL"
+    },
+    {
+      "linha_planilha": 58,
+      "id": "34300a53-013f-43a2-9a95-fbaf2d64a441",
+      "nome": "Edenir da Silva Pontes",
+      "base": "SAO JOSE DO RIO PRETO",
+      "before": "",
+      "after": "SAO JOSE DO RIO PRETO"
+    },
+    {
+      "linha_planilha": 76,
+      "id": "9dce0f60-a397-430d-835a-56d479620941",
+      "nome": "FARLEI ALEXANDRE DE SOUSA",
+      "base": "GUANHAES",
+      "before": "",
+      "after": "GUANHAES"
+    },
+    {
+      "linha_planilha": 88,
+      "id": "1b57e02f-1004-4dec-96de-6dc124575821",
+      "nome": "GIAN LUIZ FERREIRA MENDES",
+      "base": "CAMPOS DOS GOYTACAZES",
+      "before": "",
+      "after": "CAMPOS DOS GOYTACAZES"
+    },
+    {
+      "linha_planilha": 112,
+      "id": "a5e27237-c29c-4019-ae18-c66f806421a3",
+      "nome": "JONATHAN BARRETO DE AZEVEDO",
+      "base": "CAMPOS DOS GOYTACAZES",
+      "before": "",
+      "after": "CAMPOS DOS GOYTACAZES"
+    },
+    {
+      "linha_planilha": 116,
+      "id": "819100b9-5b03-4b05-8339-c831754e9746",
+      "nome": "JOSENIR HENRIQUES DA PAIXAO",
+      "base": "CAMPOS DOS GOYTACAZES",
+      "before": "",
+      "after": "CAMPOS DOS GOYTACAZES"
+    },
+    {
+      "linha_planilha": 118,
+      "id": "35d9b8e5-b718-413d-849e-81748d35a8b2",
+      "nome": "JULIENE VALADARES DA SILVA BARROS",
+      "base": "CONCEIÇÃO DO MATO DENTRO",
+      "before": "",
+      "after": "CONCEIÇÃO DO MATO DENTRO"
+    },
+    {
+      "linha_planilha": 125,
+      "id": "41688f4b-2390-490b-b7dc-0fb09397918f",
+      "nome": "KLEISER JOSE ARAUJO",
+      "base": "GUAXUPE",
+      "before": "",
+      "after": "GUAXUPE"
+    },
+    {
+      "linha_planilha": 128,
+      "id": "0127a202-0905-4c11-a79a-c09d07846852",
+      "nome": "LEANDRO JUNIOR SOUZA DA SILVA",
+      "base": "CHAPADÃO DO SUL",
+      "before": "",
+      "after": "CHAPADÃO DO SUL"
+    },
+    {
+      "linha_planilha": 130,
+      "id": "b4c91435-6bf7-4473-9b72-a42849ec9751",
+      "nome": "LEONARDO BERNARDINO DOS SANTOS JUNIOR",
+      "base": "ARAXÁ",
+      "before": "",
+      "after": "ARAXÁ"
+    },
+    {
+      "linha_planilha": 132,
+      "id": "13e6fccc-251b-4ddf-a42d-5a2bf100c2c3",
+      "nome": "Leonardo Pereira Saldanha",
+      "base": "CONCEIÇÃO DO MATO DENTRO",
+      "before": "",
+      "after": "CONCEIÇÃO DO MATO DENTRO"
+    },
+    {
+      "linha_planilha": 142,
+      "id": "7547415e-d1ec-48d8-abbd-e29c219f18a5",
+      "nome": "LUCINEIA JORGE NASCIMENTO",
+      "base": "CONCEIÇÃO DO MATO DENTRO",
+      "before": "",
+      "after": "CONCEIÇÃO DO MATO DENTRO"
+    },
+    {
+      "linha_planilha": 148,
+      "id": "c4ffe225-de83-4c7e-90e0-2d847b150db2",
+      "nome": "LUIZ AGUILERA DE MORAES",
+      "base": "CÁCERES",
+      "before": "",
+      "after": "CÁCERES"
+    },
+    {
+      "linha_planilha": 161,
+      "id": "537f96a1-0501-4746-88d2-1368b607daec",
+      "nome": "MICHAEL CARVALHO CUNHA",
+      "base": "GUAXUPE",
+      "before": "",
+      "after": "GUAXUPE"
+    },
+    {
+      "linha_planilha": 171,
+      "id": "409cdcf3-d3d0-46c6-8bfe-a4d3acfdfa6b",
+      "nome": "NILSON DIVINO RODRIGUES LEITE",
+      "base": "CÁCERES",
+      "before": "",
+      "after": "CÁCERES"
+    },
+    {
+      "linha_planilha": 184,
+      "id": "9b1ad5c3-bd28-4aa0-9f7c-22218a91088f",
+      "nome": "PLINIO FLAUZINO CUNHA",
+      "base": "GUAXUPE",
+      "before": "",
+      "after": "GUAXUPE"
+    },
+    {
+      "linha_planilha": 202,
+      "id": "ea98f08d-da5f-4bb3-b56b-5ca9e77dade6",
+      "nome": "RODOLFO DA MATA TOLINTO",
+      "base": "CAMPOS DOS GOYTACAZES",
+      "before": "",
+      "after": "CAMPOS DOS GOYTACAZES"
+    },
+    {
+      "linha_planilha": 232,
+      "id": "f4cf535f-1735-4650-992c-d8ffc2734f23",
+      "nome": "WEVERLEY MATEUS PEREIRA DO CARMO",
+      "base": "SANTO ANTONIO DA PLATINA",
+      "before": "",
+      "after": "SANTO ANTONIO DA PLATINA"
+    }
+  ],
+  "alreadyFilled": []
+}

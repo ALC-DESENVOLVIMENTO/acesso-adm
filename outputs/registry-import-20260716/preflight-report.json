@@ -1,0 +1,498 @@
+{
+  "source": {
+    "worksheet": "Planilha1",
+    "totalRows": 3889,
+    "nonBlankRows": 3889,
+    "blankRows": [],
+    "invalidCpfCount": 6,
+    "invalidCpfRows": [
+      {
+        "row": 363,
+        "name": "ELISANGELA APARECIDA CAMPOS",
+        "value": "275115022879"
+      },
+      {
+        "row": 385,
+        "name": "CARLEONE ALMEIDA SANTOS",
+        "value": "315061177824"
+      },
+      {
+        "row": 1497,
+        "name": "MILENE CEVITHEREZA EMILIANO",
+        "value": "846686444668"
+      },
+      {
+        "row": 2615,
+        "name": "JEFFERSON SERAFIM NUNES",
+        "value": "183636160647"
+      },
+      {
+        "row": 2721,
+        "name": "SERGIO RICARDO AZEVEDO EGGER",
+        "value": "853856964749"
+      },
+      {
+        "row": 2793,
+        "name": "MICHELE MASSOLA MIRANDA",
+        "value": "50177981881349421"
+      }
+    ],
+    "invalidCnpjCount": 5,
+    "invalidCnpjRows": [
+      {
+        "row": 448,
+        "name": "ORLANDO FIRMINO DE OLIVEIRA",
+        "value": "544194930000128"
+      },
+      {
+        "row": 1042,
+        "name": "MATHEUS PEREIRA DIAS",
+        "value": "63514677"
+      },
+      {
+        "row": 1993,
+        "name": "CLEVERSON TEIXEIRA DE OLIVEIRA",
+        "value": "491272550001090"
+      },
+      {
+        "row": 2613,
+        "name": "SABRINA RITA RODRIGUES",
+        "value": "163194089000145"
+      },
+      {
+        "row": 3875,
+        "name": "CARLOS HUMBERTO DA COSTA",
+        "value": "0"
+      }
+    ],
+    "uniqueRowsAfterConsolidation": 3638,
+    "duplicateGroups": 228,
+    "duplicateRows": 251,
+    "duplicateExamples": [
+      {
+        "key": "DOC|45878576880|62638953000137",
+        "rows": [
+          8,
+          3493
+        ],
+        "chosenRow": 3493
+      },
+      {
+        "key": "DOC|10958516758|59288596000110",
+        "rows": [
+          21,
+          2662
+        ],
+        "chosenRow": 2662
+      },
+      {
+        "key": "DOC|05904047681|42792335000130",
+        "rows": [
+          41,
+          43
+        ],
+        "chosenRow": 43
+      },
+      {
+        "key": "DOC|70866778179|58539365000179",
+        "rows": [
+          42,
+          893
+        ],
+        "chosenRow": 42
+      },
+      {
+        "key": "DOC|46286054839|62045642000164",
+        "rows": [
+          56,
+          877
+        ],
+        "chosenRow": 877
+      },
+      {
+        "key": "DOC|35073135881|62048706000180",
+        "rows": [
+          57,
+          61
+        ],
+        "chosenRow": 61
+      },
+      {
+        "key": "DOC|06133958162|62042241000150",
+        "rows": [
+          64,
+          1234
+        ],
+        "chosenRow": 64
+      },
+      {
+        "key": "DOC|34655313889|54394913000169",
+        "rows": [
+          66,
+          3285
+        ],
+        "chosenRow": 3285
+      },
+      {
+        "key": "DOC|80124895115|17583497000110",
+        "rows": [
+          68,
+          93
+        ],
+        "chosenRow": 93
+      },
+      {
+        "key": "DOC|14208845651|57856006000182",
+        "rows": [
+          74,
+          2973
+        ],
+        "chosenRow": 2973
+      },
+      {
+        "key": "DOC|13206792690|52910378000126",
+        "rows": [
+          75,
+          118,
+          1700
+        ],
+        "chosenRow": 1700
+      },
+      {
+        "key": "DOC|10560989610|61970504000129",
+        "rows": [
+          83,
+          341
+        ],
+        "chosenRow": 341
+      },
+      {
+        "key": "DOC|14043761783|61946528000142",
+        "rows": [
+          97,
+          396
+        ],
+        "chosenRow": 396
+      },
+      {
+        "key": "DOC|02057705684|41442186000116",
+        "rows": [
+          123,
+          3754
+        ],
+        "chosenRow": 3754
+      },
+      {
+        "key": "DOC|40621648841|61547244000183",
+        "rows": [
+          159,
+          168,
+          777,
+          3871
+        ],
+        "chosenRow": 3871
+      },
+      {
+        "key": "DOC|44230445873|60112488000170",
+        "rows": [
+          164,
+          167
+        ],
+        "chosenRow": 167
+      },
+      {
+        "key": "DOC|72153202604|60880014000179",
+        "rows": [
+          171,
+          185
+        ],
+        "chosenRow": 185
+      },
+      {
+        "key": "DOC|11623288606|58453955000184",
+        "rows": [
+          173,
+          217
+        ],
+        "chosenRow": 217
+      },
+      {
+        "key": "DOC|09135247606|57676387000118",
+        "rows": [
+          193,
+          741,
+          3523
+        ],
+        "chosenRow": 3523
+      },
+      {
+        "key": "DOC|05372808128|58773835000164",
+        "rows": [
+          195,
+          1957
+        ],
+        "chosenRow": 195
+      },
+      {
+        "key": "DOC|09290654686|55538488000105",
+        "rows": [
+          229,
+          2567
+        ],
+        "chosenRow": 2567
+      },
+      {
+        "key": "DOC|04716152189|49498559000182",
+        "rows": [
+          237,
+          238
+        ],
+        "chosenRow": 238
+      },
+      {
+        "key": "DOC|16697119780|62402814000100",
+        "rows": [
+          248,
+          365,
+          3433
+        ],
+        "chosenRow": 3433
+      },
+      {
+        "key": "DOC|08023990101|42677173000199",
+        "rows": [
+          250,
+          670
+        ],
+        "chosenRow": 670
+      },
+      {
+        "key": "DOC|07387115605|62302923000155",
+        "rows": [
+          256,
+          1236
+        ],
+        "chosenRow": 1236
+      },
+      {
+        "key": "DOC|40240400810|59099173000151",
+        "rows": [
+          264,
+          599
+        ],
+        "chosenRow": 599
+      },
+      {
+        "key": "DOC|00859823180|28273128000148",
+        "rows": [
+          269,
+          274
+        ],
+        "chosenRow": 274
+      },
+      {
+        "key": "DOC|52823573801|57869732000130",
+        "rows": [
+          276,
+          283
+        ],
+        "chosenRow": 283
+      },
+      {
+        "key": "DOC|86131982600|52769987000107",
+        "rows": [
+          282,
+          284
+        ],
+        "chosenRow": 284
+      },
+      {
+        "key": "DOC|12888976692|62477532000171",
+        "rows": [
+          297,
+          299
+        ],
+        "chosenRow": 299
+      },
+      {
+        "key": "DOC|08189172107|57684950000108",
+        "rows": [
+          307,
+          2375
+        ],
+        "chosenRow": 307
+      },
+      {
+        "key": "DOC|73095141149|58656509000177",
+        "rows": [
+          318,
+          349
+        ],
+        "chosenRow": 349
+      },
+      {
+        "key": "DOC|35115854813|49699543000138",
+        "rows": [
+          320,
+          3062
+        ],
+        "chosenRow": 3062
+      },
+      {
+        "key": "DOC|06575164226|62389167000143",
+        "rows": [
+          350,
+          354
+        ],
+        "chosenRow": 354
+      },
+      {
+        "key": "DOC|12742768700|55920350000168",
+        "rows": [
+          359,
+          360
+        ],
+        "chosenRow": 360
+      },
+      {
+        "key": "DOC|41421371820|62430138000188",
+        "rows": [
+          384,
+          390
+        ],
+        "chosenRow": 390
+      },
+      {
+        "key": "DOC|14667171650|62253999000138",
+        "rows": [
+          394,
+          1501
+        ],
+        "chosenRow": 1501
+      },
+      {
+        "key": "DOC|13582706605|38184699000160",
+        "rows": [
+          430,
+          2742
+        ],
+        "chosenRow": 430
+      },
+      {
+        "key": "DOC|01796603147|55783923000159",
+        "rows": [
+          440,
+          1039
+        ],
+        "chosenRow": 1039
+      },
+      {
+        "key": "DOC|36594101870|62383057000174",
+        "rows": [
+          493,
+          1346
+        ],
+        "chosenRow": 1346
+      },
+      {
+        "key": "DOC|08737091603|62877179000117",
+        "rows": [
+          496,
+          1714
+        ],
+        "chosenRow": 496
+      },
+      {
+        "key": "DOC|12235285619|57261412000100",
+        "rows": [
+          534,
+          1876
+        ],
+        "chosenRow": 1876
+      },
+      {
+        "key": "DOC|10518545636|58244194000150",
+        "rows": [
+          535,
+          3136
+        ],
+        "chosenRow": 3136
+      },
+      {
+        "key": "DOC|31772621870|51379624000100",
+        "rows": [
+          551,
+          1792
+        ],
+        "chosenRow": 551
+      },
+      {
+        "key": "DOC|96295341187|37823997000190",
+        "rows": [
+          574,
+          1095
+        ],
+        "chosenRow": 1095
+      },
+      {
+        "key": "DOC|07199470142|57818291000147",
+        "rows": [
+          590,
+          607
+        ],
+        "chosenRow": 607
+      },
+      {
+        "key": "DOC|01376205270|44283592000171",
+        "rows": [
+          605,
+          606
+        ],
+        "chosenRow": 606
+      },
+      {
+        "key": "DOC|02350288196|48952538000122",
+        "rows": [
+          619,
+          876
+        ],
+        "chosenRow": 876
+      },
+      {
+        "key": "DOC|48281990805|60902416000127",
+        "rows": [
+          624,
+          1783
+        ],
+        "chosenRow": 1783
+      },
+      {
+        "key": "DOC|75127946149|60685775000170",
+        "rows": [
+          638,
+          1992
+        ],
+        "chosenRow": 1992
+      }
+    ]
+  },
+  "databaseBefore": {
+    "totalRows": 2083,
+    "duplicateNameCnpjGroups": 7,
+    "duplicateNameCnpjRows": 7,
+    "duplicateCpfCnpjGroups": 43,
+    "duplicateCpfCnpjRows": 46,
+    "duplicateCpfGroups": 115,
+    "duplicateCpfRows": 126
+  },
+  "plan": {
+    "exactNameCnpj": 1705,
+    "matchedCpf": 2,
+    "matchedUniqueName": 0,
+    "newRows": 1931,
+    "ambiguous": 0,
+    "rowsReady": 3638,
+    "duplicateDatabaseRowsToMerge": 34,
+    "ambiguousRows": []
+  }
+}

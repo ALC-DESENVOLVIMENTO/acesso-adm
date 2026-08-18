@@ -18,6 +18,12 @@ const REQUIRED_UPLOAD_TABLE_COLUMNS: CompatibilityColumn[] = [
   },
   {
     table: "uploads_pdf",
+    column: "document_type",
+    typeSql: "TEXT",
+    comment: "Adicionar tipo de documento em uploads_pdf"
+  },
+  {
+    table: "uploads_pdf",
     column: "content",
     typeSql: "BYTEA",
     comment: "Adicionar coluna content em uploads_pdf"
@@ -45,6 +51,18 @@ const REQUIRED_UPLOAD_TABLE_COLUMNS: CompatibilityColumn[] = [
     column: "motivo_pendencia",
     typeSql: "VARCHAR(80)",
     comment: "Adicionar motivo da pendencia de cadastro em uploads_pdf"
+  },
+  {
+    table: "driver_pdf_received",
+    column: "document_type",
+    typeSql: "TEXT",
+    comment: "Adicionar tipo de documento em driver_pdf_received"
+  },
+  {
+    table: "driver_pdf_received",
+    column: "tipo_arquivo",
+    typeSql: "VARCHAR(80)",
+    comment: "Adicionar tipo do arquivo em driver_pdf_received"
   },
   {
     table: "driver_pdf_received",

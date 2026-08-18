@@ -820,7 +820,12 @@ router.get("/summary", (_req, res) => {
       })
     ]);
 
-    await syncApprovedDriverPdfReceipts(periods, uploads);
+    await syncApprovedDriverPdfReceipts(periods, uploads).catch((error) => {
+      console.error(
+        "Falha ao sincronizar espelhos aprovados durante o resumo financeiro:",
+        error instanceof Error ? error.message : error
+      );
+    });
 
     const receivedRowsQuery = await prisma.driverPdfReceived.findMany({
       where: {

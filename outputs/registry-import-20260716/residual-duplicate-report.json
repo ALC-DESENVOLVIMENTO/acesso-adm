@@ -1,0 +1,145 @@
+{
+  "completedAt": "2026-07-16T19:33:29.338Z",
+  "groups": 9,
+  "duplicateRowsMerged": 12,
+  "result": {
+    "movedRecords": 14,
+    "movedSignupRequests": 0,
+    "deletedEntities": 12,
+    "updatedTargets": 9
+  },
+  "plan": [
+    {
+      "key": "01295785170|50073217000108",
+      "targetId": "386edb00-41c7-4531-8349-c6bc5f2081e7",
+      "targetName": "EVANDRO DE OLIVEIRA LOURENCO",
+      "duplicateIds": [
+        "25a1ea64-151c-4ef5-8b59-aa2b2b0224a0"
+      ],
+      "duplicateNames": [
+        "EVANDRO OLIVEIRA LOURENCO"
+      ],
+      "sourceCountAfter": 13,
+      "registryReferencesToMove": 2,
+      "signupReferencesToMove": 0
+    },
+    {
+      "key": "03928917196|46591573000138",
+      "targetId": "c4ffe225-de83-4c7e-90e0-2d847b150db2",
+      "targetName": "LUIZ AGUILERA DE MORAES",
+      "duplicateIds": [
+        "f0a3b2d2-10f1-4208-a82c-f73ddf47b0b2",
+        "aa3635cd-432d-411d-bb7a-a5de599c3ad0"
+      ],
+      "duplicateNames": [
+        "LUIZ AGUILEIRA DE MORAES",
+        "LUIZ AGUILERA MORAES"
+      ],
+      "sourceCountAfter": 4,
+      "registryReferencesToMove": 2,
+      "signupReferencesToMove": 0
+    },
+    {
+      "key": "04731185998|67587281000100",
+      "targetId": "48d22c4c-bb0e-4ab4-af8b-67a9d81dd129",
+      "targetName": "PATRICIA ALCANTARA DA SILVA",
+      "duplicateIds": [
+        "1df7a59b-7bcc-4e3f-adbf-e19f3d02b8f7"
+      ],
+      "duplicateNames": [
+        "67.587.281 PATRICIA ALCANTARA DA SILVA"
+      ],
+      "sourceCountAfter": 2,
+      "registryReferencesToMove": 1,
+      "signupReferencesToMove": 0
+    },
+    {
+      "key": "04806878626|40439409000123",
+      "targetId": "3097b7bb-96ea-44c7-8530-caf1c4f089a8",
+      "targetName": "JOSE ADRIANO DE SOUSA",
+      "duplicateIds": [
+        "3d7d2dff-b167-4f18-8cfb-704dc082d127"
+      ],
+      "duplicateNames": [
+        "JOSE ADRIANO DE SOUZA"
+      ],
+      "sourceCountAfter": 3,
+      "registryReferencesToMove": 1,
+      "signupReferencesToMove": 0
+    },
+    {
+      "key": "06500342950|61568137000131",
+      "targetId": "1b13bd60-7839-4e55-865a-09f2dc7e35cc",
+      "targetName": "ALADINE DOMINIQUE POSS PEREIRA",
+      "duplicateIds": [
+        "92acb4c5-f6d7-4f1f-9c39-19a144741bbc",
+        "0ccfa977-4be5-47c9-adf7-3ac51f2b9f9e"
+      ],
+      "duplicateNames": [
+        "DOMINIQUE POSS PEREIRA",
+        "61.568.137 ALADINE DOMINIQUE POSS PARREIRA CIRILO"
+      ],
+      "sourceCountAfter": 3,
+      "registryReferencesToMove": 2,
+      "signupReferencesToMove": 0
+    },
+    {
+      "key": "11582184607|61530339000194",
+      "targetId": "92022954-f6ca-44a0-b364-851958da5511",
+      "targetName": "GABRIEL JHONATAN NETO SILVA",
+      "duplicateIds": [
+        "7681e24b-512a-44a0-99bc-b8d4ca5e1bdc"
+      ],
+      "duplicateNames": [
+        "GABRIEL JHONATA NETO SILVA"
+      ],
+      "sourceCountAfter": 3,
+      "registryReferencesToMove": 1,
+      "signupReferencesToMove": 0
+    },
+    {
+      "key": "12119981698|34440028000161",
+      "targetId": "3fde4e80-908e-454a-aaa9-7e3521046f01",
+      "targetName": "LUANA FLAVIA DE SOUZA PIRES AMORIM",
+      "duplicateIds": [
+        "e388b6ea-6f1a-4d69-a260-cd74bdcc2dda"
+      ],
+      "duplicateNames": [
+        "luana flavia de souza pires amorin"
+      ],
+      "sourceCountAfter": 2,
+      "registryReferencesToMove": 1,
+      "signupReferencesToMove": 0
+    },
+    {
+      "key": "44341656821|28620844000154",
+      "targetId": "d9e8228d-5014-42f7-b2a4-5a6a96963a95",
+      "targetName": "JORDANA RODRIGUES VAROLLO",
+      "duplicateIds": [
+        "ac5127fb-cd30-41a3-aeac-809d06307508"
+      ],
+      "duplicateNames": [
+        "JORDANA RODRIGUES CAROLLO"
+      ],
+      "sourceCountAfter": 2,
+      "registryReferencesToMove": 1,
+      "signupReferencesToMove": 0
+    },
+    {
+      "key": "96200529191|37823997000190",
+      "targetId": "faccaffa-0b96-46eb-a2df-f1c35535ffa3",
+      "targetName": "DANILLO BACIEL ALMEIDA",
+      "duplicateIds": [
+        "305452aa-3435-43e2-b19b-31db39e27d2c",
+        "fb79ac68-417f-4ad3-94b9-46cf27f725ce"
+      ],
+      "duplicateNames": [
+        "danillo bacciel",
+        "RODOPRIME"
+      ],
+      "sourceCountAfter": 54,
+      "registryReferencesToMove": 3,
+      "signupReferencesToMove": 0
+    }
+  ]
+}

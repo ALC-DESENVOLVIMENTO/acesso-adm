@@ -198,6 +198,17 @@ const initialSummary: DashboardSummary = {
   recentActivitiesTotal: 0
 };
 
+function normalizeDashboardSummary(summary: DashboardSummary | null | undefined): DashboardSummary {
+  return {
+    ...initialSummary,
+    ...(summary || {}),
+    periodSummaries: Array.isArray(summary?.periodSummaries) ? summary.periodSummaries : [],
+    recentActivities: Array.isArray(summary?.recentActivities) ? summary.recentActivities : [],
+    recentActivitiesTotal:
+      typeof summary?.recentActivitiesTotal === "number" ? summary.recentActivitiesTotal : 0
+  };
+}
+
 const logoSrc = "/alc-logotipo-dark.png";
 
 function formatStatusLabel(status: string) {
@@ -557,8 +568,12 @@ function App() {
   };
 
   const loadDashboardSummary = async () => {
+    if (!token) {
+      return;
+    }
+
     const summary = await fetchDashboardSummary(token);
-    setDashboardSummary(summary);
+    setDashboardSummary(normalizeDashboardSummary(summary));
     setDashboardLoaded(true);
   };
 
@@ -853,7 +868,7 @@ function App() {
         const summary = await fetchDashboardSummary(token);
 
         if (!cancelled) {
-          setDashboardSummary(summary);
+          setDashboardSummary(normalizeDashboardSummary(summary));
           setDashboardLoaded(true);
         }
       } catch (error) {
