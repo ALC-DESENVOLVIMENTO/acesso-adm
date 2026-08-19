@@ -226,6 +226,22 @@ function isApprovedNoteStatus(status: string | null | undefined) {
   return Boolean(status && APPROVED_NOTE_STATUSES.has(status as DriverPdfReceivedStatus));
 }
 
+function isNoteReceiptStatus(status: string | null | undefined) {
+  const noteStatuses: Set<DriverPdfReceivedStatus> = new Set([
+        DriverPdfReceivedStatus.nota_fiscal_recebida,
+        DriverPdfReceivedStatus.nota_fiscal_em_analise,
+        DriverPdfReceivedStatus.nota_fiscal_aprovada,
+        DriverPdfReceivedStatus.nota_fiscal_rejeitada,
+        DriverPdfReceivedStatus.processo_concluido
+      ]);
+
+  return Boolean(status && noteStatuses.has(status as DriverPdfReceivedStatus));
+}
+
+function isActualNoteReceipt(receipt: AptoPagamentoReceipt) {
+  return receipt.documentType !== "espelho" && isNoteReceiptStatus(receipt.status);
+}
+
 function isBlockedNoteStatus(status: string | null | undefined) {
   return status === DriverPdfReceivedStatus.nota_fiscal_rejeitada;
 }
@@ -283,12 +299,12 @@ function deriveNoteReceipt(
   uploadById: Map<string, AptoPagamentoUpload>
 ) {
   return (
-    receipts.find((receipt) => receipt.uploadPdfId && receipt.uploadPdfId === upload.id && isApprovedNoteStatus(receipt.status)) ||
+    receipts.find((receipt) => receipt.uploadPdfId && receipt.uploadPdfId === upload.id && isActualNoteReceipt(receipt)) ||
     receipts.find((receipt) => {
       const source = receipt.uploadPdfId ? uploadById.get(receipt.uploadPdfId) || null : null;
 
       return (
-        isApprovedNoteStatus(receipt.status) &&
+        isActualNoteReceipt(receipt) &&
         (receipt.motoristaId === upload.motoristaId || source?.motoristaId === upload.motoristaId) &&
         (receipt.periodoPagamentoId === upload.periodoPagamentoId || source?.periodoPagamentoId === upload.periodoPagamentoId) &&
         (receipt.basePagamentoId === upload.basePagamentoId || source?.basePagamentoId === upload.basePagamentoId)
@@ -299,7 +315,7 @@ function deriveNoteReceipt(
         receipt.motoristaId === upload.motoristaId &&
         receipt.periodoPagamentoId === upload.periodoPagamentoId &&
         receipt.basePagamentoId === upload.basePagamentoId &&
-        (isApprovedNoteStatus(receipt.status) || receipt.status === DriverPdfReceivedStatus.nota_fiscal_recebida)
+        isActualNoteReceipt(receipt)
       );
     }) ||
     null
@@ -579,14 +595,17 @@ async function buildCandidateRows(periodId: string, baseId?: string | null) {
   const motoristaIdsInPeriod = Array.from(
     new Set(period.uploads.map((upload) => upload.motoristaId).filter((value): value is string => Boolean(value)))
   );
-  const childReferences = new Set(
+  // A nota fiscal aponta para o espelho, mas não substitui o espelho.
+  // Somente uma nova versão do próprio espelho deve remover o anterior.
+  const replacedMirrorIds = new Set(
     period.uploads
+      .filter((upload) => upload.documentType !== "nota_fiscal")
       .map((upload) => upload.substituiUploadId)
       .filter((value): value is string => Boolean(value))
   );
 
   const scopedUploads = period.uploads
-    .filter((upload) => !childReferences.has(upload.id) && upload.documentType !== "nota_fiscal")
+    .filter((upload) => !replacedMirrorIds.has(upload.id) && upload.documentType !== "nota_fiscal")
     .sort((left, right) => right.criadoEm.getTime() - left.criadoEm.getTime());
 
   const latestUploads = new Map<string, AptoPagamentoUpload>();

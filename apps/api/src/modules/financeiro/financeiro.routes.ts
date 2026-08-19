@@ -1189,6 +1189,7 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
         periodoPagamentoId: true,
         basePagamentoId: true,
         status: true,
+        documentType: true,
         uploadEm: true,
         enviadoAoMotoristaEm: true,
         visualizadoEm: true,
@@ -1235,7 +1236,11 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
         ) || null;
       const noteReceiptByUpload =
         receivedRowsQuery.find(
-          (item) => item.uploadPdfId && item.uploadPdfId === upload.id && isNoteReceiptStatus(item.status)
+          (item) =>
+            item.uploadPdfId &&
+            item.uploadPdfId === upload.id &&
+            item.documentType !== "espelho" &&
+            isNoteReceiptStatus(item.status)
         ) || null;
       const noteReceiptByIdentity =
         receivedRowsQuery
@@ -1247,7 +1252,7 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
                 scope.motoristaId === upload.motoristaId &&
                 scope.periodoPagamentoId === upload.periodoPagamentoId &&
                 scope.basePagamentoId === upload.basePagamentoId &&
-                isNoteReceiptStatus(item.status)
+                item.documentType !== "espelho" && isNoteReceiptStatus(item.status)
               );
             }
           )
@@ -1331,7 +1336,8 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
         accessKey: noteReceipt?.accessKey || null,
         invoiceValidation: noteReceipt?.invoiceValidation || null,
         caminhoArquivo: mirrorDownloadUrl,
-        notaFiscalDownloadUrl: noteDownloadUrl
+        notaFiscalDownloadUrl: noteDownloadUrl,
+        notaFiscalReceivedId: noteReceipt?.id || null
       };
     });
 
@@ -1412,6 +1418,92 @@ router.get("/driver-pdfs/:receivedId/content", (req, res) => {
     });
   });
 });
+
+router.post(
+  "/driver-pdfs/:receivedId/approve",
+  requirePermission("financeiro.nota.approve"),
+  (req, res) => {
+    void (async () => {
+      if (!req.auth) {
+        res.status(401).json({ message: "Sessão inválida." });
+        return;
+      }
+
+      const receivedId = String(req.params.receivedId || "").trim();
+      const received = await prisma.driverPdfReceived.findUnique({
+        where: { id: receivedId },
+        select: {
+          id: true,
+          status: true,
+          motoristaId: true,
+          periodoPagamentoId: true,
+          basePagamentoId: true,
+          nomeArquivo: true
+        }
+      });
+
+      if (!received) {
+        res.status(404).json({ message: "Nota fiscal não encontrada." });
+        return;
+      }
+
+      if (received.status !== "nota_fiscal_em_analise") {
+        res.status(409).json({
+          message: "Somente notas fiscais em análise podem ser aprovadas."
+        });
+        return;
+      }
+
+      const updated = await prisma.driverPdfReceived.update({
+        where: { id: received.id },
+        data: {
+          status: "processo_concluido",
+          aprovadoEm: new Date(),
+          aprovadoPorId: req.auth.userId,
+          rejeitadoEm: null,
+          rejeitadoPorId: null,
+          motivoRejeicao: null
+        },
+        select: {
+          id: true,
+          status: true,
+          aprovadoEm: true
+        }
+      });
+
+      await prisma.logAuditoria.create({
+        data: {
+          usuarioId: req.auth.userId,
+          acao: "aprovar_nota_fiscal",
+          entidade: "driver_pdf_received",
+          entidadeId: received.id,
+          ipOrigem: req.ip,
+          userAgent: req.get("user-agent") || null,
+          detalhes: {
+            nomeArquivo: received.nomeArquivo,
+            motoristaId: received.motoristaId,
+            periodoPagamentoId: received.periodoPagamentoId,
+            basePagamentoId: received.basePagamentoId,
+            statusAnterior: "nota_fiscal_em_analise",
+            statusNovo: updated.status
+          }
+        }
+      });
+
+      res.json({
+        message: "Nota fiscal aprovada. Processo concluído.",
+        receivedId: updated.id,
+        status: updated.status,
+        aprovadoEm: updated.aprovadoEm
+      });
+    })().catch((error) => {
+      res.status(500).json({
+        message: "Falha ao aprovar nota fiscal.",
+        detail: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    });
+  }
+);
 
 router.get("/periods/:periodId/export", (req, res) => {
   void (async () => {

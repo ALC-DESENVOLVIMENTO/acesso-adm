@@ -24,6 +24,7 @@ import {
   fetchFinanceiroImportacao,
   fetchFinanceiroHistorico,
   fetchFinanceiroNotaFiscalContent,
+  approveFinanceiroNotaFiscal,
   fetchFinanceiroMotoristas,
   fetchFinanceiroSummary,
   exportFinanceiroNotasFiscais,
@@ -271,6 +272,7 @@ export function FinanceiroScreen({
   const [importacaoConfirmada, setImportacaoConfirmada] = useState(false);
   const [apagarBusy, setApagarBusy] = useState("");
   const [apagarError, setApagarError] = useState("");
+  const [approvingNotaFiscalId, setApprovingNotaFiscalId] = useState<string | null>(null);
   const [periodModalOpen, setPeriodModalOpen] = useState(false);
   const [editingPeriod, setEditingPeriod] = useState<PaymentPeriod | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PaymentPeriod | null>(null);
@@ -655,6 +657,24 @@ export function FinanceiroScreen({
       setApagarError(error instanceof Error ? error.message : "Falha ao exportar aptos para pagamento.");
     } finally {
       setApagarBusy("");
+    }
+  };
+
+  const handleApproveNotaFiscal = async (row: FinanceiroMotoristaRow) => {
+    if (!row.notaFiscalReceivedId) {
+      setErrorMessage("Nota fiscal não encontrada para aprovação.");
+      return;
+    }
+
+    try {
+      setApprovingNotaFiscalId(row.notaFiscalReceivedId);
+      setErrorMessage("");
+      await approveFinanceiroNotaFiscal(token, row.notaFiscalReceivedId);
+      await loadMotoristas(selectedPeriodId, selectedBaseId);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Falha ao aprovar nota fiscal.");
+    } finally {
+      setApprovingNotaFiscalId(null);
     }
   };
 
@@ -1158,6 +1178,16 @@ export function FinanceiroScreen({
                               Abrir PDF
                               <FilePdf size={16} />
                             </button>
+                            {row.status === "nota_fiscal_em_analise" && row.notaFiscalReceivedId ? (
+                              <button
+                                className="primary-button primary-button--small"
+                                type="button"
+                                onClick={() => void handleApproveNotaFiscal(row)}
+                                disabled={approvingNotaFiscalId === row.notaFiscalReceivedId}
+                              >
+                                {approvingNotaFiscalId === row.notaFiscalReceivedId ? "Aprovando..." : "Aprovar"}
+                              </button>
+                            ) : null}
                           </div>
                         </td>
                     </tr>

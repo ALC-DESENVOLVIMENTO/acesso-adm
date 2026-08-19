@@ -43,6 +43,7 @@ const permissions = [
   { codigo: "financeiro.apagar.consultar", nome: "Consultar aptos para pagamento", moduloCodigo: "financeiro" },
   { codigo: "financeiro.apagar.export", nome: "Exportar A pagar", moduloCodigo: "financeiro" },
   { codigo: "financeiro.apagar.inconsistencias", nome: "Visualizar inconsistencias de A pagar", moduloCodigo: "financeiro" },
+  { codigo: "financeiro.nota.approve", nome: "Aprovar nota fiscal em análise", moduloCodigo: "financeiro" },
   { codigo: "atendimento.view", nome: "Visualizar atendimento", moduloCodigo: "atendimento" },
   { codigo: "atendimento.manage", nome: "Gerenciar atendimento", moduloCodigo: "atendimento" }
 ];
@@ -207,6 +208,7 @@ async function main() {
     "financeiro.apagar.consultar",
     "financeiro.apagar.export",
     "financeiro.apagar.inconsistencias",
+    "financeiro.nota.approve",
     "atendimento.view",
     "atendimento.manage"
   ],
@@ -229,6 +231,7 @@ async function main() {
     "financeiro.apagar.consultar",
     "financeiro.apagar.export",
     "financeiro.apagar.inconsistencias",
+    "financeiro.nota.approve",
     "atendimento.view",
     "atendimento.manage"
   ]

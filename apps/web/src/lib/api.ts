@@ -245,6 +245,7 @@ export type FinanceiroMotoristaRow = {
   invoiceValidation?: string | null;
   caminhoArquivo: string | null;
   notaFiscalDownloadUrl: string | null;
+  notaFiscalReceivedId?: string | null;
 };
 
 export type FinanceiroImportPreviewRow = {
@@ -898,6 +899,18 @@ export function fetchFinanceiroMotoristas(
 
 export function fetchFinanceiroNotaFiscalContent(token: string, receivedId: string) {
   return requestBlob(`/financeiro/driver-pdfs/${receivedId}/content`, token);
+}
+
+export function approveFinanceiroNotaFiscal(token: string, receivedId: string) {
+  return request<{ message: string; receivedId: string; status: string }>(
+    `/financeiro/driver-pdfs/${receivedId}/approve`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }
+  );
 }
 
 export function previewFinanceiroImport(
