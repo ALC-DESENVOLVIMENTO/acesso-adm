@@ -412,6 +412,7 @@ function App() {
   const [createUserSignal, setCreateUserSignal] = useState(0);
   const [deleteUserTarget, setDeleteUserTarget] = useState<UserSummary | null>(null);
   const [deleteUploadTarget, setDeleteUploadTarget] = useState<UploadRow | null>(null);
+  const [deleteUploadTargets, setDeleteUploadTargets] = useState<UploadRow[]>([]);
   const [deletePeriodTarget, setDeletePeriodTarget] = useState<PaymentPeriod | null>(null);
   const [financeMotoristaTarget, setFinanceMotoristaTarget] = useState<string | null>(null);
   const [reviewingUploadId, setReviewingUploadId] = useState<string | null>(null);
@@ -428,6 +429,11 @@ function App() {
   const notificationsRef = useRef<HTMLDivElement | null>(null);
   const shouldUseDarkTheme = Boolean(currentUser) && themeMode === "dark";
   const unreadNotifications = notifications.filter((item) => !item.read).length;
+  const uploadDeleteTargets = deleteUploadTargets.length > 0
+    ? deleteUploadTargets
+    : deleteUploadTarget
+      ? [deleteUploadTarget]
+      : [];
 
   const allowedMenu = useMemo(() => {
     if (!currentUser) {
@@ -458,6 +464,39 @@ function App() {
       // Ignore storage restrictions and keep the selected theme in memory.
     }
   }, [themeMode]);
+
+  useEffect(() => {
+    if (!currentUser || view === "login" || view === "first-access") {
+      return;
+    }
+
+    const storageKey = `portal-adm.scroll-position:${activeView}`;
+    let restoreFrame = 0;
+
+    try {
+      const savedPosition = Number(window.sessionStorage.getItem(storageKey) || "0");
+      restoreFrame = window.requestAnimationFrame(() => {
+        window.scrollTo({ top: Number.isFinite(savedPosition) ? savedPosition : 0, behavior: "auto" });
+      });
+    } catch {
+      // Ignore storage restrictions and keep the browser's default scroll behavior.
+    }
+
+    const savePosition = () => {
+      try {
+        window.sessionStorage.setItem(storageKey, String(window.scrollY));
+      } catch {
+        // Ignore storage restrictions.
+      }
+    };
+
+    window.addEventListener("scroll", savePosition, { passive: true });
+    return () => {
+      window.cancelAnimationFrame(restoreFrame);
+      savePosition();
+      window.removeEventListener("scroll", savePosition);
+    };
+  }, [activeView, currentUser, view]);
 
   useEffect(() => {
     if (!currentUser) {
@@ -1261,7 +1300,17 @@ function App() {
   };
 
   const requestDeleteUpload = (upload: UploadRow) => {
+    setDeleteUploadTargets([]);
     setDeleteUploadTarget(upload);
+  };
+
+  const requestDeleteUploads = (uploadsToDelete: UploadRow[]) => {
+    if (uploadsToDelete.length === 0) {
+      return;
+    }
+
+    setDeleteUploadTarget(null);
+    setDeleteUploadTargets(uploadsToDelete);
   };
 
   const requestDeletePeriod = (period: PaymentPeriod) => {
@@ -1498,6 +1547,34 @@ function App() {
       setFlashMessage({
         type: "error",
         text: error instanceof Error ? error.message : "Falha ao remover PDF."
+      });
+    } finally {
+      setLoadingMessage("");
+    }
+  };
+
+  const handleDeleteUploads = async (uploadIds: string[]) => {
+    if (!token || uploadIds.length === 0) {
+      return;
+    }
+
+    setLoadingMessage(`Removendo ${uploadIds.length} PDF(s)...`);
+
+    try {
+      for (const uploadId of uploadIds) {
+        await deleteUpload(token, uploadId);
+      }
+
+      setFlashMessage({
+        type: "success",
+        text: `${uploadIds.length} PDF(s) removido(s) da fila operacional.`
+      });
+      setUploadHistory((current) => current && uploadIds.includes(current.uploadId) ? null : current);
+      await Promise.all([loadUploadsData(), loadDashboardSummary()]);
+    } catch (error) {
+      setFlashMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Falha ao remover os PDFs selecionados."
       });
     } finally {
       setLoadingMessage("");
@@ -2268,6 +2345,7 @@ function App() {
             uploadHistory={uploadHistory}
             onCloseHistory={() => setUploadHistory(null)}
             onDeleteUpload={requestDeleteUpload}
+            onDeleteUploads={requestDeleteUploads}
             onDownloadUpload={handleDownloadUpload}
             onOpenUploadHistory={handleOpenUploadHistory}
             onReplaceUpload={handleReplaceUpload}
@@ -2530,8 +2608,14 @@ function App() {
         </div>
       ) : null}
 
-      {deleteUploadTarget ? (
-        <div className="modal-overlay" onClick={() => setDeleteUploadTarget(null)}>
+      {uploadDeleteTargets.length > 0 ? (
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            setDeleteUploadTarget(null);
+            setDeleteUploadTargets([]);
+          }}
+        >
           <div
             className="modal-card modal-card--confirm"
             role="dialog"
@@ -2542,29 +2626,35 @@ function App() {
             <div className="modal-card__header">
               <div>
                 <p className="eyebrow">Confirmação</p>
-                <h3 id="delete-upload-title">Remover PDF</h3>
+                <h3 id="delete-upload-title">Remover PDF{uploadDeleteTargets.length > 1 ? "s" : ""}</h3>
                 <p>
-                  Remover permanentemente <strong>{deleteUploadTarget.fileName}</strong> da fila operacional?
+                  Remover permanentemente {uploadDeleteTargets.length === 1 ? <strong>{uploadDeleteTargets[0].fileName}</strong> : <strong>{uploadDeleteTargets.length} PDFs selecionados</strong>} da fila operacional?
                 </p>
               </div>
             </div>
 
             <div className="confirm-actions">
-              <button className="ghost-button" type="button" onClick={() => setDeleteUploadTarget(null)}>
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={() => {
+                  setDeleteUploadTarget(null);
+                  setDeleteUploadTargets([]);
+                }}
+              >
                 Cancelar
               </button>
               <button
                 className="primary-button primary-button--inline cta-motion"
                 type="button"
                 onClick={async () => {
-                  const target = deleteUploadTarget;
+                  const targets = uploadDeleteTargets;
                   setDeleteUploadTarget(null);
-                  if (target) {
-                    await handleDeleteUpload(target.id);
-                  }
+                  setDeleteUploadTargets([]);
+                  await handleDeleteUploads(targets.map((target) => target.id));
                 }}
               >
-                Remover agora
+                Remover {uploadDeleteTargets.length > 1 ? "selecionados" : "agora"}
                 <TrashSimple size={18} weight="bold" />
               </button>
             </div>
@@ -3638,6 +3728,7 @@ function PdfsScreen({
   onDownloadUpload,
   onOpenUploadHistory,
   onDeleteUpload,
+  onDeleteUploads,
   onCloseHistory,
   periods,
   bases
@@ -3650,6 +3741,7 @@ function PdfsScreen({
   onDownloadUpload: (upload: UploadRow) => Promise<void> | void;
   onOpenUploadHistory: (uploadId: string) => Promise<void> | void;
   onDeleteUpload: (upload: UploadRow) => void;
+  onDeleteUploads: (uploads: UploadRow[]) => void;
   onCloseHistory: () => void;
   periods: PaymentPeriod[];
   bases: PaymentBase[];
@@ -3667,6 +3759,7 @@ function PdfsScreen({
   const [selectedPeriodId, setSelectedPeriodId] = useState(pdfsViewState.selectedPeriodId);
   const [selectedBaseId, setSelectedBaseId] = useState(pdfsViewState.selectedBaseId);
   const [expandedBatchKey, setExpandedBatchKey] = useState(pdfsViewState.expandedBatchKey);
+  const [selectedUploadIds, setSelectedUploadIds] = useState<string[]>([]);
 
   useEffect(() => {
     writeStoredViewState(pdfsViewStateKey, {
@@ -3702,6 +3795,11 @@ function PdfsScreen({
       return matchesSearch && matchesStatus;
     });
   }, [searchTerm, statusFilter, uploads]);
+
+  useEffect(() => {
+    const visibleIds = new Set(visibleUploads.map((upload) => upload.id));
+    setSelectedUploadIds((current) => current.filter((id) => visibleIds.has(id)));
+  }, [visibleUploads]);
 
   const uploadBatches = useMemo(() => {
     const grouped = new Map<
@@ -3889,6 +3987,26 @@ function PdfsScreen({
               </p>
             </div>
           <div className="quick-meta">
+            <button
+              className="ghost-button ghost-button--small"
+              type="button"
+              onClick={() => setSelectedUploadIds(
+                selectedUploadIds.length === visibleUploads.length
+                  ? []
+                  : visibleUploads.map((upload) => upload.id)
+              )}
+              disabled={visibleUploads.length === 0}
+            >
+              {selectedUploadIds.length === visibleUploads.length && visibleUploads.length > 0 ? "Desmarcar" : "Selecionar"}
+            </button>
+            <button
+              className="ghost-button ghost-button--small ghost-button--danger"
+              type="button"
+              onClick={() => onDeleteUploads(visibleUploads.filter((upload) => selectedUploadIds.includes(upload.id)))}
+              disabled={selectedUploadIds.length === 0}
+            >
+              Remover selecionados
+            </button>
             <span className="quick-meta__chip">Pendente</span>
             <span className="quick-meta__chip">Processado</span>
           </div>
@@ -3922,11 +4040,28 @@ function PdfsScreen({
                   <div className="upload-batch__files">
                     {batch.uploads.map((row) => (
                       <div className="upload-batch__file" key={row.id}>
-                        <div>
-                          <strong>{row.fileName}</strong>
-                          <span>
-                            {uploadStatusLabel(row)} - {new Date(row.sentAt).toLocaleString("pt-BR")}
-                          </span>
+                        <div className="upload-batch__file-info">
+                          <label className="upload-select-control">
+                            <input
+                              type="checkbox"
+                              checked={selectedUploadIds.includes(row.id)}
+                              onChange={(event) => {
+                                setSelectedUploadIds((current) =>
+                                  event.target.checked
+                                    ? [...current, row.id]
+                                    : current.filter((id) => id !== row.id)
+                                );
+                              }}
+                              aria-label={`Selecionar ${row.fileName}`}
+                            />
+                            <span>Selecionar</span>
+                          </label>
+                          <div>
+                            <strong>{row.fileName}</strong>
+                            <span>
+                              {uploadStatusLabel(row)} - {new Date(row.sentAt).toLocaleString("pt-BR")}
+                            </span>
+                          </div>
                         </div>
 
                         <div className="table-actions">

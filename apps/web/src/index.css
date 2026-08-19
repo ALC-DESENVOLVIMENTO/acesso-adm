@@ -2215,6 +2215,10 @@ button {
 .admin-form.period-form .field input,
 .admin-form.period-form .field__select,
 .admin-form.period-form .field select {
+  width: 100%;
+  min-height: 50px;
+  height: 50px;
+  box-sizing: border-box;
   border: 1px solid rgba(235, 0, 0, 0.22);
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.94);
@@ -2347,6 +2351,10 @@ button {
 .admin-form.period-form select.field__select:focus {
   border-color: rgba(235, 0, 0, 0.7);
   box-shadow: 0 0 0 4px rgba(235, 0, 0, 0.16);
+}
+
+.modal-card--create .admin-form.period-form > .field {
+  min-width: 0;
 }
 
 .ghost-button--danger {
@@ -2574,6 +2582,34 @@ button {
 
 .upload-batch__file strong {
   display: block;
+}
+
+.upload-batch__file-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.upload-batch__file-info > div:last-child {
+  min-width: 0;
+}
+
+.upload-select-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.upload-select-control input {
+  width: 17px;
+  height: 17px;
+  accent-color: #eb0000;
 }
 
 .upload-batch__file span {

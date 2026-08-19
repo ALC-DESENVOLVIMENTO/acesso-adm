@@ -243,9 +243,7 @@ function isNotaFiscalReceipt(receipt: { status: string; documentType: string | n
 router.get("/summary", (_req, res) => {
   void (async () => {
     const [
-      uploads,
-      processedPdfs,
-      pendingPdfs,
+      uploadRows,
       pendingInvoices,
       ticketsWaiting,
       closedTickets,
@@ -253,15 +251,17 @@ router.get("/summary", (_req, res) => {
       recentPeriods,
       activities
     ] = await Promise.all([
-      prisma.uploadPdf.count({
-        where: {
-          status: {
-            not: "removido"
-          }
-        }
+      prisma.uploadPdf.findMany({
+        where: { status: { not: "removido" } },
+        select: {
+          id: true,
+          status: true,
+          documentType: true,
+          substituiUploadId: true,
+          criadoEm: true
+        },
+        orderBy: { criadoEm: "desc" }
       }),
-      prisma.uploadPdf.count({ where: { status: "processado" } }),
-      prisma.uploadPdf.count({ where: { status: "pendente" } }),
       prisma.driverPdfReceived.count({
         where: {
           status: {
@@ -292,6 +292,17 @@ router.get("/summary", (_req, res) => {
       }),
       fetchOperationalActivities()
     ]);
+
+    const currentMirrorRows = uploadRows.filter((upload) => upload.documentType !== "nota_fiscal");
+    const replacedMirrorIds = new Set(
+      currentMirrorRows
+        .map((upload) => upload.substituiUploadId)
+        .filter((value): value is string => Boolean(value))
+    );
+    const currentMirrorUploads = currentMirrorRows.filter((upload) => !replacedMirrorIds.has(upload.id));
+    const uploads = currentMirrorUploads.length;
+    const processedPdfs = currentMirrorUploads.filter((upload) => upload.status === "processado").length;
+    const pendingPdfs = currentMirrorUploads.filter((upload) => upload.status === "pendente").length;
 
     const periodIds = recentPeriods.map((period) => period.id);
     const directPeriodReceipts = await prisma.driverPdfReceived.findMany({
@@ -345,7 +356,10 @@ router.get("/summary", (_req, res) => {
       }
     });
     const childUploadIds = new Set(
-      periodUploads.map((upload) => upload.substituiUploadId).filter((value): value is string => Boolean(value))
+      periodUploads
+        .filter((upload) => upload.documentType !== "nota_fiscal")
+        .map((upload) => upload.substituiUploadId)
+        .filter((value): value is string => Boolean(value))
     );
     const periodIdByUploadId = new Map<string, string>();
     const receiptsByUploadId = new Map<string, Array<(typeof periodReceipts)[number]>>();

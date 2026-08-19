@@ -754,7 +754,10 @@ async function buildCandidateRows(periodId: string, baseId?: string | null) {
   } satisfies AptosPagamentoPreview;
 }
 
-export function buildWorkbook(preview: AptosPagamentoPreview, options: { includeFileUrl?: boolean } = {}) {
+export function buildWorkbook(
+  preview: AptosPagamentoPreview,
+  options: { includeFileUrl?: boolean; publicBaseUrl?: string } = {}
+) {
   const workbook = XLSX.utils.book_new();
   const includeFileUrl = options.includeFileUrl === true;
   const headers = [
@@ -772,7 +775,15 @@ export function buildWorkbook(preview: AptosPagamentoPreview, options: { include
     "CNPJ do Favorecido": row.cnpjFavorecido,
     "Valor Total do PDF": row.valorTotalPdf ?? "",
     "Base do Motorista": row.baseMotorista,
-    ...(includeFileUrl ? { "URL do arquivo": row.notaFiscalUrl || "" } : {})
+    ...(includeFileUrl
+      ? {
+          "URL do arquivo": row.notaFiscalUrl
+            ? options.publicBaseUrl
+              ? new URL(row.notaFiscalUrl, `${options.publicBaseUrl.replace(/\/+$/, "")}/`).toString()
+              : row.notaFiscalUrl
+            : ""
+        }
+      : {})
   }));
 
   const sheet = XLSX.utils.json_to_sheet(dataRows, { header: headers });
@@ -897,9 +908,13 @@ export async function buildAptosPagamentoWorkbook(periodId: string, baseId?: str
   };
 }
 
-export async function buildNotasFiscaisExcelWorkbook(periodId: string, baseId?: string | null) {
+export async function buildNotasFiscaisExcelWorkbook(
+  periodId: string,
+  baseId?: string | null,
+  publicBaseUrl?: string
+) {
   const preview = await buildCandidateRows(periodId, baseId || null);
-  const buffer = buildWorkbook(preview, { includeFileUrl: true });
+  const buffer = buildWorkbook(preview, { includeFileUrl: true, publicBaseUrl });
 
   return { preview, buffer };
 }

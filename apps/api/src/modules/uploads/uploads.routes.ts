@@ -900,7 +900,8 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
       `)
     ]);
 
-    void deleteObject(currentUpload.caminhoArquivo);
+    // A versão anterior permanece no bucket para que o histórico continue permitindo download.
+    // Ela já fica fora da fila operacional pelo status "substituido" e pelo vínculo de versão.
 
     await prisma.logAuditoria.create({
       data: {

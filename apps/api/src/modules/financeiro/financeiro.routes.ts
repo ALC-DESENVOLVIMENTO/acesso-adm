@@ -1,7 +1,7 @@
 import archiver from "archiver";
 import crypto from "node:crypto";
 import { FinanceiroImportacaoItemResultado, FinanceiroImportacaoStatus, FinanceiroStatusPagamento, UploadStatus } from "@prisma/client";
-import { Router } from "express";
+import { Request, Router } from "express";
 import multer from "multer";
 import { z } from "zod";
 import { requireAuth, requireModuleAccess, requirePermission } from "../../middlewares/auth.middleware.js";
@@ -31,6 +31,19 @@ import {
 } from "../../lib/financeiro-payment-status.js";
 
 const router = Router();
+
+function getPublicPortalBaseUrl(req: Request) {
+  const configured = String(process.env.PUBLIC_APP_URL || process.env.APP_URL || "").trim();
+
+  if (configured) {
+    return configured.replace(/\/+$/, "");
+  }
+
+  const forwardedProto = String(req.get("x-forwarded-proto") || "").split(",")[0].trim();
+  const protocol = forwardedProto || req.protocol || "https";
+  return `${protocol}://${req.get("host")}`;
+}
+
 const financeImportUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -1954,7 +1967,8 @@ router.get(
 
       const { preview, buffer } = await buildNotasFiscaisExcelWorkbook(
         parsed.data.periodId,
-        parsed.data.baseId || null
+        parsed.data.baseId || null,
+        getPublicPortalBaseUrl(req)
       );
       const period = await prisma.periodoPagamento.findUnique({
         where: { id: parsed.data.periodId },
