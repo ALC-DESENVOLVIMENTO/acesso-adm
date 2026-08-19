@@ -19,7 +19,11 @@ import {
   listFinanceiroHistorico,
   listFinanceiroImportacoes
 } from "./financeiro-import.js";
-import { buildAptosPagamentoPreview, buildAptosPagamentoWorkbook } from "../../lib/financeiro-apagar.js";
+import {
+  buildAptosPagamentoPreview,
+  buildAptosPagamentoWorkbook,
+  buildNotasFiscaisExcelWorkbook
+} from "../../lib/financeiro-apagar.js";
 import { notifyPaymentStatusToPdfOnline } from "../../lib/pdfonline-bridge.js";
 import {
   PAYMENT_PROCESS_STATUS_LABELS,
@@ -1281,7 +1285,10 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
               ? "pdf_enviado_ao_motorista"
               : "pdf_aguardando_envio"
           : resolvePdfStatus(upload.periodoPagamento?.status || null, upload.status);
-      const pdfSentAt = mirrorReceipt?.enviadoAoMotoristaEm || upload.criadoEm;
+      // This timestamp belongs exclusively to the driver portal delivery.
+      // Do not use the upload time as a substitute or admin views will look
+      // like a new delivery happened on every reconciliation.
+      const pdfSentAt = mirrorReceipt?.enviadoAoMotoristaEm || null;
       const noteSentAt = noteReceipt?.uploadEm || null;
       const mirrorDownloadUrl = buildStorageObjectUrl(mirrorReceipt?.caminhoArquivo || upload.caminhoArquivo);
       const noteDownloadUrl = buildStorageObjectUrl(noteReceipt?.caminhoArquivo);
@@ -1919,6 +1926,69 @@ router.get(
     })().catch((error) => {
       res.status(500).json({
         message: "Falha ao exportar aptos para pagamento.",
+        detail: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    });
+  }
+);
+
+router.get(
+  "/periods/:periodId/exportar-excel",
+  requirePermission("financeiro.export"),
+  (req, res) => {
+    void (async () => {
+      const parsed = z
+        .object({
+          periodId: z.string().uuid(),
+          baseId: z.string().uuid().optional().nullable()
+        })
+        .safeParse({
+          periodId: req.params.periodId,
+          baseId: req.query.baseId || null
+        });
+
+      if (!parsed.success) {
+        res.status(400).json({ message: "Período ou base inválida para exportação." });
+        return;
+      }
+
+      const { preview, buffer } = await buildNotasFiscaisExcelWorkbook(
+        parsed.data.periodId,
+        parsed.data.baseId || null
+      );
+      const period = await prisma.periodoPagamento.findUnique({
+        where: { id: parsed.data.periodId },
+        select: { nome: true }
+      });
+      const periodName = sanitizeArchiveSegment(period?.nome || "periodo");
+      const filename = `notas_fiscais_${periodName}_${new Date().toISOString().replace(/[:.]/g, "-")}.xlsx`;
+
+      await prisma.logAuditoria.create({
+        data: {
+          usuarioId: req.auth?.userId || null,
+          acao: "financeiro_notas_fiscais_excel_exportar",
+          entidade: "periodos_pagamento",
+          entidadeId: parsed.data.periodId,
+          detalhes: {
+            periodoId: parsed.data.periodId,
+            baseId: parsed.data.baseId || null,
+            totalProcessos: preview.totalProcessos,
+            totalAptos: preview.totalAptos,
+            totalInconsistencias: preview.totalInconsistencias,
+            arquivo: filename
+          },
+          ipOrigem: req.ip,
+          userAgent: req.get("user-agent") || null
+        }
+      });
+
+      res.status(200);
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.end(buffer);
+    })().catch((error) => {
+      res.status(500).json({
+        message: "Falha ao exportar planilha de notas fiscais.",
         detail: error instanceof Error ? error.message : "Erro desconhecido"
       });
     });

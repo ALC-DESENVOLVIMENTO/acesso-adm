@@ -164,6 +164,8 @@ const loginPreviewImages = ["/login-preview-dashboard.png", "/login-preview-pdfs
 
 const quickActionStorageKey = "portal-adm.quick-actions";
 const themeStorageKey = "portal-adm.theme";
+const periodsViewStateKey = "portal-adm.periods-view-state";
+const pdfsViewStateKey = "portal-adm.pdfs-view-state";
 const quickActionLabels: Record<RouteView, { title: string; description: string; icon: typeof FileArrowUp }> = {
   dashboard: { title: "Dashboard", description: "Visão geral do portal.", icon: HouseLine },
   pdfs: { title: "Enviar PDF", description: "Faça o envio de novos documentos.", icon: FileArrowUp },
@@ -182,6 +184,23 @@ function readStoredTheme(): ThemeMode {
     return window.localStorage.getItem(themeStorageKey) === "dark" ? "dark" : "light";
   } catch {
     return "light";
+  }
+}
+
+function readStoredViewState<T extends Record<string, unknown>>(key: string, fallback: T): T {
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    return raw ? ({ ...fallback, ...JSON.parse(raw) } as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStoredViewState(key: string, value: unknown) {
+  try {
+    window.sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // State persistence is an enhancement and must not block navigation.
   }
 }
 
@@ -2946,10 +2965,18 @@ function PeriodsScreen({
   const [isDuplicateReviewModalOpen, setIsDuplicateReviewModalOpen] = useState(false);
   const [duplicateReviewPeriodId, setDuplicateReviewPeriodId] = useState<string | null>(null);
   const [duplicateReviewPeriodName, setDuplicateReviewPeriodName] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"created" | "financeActive" | "financeFinished">("created");
-  const [financeFinishedSearch, setFinanceFinishedSearch] = useState("");
+  const periodsViewState = readStoredViewState(periodsViewStateKey, {
+    activeTab: "created" as "created" | "financeActive" | "financeFinished",
+    financeFinishedSearch: ""
+  });
+  const [activeTab, setActiveTab] = useState<"created" | "financeActive" | "financeFinished">(periodsViewState.activeTab);
+  const [financeFinishedSearch, setFinanceFinishedSearch] = useState(periodsViewState.financeFinishedSearch);
   const [duplicateReviews, setDuplicateReviews] = useState<PeriodBaseReviewItem[]>([]);
   const [duplicateRedirectTargets, setDuplicateRedirectTargets] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    writeStoredViewState(periodsViewStateKey, { activeTab, financeFinishedSearch });
+  }, [activeTab, financeFinishedSearch]);
 
   const activeBases = useMemo(() => bases.filter((base) => base.active), [bases]);
 
@@ -3628,11 +3655,28 @@ function PdfsScreen({
   bases: PaymentBase[];
 }) {
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("todos");
-  const [selectedPeriodId, setSelectedPeriodId] = useState("");
-  const [selectedBaseId, setSelectedBaseId] = useState("");
-  const [expandedBatchKey, setExpandedBatchKey] = useState("");
+  const pdfsViewState = readStoredViewState(pdfsViewStateKey, {
+    searchTerm: "",
+    statusFilter: "todos",
+    selectedPeriodId: "",
+    selectedBaseId: "",
+    expandedBatchKey: ""
+  });
+  const [searchTerm, setSearchTerm] = useState(pdfsViewState.searchTerm);
+  const [statusFilter, setStatusFilter] = useState(pdfsViewState.statusFilter);
+  const [selectedPeriodId, setSelectedPeriodId] = useState(pdfsViewState.selectedPeriodId);
+  const [selectedBaseId, setSelectedBaseId] = useState(pdfsViewState.selectedBaseId);
+  const [expandedBatchKey, setExpandedBatchKey] = useState(pdfsViewState.expandedBatchKey);
+
+  useEffect(() => {
+    writeStoredViewState(pdfsViewStateKey, {
+      searchTerm,
+      statusFilter,
+      selectedPeriodId,
+      selectedBaseId,
+      expandedBatchKey
+    });
+  }, [expandedBatchKey, searchTerm, selectedBaseId, selectedPeriodId, statusFilter]);
 
   const availablePeriods = useMemo(() => periods.filter((period) => period.active !== false), [periods]);
   const selectedPeriod = availablePeriods.find((period) => period.id === selectedPeriodId) || null;

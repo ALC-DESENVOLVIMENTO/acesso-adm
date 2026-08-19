@@ -3249,6 +3249,43 @@ button {
   margin-bottom: 10px;
 }
 
+.finance-export-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.finance-export-menu__popover {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  min-width: 210px;
+  padding: 8px;
+  gap: 4px;
+  border: 1px solid rgba(235, 0, 0, 0.16);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 16px 30px rgba(31, 36, 48, 0.16);
+}
+
+.finance-export-menu__popover button {
+  border: 0;
+  border-radius: 10px;
+  padding: 11px 12px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.finance-export-menu__popover button:hover,
+.finance-export-menu__popover button:focus-visible {
+  background: rgba(235, 0, 0, 0.08);
+  color: #eb0000;
+  outline: none;
+}
+
 .finance-section-tabs {
   position: sticky;
   top: 0;
@@ -3411,6 +3448,21 @@ button {
 
 .finance-table .data-table td {
   vertical-align: top;
+}
+
+.finance-table .table-cell-subtle {
+  display: block;
+  margin-top: 4px;
+  white-space: nowrap;
+}
+
+.finance-table .primary-button--small {
+  width: auto;
+  min-height: 38px;
+  padding: 9px 16px;
+  border-radius: 12px;
+  font-size: 0.82rem;
+  box-shadow: 0 8px 18px rgba(235, 0, 0, 0.18);
 }
 
 .finance-status-pill {

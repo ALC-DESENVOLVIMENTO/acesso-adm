@@ -140,7 +140,9 @@ export async function upsertDriverPdfReceivedFromUpload(
     },
     select: {
       id: true,
-      visualizadoEm: true
+      visualizadoEm: true,
+      enviadoAoMotoristaEm: true,
+      uploadEm: true
     }
   });
 
@@ -151,13 +153,14 @@ export async function upsertDriverPdfReceivedFromUpload(
     nomeArquivo: input.fileName,
     caminhoArquivo: input.storageKey,
     tipoArquivo: input.mimeType || "application/pdf",
-    uploadEm: now,
+    uploadEm: existing?.uploadEm || now,
     usuarioId: input.createdByUserId ?? null,
     status,
     observacoes: null,
     visualizadoEm: existing?.visualizadoEm ?? null,
     enviadoAoMotoristaEm:
-      status === DriverPdfReceivedStatus.pdf_enviado_ao_motorista ? now : null,
+      existing?.enviadoAoMotoristaEm ||
+      (status === DriverPdfReceivedStatus.pdf_enviado_ao_motorista ? now : null),
     aprovadoEm: null,
     aprovadoPorId: null,
     rejeitadoEm: null,

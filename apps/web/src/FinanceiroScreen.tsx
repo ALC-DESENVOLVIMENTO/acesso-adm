@@ -1,6 +1,7 @@
 import {
   ArrowRight,
   Bell,
+  CaretDown,
   CalendarBlank,
   ChartLineUp,
   ClockCounterClockwise,
@@ -28,6 +29,7 @@ import {
   fetchFinanceiroMotoristas,
   fetchFinanceiroSummary,
   exportFinanceiroNotasFiscais,
+  exportFinanceiroNotasFiscaisExcel,
   previewFinanceiroImport,
   reprocessFinanceiroWebhook,
   type FinanceiroBaseCard,
@@ -108,6 +110,17 @@ const initialPeriodForm: PeriodFormState = {
   endDate: "",
   paymentType: "semanal"
 };
+
+const financeViewStateKey = "portal-adm.financeiro-view-state";
+
+function readFinanceViewState() {
+  try {
+    const raw = sessionStorage.getItem(financeViewStateKey);
+    return raw ? (JSON.parse(raw) as { periodId?: string; baseId?: string; tab?: FinanceTab; periodViewTab?: "bases" | "motoristas" }) : {};
+  } catch {
+    return {};
+  }
+}
 
 function formatDateOnly(value: string | null | undefined) {
   if (!value) {
@@ -255,10 +268,10 @@ export function FinanceiroScreen({
   const [previewRows, setPreviewRows] = useState<FinanceiroImportPreviewRow[]>([]);
   const [apagarPreview, setApagarPreview] = useState<FinanceiroAptosPagamentoPreview | null>(null);
   const [selectedImportFile, setSelectedImportFile] = useState<File | null>(null);
-  const [selectedPeriodId, setSelectedPeriodId] = useState("");
-  const [selectedBaseId, setSelectedBaseId] = useState("all");
-  const [periodViewTab, setPeriodViewTab] = useState<"bases" | "motoristas">("bases");
-  const [financeTab, setFinanceTab] = useState<FinanceTab>("exportacao");
+  const [selectedPeriodId, setSelectedPeriodId] = useState(() => readFinanceViewState().periodId || "");
+  const [selectedBaseId, setSelectedBaseId] = useState(() => readFinanceViewState().baseId || "all");
+  const [periodViewTab, setPeriodViewTab] = useState<"bases" | "motoristas">(() => readFinanceViewState().periodViewTab || "bases");
+  const [financeTab, setFinanceTab] = useState<FinanceTab>(() => readFinanceViewState().tab || "exportacao");
   const [previewFilter, setPreviewFilter] = useState<PreviewFilter>("todos");
   const [searchTerm, setSearchTerm] = useState("");
   const [cpfTerm, setCpfTerm] = useState("");
@@ -277,6 +290,14 @@ export function FinanceiroScreen({
   const [editingPeriod, setEditingPeriod] = useState<PaymentPeriod | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PaymentPeriod | null>(null);
   const [periodForm, setPeriodForm] = useState<PeriodFormState>(initialPeriodForm);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+
+  useEffect(() => {
+    sessionStorage.setItem(
+      financeViewStateKey,
+      JSON.stringify({ periodId: selectedPeriodId, baseId: selectedBaseId, tab: financeTab, periodViewTab })
+    );
+  }, [financeTab, periodViewTab, selectedBaseId, selectedPeriodId]);
 
   const selectedPeriod = useMemo(
     () => periods.find((period) => period.id === selectedPeriodId) || null,
@@ -592,6 +613,7 @@ export function FinanceiroScreen({
     }
 
     try {
+      setExportMenuOpen(false);
       setBusyMessage("Preparando exportação das notas fiscais...");
       const { blob, filename } = await exportFinanceiroNotasFiscais(
         token,
@@ -606,6 +628,32 @@ export function FinanceiroScreen({
       window.setTimeout(() => URL.revokeObjectURL(url), 1500);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Falha ao exportar notas fiscais.");
+    } finally {
+      setBusyMessage("");
+    }
+  };
+
+  const handleExportNotasFiscaisExcel = async () => {
+    if (!selectedPeriodId) {
+      return;
+    }
+
+    try {
+      setExportMenuOpen(false);
+      setBusyMessage("Preparando planilha de notas fiscais...");
+      const { blob, filename } = await exportFinanceiroNotasFiscaisExcel(
+        token,
+        selectedPeriodId,
+        selectedBaseId === "all" ? null : selectedBaseId
+      );
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename || `notas_fiscais_${selectedPeriodId}.xlsx`;
+      anchor.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Falha ao exportar planilha de notas fiscais.");
     } finally {
       setBusyMessage("");
     }
@@ -978,14 +1026,29 @@ export function FinanceiroScreen({
                   Motoristas do período
                 </button>
               </div>
-              <button
-                className="ghost-button ghost-button--small finance-export-button cta-motion cta-motion--ghost"
-                type="button"
-                onClick={handleExportNotasFiscais}
-                disabled={!selectedPeriodId}
-              >
-                Exportar Notas Fiscais
-              </button>
+              <div className="finance-export-menu">
+                <button
+                  className="ghost-button ghost-button--small finance-export-button cta-motion cta-motion--ghost"
+                  type="button"
+                  onClick={() => setExportMenuOpen((current) => !current)}
+                  disabled={!selectedPeriodId}
+                  aria-expanded={exportMenuOpen}
+                  aria-haspopup="menu"
+                >
+                  Exportar
+                  <CaretDown size={16} weight="bold" />
+                </button>
+                {exportMenuOpen ? (
+                  <div className="finance-export-menu__popover" role="menu">
+                    <button type="button" role="menuitem" onClick={() => void handleExportNotasFiscais()}>
+                      Notas Fiscais (ZIP)
+                    </button>
+                    <button type="button" role="menuitem" onClick={() => void handleExportNotasFiscaisExcel()}>
+                      Planilha Excel
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             <article className="panel finance-panel" style={{ display: periodViewTab === "bases" ? "grid" : "none" }}>
@@ -1124,7 +1187,6 @@ export function FinanceiroScreen({
                     <th>NF enviada</th>
                     <th>Status</th>
                     <th>Atendimento</th>
-                    <th>Atualização</th>
                     <th>Ações</th>
                   </tr>
                 </thead>
@@ -1153,7 +1215,6 @@ export function FinanceiroScreen({
                         <td>
                           <span className="finance-attendance-pill">{row.situacaoAtendimento}</span>
                         </td>
-                        <td>{formatDateTime(row.ultimaAtualizacao)}</td>
                         <td>
                           <div className="table-actions">
                             <button className="ghost-button ghost-button--small" type="button" onClick={() => onOpenMotorista(row.motoristaId)}>
@@ -1194,7 +1255,7 @@ export function FinanceiroScreen({
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={10}>
+                      <td colSpan={9}>
                         <div className="crm-empty">
                           <strong>Nenhum motorista encontrado</strong>
                           <p>Use os filtros ou aguarde a integracao dos registros de PDF e NF.</p>

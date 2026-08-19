@@ -6,6 +6,7 @@ import {
   UploadStatus
 } from "@prisma/client";
 import { prisma } from "./prisma.js";
+import { buildStorageObjectUrl } from "./storage.js";
 import {
   digitsOnly,
   normalizeText,
@@ -105,6 +106,7 @@ export type AptosPagamentoRow = {
   statusProcesso: string;
   statusNotaFiscal: string;
   statusPagamento: string;
+  notaFiscalUrl?: string | null;
 };
 
 export type AptosPagamentoExcluido = {
@@ -524,7 +526,8 @@ async function buildAptosPreviewRows(rows: CandidateRow[]) {
       baseMotorista,
       statusProcesso: evaluation.statusProcesso,
       statusNotaFiscal: evaluation.statusNotaFiscal,
-      statusPagamento: evaluation.statusPagamento
+      statusPagamento: evaluation.statusPagamento,
+      notaFiscalUrl: noteReceipt?.caminhoArquivo ? buildStorageObjectUrl(noteReceipt.caminhoArquivo) : null
     });
   }
 
@@ -751,14 +754,16 @@ async function buildCandidateRows(periodId: string, baseId?: string | null) {
   } satisfies AptosPagamentoPreview;
 }
 
-export function buildWorkbook(preview: AptosPagamentoPreview) {
+export function buildWorkbook(preview: AptosPagamentoPreview, options: { includeFileUrl?: boolean } = {}) {
   const workbook = XLSX.utils.book_new();
+  const includeFileUrl = options.includeFileUrl === true;
   const headers = [
     "Nome Motorista",
     "Nome Favorecido",
     "CNPJ do Favorecido",
     "Valor Total do PDF",
-    "Base do Motorista"
+    "Base do Motorista",
+    ...(includeFileUrl ? ["URL do arquivo"] : [])
   ];
 
   const dataRows = preview.aptos.map((row) => ({
@@ -766,7 +771,8 @@ export function buildWorkbook(preview: AptosPagamentoPreview) {
     "Nome Favorecido": row.nomeFavorecido,
     "CNPJ do Favorecido": row.cnpjFavorecido,
     "Valor Total do PDF": row.valorTotalPdf ?? "",
-    "Base do Motorista": row.baseMotorista
+    "Base do Motorista": row.baseMotorista,
+    ...(includeFileUrl ? { "URL do arquivo": row.notaFiscalUrl || "" } : {})
   }));
 
   const sheet = XLSX.utils.json_to_sheet(dataRows, { header: headers });
@@ -778,7 +784,7 @@ export function buildWorkbook(preview: AptosPagamentoPreview) {
   sheet["!autofilter"] = {
     ref: XLSX.utils.encode_range({
       s: { r: 0, c: 0 },
-      e: { r: Math.max(preview.aptos.length, 1), c: 4 }
+      e: { r: Math.max(preview.aptos.length, 1), c: headers.length - 1 }
     })
   };
   sheet["!cols"] = [
@@ -786,7 +792,8 @@ export function buildWorkbook(preview: AptosPagamentoPreview) {
     { wch: 28 },
     { wch: 20 },
     { wch: 18 },
-    { wch: 24 }
+    { wch: 24 },
+    ...(includeFileUrl ? [{ wch: 72 }] : [])
   ];
   (sheet as XLSX.WorkSheet & { "!freeze"?: unknown })["!freeze"] = {
     xSplit: 0,
@@ -811,9 +818,22 @@ export function buildWorkbook(preview: AptosPagamentoPreview) {
       moneyValue.t = "n";
       moneyValue.z = 'R$ #,##0.00';
     }
+
+    if (includeFileUrl) {
+      const urlCell = XLSX.utils.encode_cell({ r: rowIndex, c: 5 });
+      const urlValue = sheet[urlCell]?.v;
+
+      if (typeof urlValue === "string" && urlValue) {
+        sheet[urlCell].t = "s";
+        sheet[urlCell].l = {
+          Target: urlValue,
+          Tooltip: "Abrir arquivo no storage"
+        };
+      }
+    }
   }
 
-  for (let col = 0; col <= 4; col += 1) {
+  for (let col = 0; col < headers.length; col += 1) {
     const ref = XLSX.utils.encode_cell({ r: 0, c: col });
     const cell = sheet[ref];
 
@@ -875,4 +895,11 @@ export async function buildAptosPagamentoWorkbook(periodId: string, baseId?: str
     preview,
     buffer
   };
+}
+
+export async function buildNotasFiscaisExcelWorkbook(periodId: string, baseId?: string | null) {
+  const preview = await buildCandidateRows(periodId, baseId || null);
+  const buffer = buildWorkbook(preview, { includeFileUrl: true });
+
+  return { preview, buffer };
 }

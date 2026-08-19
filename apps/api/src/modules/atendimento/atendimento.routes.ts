@@ -1016,7 +1016,7 @@ async function loadMotoristaDetail(motoristaId: string) {
       const noteReceipt = noteReceiptByUpload || noteReceiptByIdentity;
       const period = upload.periodoPagamento || null;
       const base = upload.basePagamento || null;
-      const pdfSentAt = mirrorReceipt?.enviadoAoMotoristaEm || upload.criadoEm;
+      const pdfSentAt = mirrorReceipt?.enviadoAoMotoristaEm || null;
       const pdfViewedAt = mirrorReceipt?.visualizadoEm || null;
       const noteSentAt = noteReceipt?.uploadEm || null;
       const noteReceivedAt = noteReceipt?.aprovadoEm || noteReceipt?.rejeitadoEm || null;

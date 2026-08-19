@@ -246,6 +246,7 @@ export type FinanceiroMotoristaRow = {
   caminhoArquivo: string | null;
   notaFiscalDownloadUrl: string | null;
   notaFiscalReceivedId?: string | null;
+  notaFiscalUrl?: string | null;
 };
 
 export type FinanceiroImportPreviewRow = {
@@ -367,6 +368,7 @@ export type FinanceiroAptosPagamentoRow = {
   statusProcesso: string;
   statusNotaFiscal: string;
   statusPagamento: string;
+  notaFiscalUrl?: string | null;
 };
 
 export type FinanceiroAptosPagamentoExcluido = {
@@ -1006,6 +1008,17 @@ export function exportFinanceiroNotasFiscais(token: string, periodId: string, ba
   const suffix = params.toString() ? `?${params.toString()}` : "";
 
   return requestBlob(`/financeiro/periods/${periodId}/export${suffix}`, token);
+}
+
+export function exportFinanceiroNotasFiscaisExcel(token: string, periodId: string, baseId?: string | null) {
+  const params = new URLSearchParams();
+
+  if (baseId && baseId !== "all") {
+    params.set("baseId", baseId);
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return requestBlob(`/financeiro/periods/${periodId}/exportar-excel${suffix}`, token);
 }
 
 export function fetchFinanceiroAptosPagamento(
