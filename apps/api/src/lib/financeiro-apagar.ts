@@ -26,6 +26,7 @@ type AptoPagamentoUpload = Prisma.UploadPdfGetPayload<{
     periodoPagamentoId: true;
     basePagamentoId: true;
     substituiUploadId: true;
+    documentType: true;
     caminhoArquivo: true;
     content: true;
     criadoEm: true;
@@ -217,6 +218,10 @@ function isApprovedMirror(receipt: AptoPagamentoReceipt | null) {
   );
 }
 
+function isCompletedProcess(noteReceipt: AptoPagamentoReceipt | null) {
+  return noteReceipt?.status === DriverPdfReceivedStatus.processo_concluido;
+}
+
 function isApprovedNoteStatus(status: string | null | undefined) {
   return Boolean(status && APPROVED_NOTE_STATUSES.has(status as DriverPdfReceivedStatus));
 }
@@ -372,7 +377,10 @@ export function evaluateAptidao(params: {
     };
   }
 
-  if (!isApprovedMirror(mirrorReceipt)) {
+  // In the current workflow, PDF Online can consolidate the final state in
+  // one receipt. A completed process already proves that the mirror was
+  // approved, even when there is no separate mirror receipt anymore.
+  if (!isApprovedMirror(mirrorReceipt) && !isCompletedProcess(noteReceipt)) {
     return {
       apto: false,
       statusProcesso: mirrorReceipt ? "Espelho pendente" : "Sem espelho",
@@ -469,12 +477,13 @@ async function buildAptosPreviewRows(rows: CandidateRow[]) {
       missing.push({ field: "base", reason: "Base do motorista não cadastrada" });
     }
 
+    // The persisted value may belong to an older, incorrectly parsed upload.
+    // The payment mirror's explicit "Total Geral" is the source of truth.
     const valorTotalPdf =
-      coerceDecimalValue(upload.valorTotalPdf) ??
       (await extractTotalGeralValueFromSource({
-        caminhoArquivo: mirrorReceipt?.caminhoArquivo || upload.caminhoArquivo,
-        content: mirrorReceipt?.content || upload.content || null
-      }));
+        caminhoArquivo: upload.caminhoArquivo || mirrorReceipt?.caminhoArquivo,
+        content: upload.content || mirrorReceipt?.content || null
+      })) ?? coerceDecimalValue(upload.valorTotalPdf);
 
     if (missing.length > 0) {
       inconsistencias.push({
@@ -529,6 +538,7 @@ async function buildCandidateRows(periodId: string, baseId?: string | null) {
           periodoPagamentoId: true,
           basePagamentoId: true,
           substituiUploadId: true,
+          documentType: true,
           caminhoArquivo: true,
           content: true,
           criadoEm: true,
@@ -576,7 +586,7 @@ async function buildCandidateRows(periodId: string, baseId?: string | null) {
   );
 
   const scopedUploads = period.uploads
-    .filter((upload) => !childReferences.has(upload.id))
+    .filter((upload) => !childReferences.has(upload.id) && upload.documentType !== "nota_fiscal")
     .sort((left, right) => right.criadoEm.getTime() - left.criadoEm.getTime());
 
   const latestUploads = new Map<string, AptoPagamentoUpload>();

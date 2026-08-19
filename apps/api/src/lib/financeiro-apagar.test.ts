@@ -57,6 +57,22 @@ test("evaluateAptidao marks an approved payment as apto", () => {
   assert.equal(evaluation.statusProcesso, "Aguardando pagamento");
 });
 
+test("evaluateAptidao accepts a consolidated completed process", () => {
+  const upload = makeUpload();
+  const evaluation = evaluateAptidao({
+    upload: upload as never,
+    mirrorReceipt: null,
+    noteReceipt: {
+      status: DriverPdfReceivedStatus.processo_concluido
+    } as never,
+    paymentStatus: FinanceiroStatusPagamento.PENDENTE
+  });
+
+  assert.equal(evaluation.apto, true);
+  assert.equal(evaluation.statusProcesso, "Aguardando pagamento");
+  assert.equal(evaluation.statusNotaFiscal, "Nota fiscal aprovada");
+});
+
 test("evaluateAptidao blocks already paid items", () => {
   const upload = makeUpload();
   const evaluation = evaluateAptidao({

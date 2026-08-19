@@ -431,6 +431,20 @@ export type AtendimentoMotoristaUpdatePayload = {
   statusCadastro: "ativo" | "inativo" | "bloqueado";
   empresaVinculada: string;
   observacoesGerais: string;
+  base: string;
+  sexo: string;
+  placa: string;
+  cnpj: string;
+  driverType: string;
+  signupPolicy: string;
+  active: boolean;
+  sourceCount: string;
+  favorecidoNome: string;
+  favorecidoCpf: string;
+  favorecidoCnpj: string;
+  favorecidoEmail: string;
+  favorecidoTelefone: string;
+  validadeGr: string;
 };
 
 export type AtendimentoPdf = {
@@ -462,6 +476,9 @@ export type AtendimentoDetail = {
     id: string;
     nome: string;
     cpf: string;
+    cpfDigits: string;
+    cnpj: string | null;
+    cnpjDigits: string | null;
     rg: string | null;
     dataNascimento: string | null;
     telefone: string | null;
@@ -476,9 +493,20 @@ export type AtendimentoDetail = {
     ultimaAtualizacao: string;
     empresaVinculada: string | null;
     base: string | null;
+    sexo: string | null;
+    placa: string | null;
+    driverType: string | null;
+    signupPolicy: string | null;
+    active: boolean;
+    sourceCount: string | null;
+    registryCreatedAt: string | null;
+    registryUpdatedAt: string | null;
     nomeFavorecido: string | null;
     cpfFavorecido: string | null;
     cnpjFavorecido: string | null;
+    emailFavorecido: string | null;
+    telefoneFavorecido: string | null;
+    validadeGr: string | null;
     observacoesGerais: string | null;
     classificacoes: AtendimentoClassificacao[];
   };

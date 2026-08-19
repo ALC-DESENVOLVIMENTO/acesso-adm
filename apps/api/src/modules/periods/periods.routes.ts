@@ -25,11 +25,7 @@ router.use(requireAuth, (req, res, next) => {
     return;
   }
 
-  if (
-    !req.auth.modules.includes("pdfs") &&
-    !req.auth.modules.includes("financeiro") &&
-    !["N3", "N4"].includes(req.auth.level)
-  ) {
+  if (!req.auth.modules.includes("periods") && !["N3", "N4"].includes(req.auth.level)) {
     res.status(403).json({
       message: "Você não possui permissão para acessar este módulo."
     });

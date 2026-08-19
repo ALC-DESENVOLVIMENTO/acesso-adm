@@ -310,11 +310,18 @@ export async function resolveDriverRegistryByIdentity(options: {
   const cnpjDigits = digitsOnly(options.cnpj || "");
   const name = normalizeText(options.name || fileSearch?.name || "");
 
-  const matches = await searchDriverRegistryMatches({
+  let matches = await searchDriverRegistryMatches({
     name: name || undefined,
     cpfDigits: cpfDigits || undefined,
     cnpjDigits: cnpjDigits || undefined
   });
+
+  // Some payment mirrors contain the payer/company CNPJ instead of the
+  // driver's registry CNPJ. An exact normalized name remains a safe match;
+  // retry by name before classifying the upload as missing or ambiguous.
+  if (matches.length === 0 && name && (cpfDigits || cnpjDigits)) {
+    matches = await searchDriverRegistryMatches({ name });
+  }
 
   if (matches.length === 0) {
     return null;

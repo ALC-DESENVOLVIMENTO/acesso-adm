@@ -283,7 +283,9 @@ async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseNam
 export async function reconcilePendingUploadsFromRegistry() {
   const pendingUploads = await prisma.uploadPdf.findMany({
     where: {
-      status: UploadStatus.pendente,
+      status: {
+        in: [UploadStatus.pendente, UploadStatus.processado]
+      },
       documentType: {
         not: DocumentTypeCode.nota_fiscal
       },
@@ -338,7 +340,9 @@ export async function reconcilePendingUploadsFromRegistry() {
       where: {
         id: upload.id,
         motoristaId: null,
-        status: UploadStatus.pendente
+        status: {
+          in: [UploadStatus.pendente, UploadStatus.processado]
+        }
       },
       data: {
         motoristaId,

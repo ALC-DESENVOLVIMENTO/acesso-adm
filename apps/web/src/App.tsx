@@ -349,10 +349,6 @@ function canAccessRoute(user: SessionUser | null, route: RouteView) {
     return true;
   }
 
-  if (route === "periods") {
-    return false;
-  }
-
   return user.modules.includes(route);
 }
 
@@ -424,10 +420,6 @@ function App() {
     }
 
     return menuItems.filter((item) => {
-      if (item.key === "periods") {
-        return false;
-      }
-
       return currentUser.modules.includes(item.key);
     });
   }, [currentUser]);
@@ -4473,7 +4465,21 @@ function AtendimentoScreen({
     cep: motorista.cep || "",
     statusCadastro: motorista.statusCadastro,
     empresaVinculada: motorista.empresaVinculada || "",
-    observacoesGerais: motorista.observacoesGerais || ""
+    observacoesGerais: motorista.observacoesGerais || "",
+    base: motorista.base || "",
+    sexo: motorista.sexo || "",
+    placa: motorista.placa || "",
+    cnpj: motorista.cnpj || "",
+    driverType: motorista.driverType || "",
+    signupPolicy: motorista.signupPolicy || "",
+    active: motorista.active,
+    sourceCount: motorista.sourceCount || "",
+    favorecidoNome: motorista.nomeFavorecido || "",
+    favorecidoCpf: motorista.cpfFavorecido || "",
+    favorecidoCnpj: motorista.cnpjFavorecido || "",
+    favorecidoEmail: motorista.emailFavorecido || "",
+    favorecidoTelefone: motorista.telefoneFavorecido || "",
+    validadeGr: motorista.validadeGr || ""
   });
 
   useEffect(() => {
@@ -4967,8 +4973,13 @@ function AtendimentoScreen({
 
                   <div className="crm-driver__grid">
                     <div><strong>CPF</strong><span>{detail.motorista.cpf}</span></div>
+                    <div><strong>CNPJ do cadastro</strong><span>{detail.motorista.cnpj || 'Não informado'}</span></div>
                     <div><strong>RG</strong><span>{detail.motorista.rg || 'Não informado'}</span></div>
                     <div><strong>Nascimento</strong><span>{detail.motorista.dataNascimento ? new Date(detail.motorista.dataNascimento).toLocaleDateString('pt-BR') : 'Não informado'}</span></div>
+                    <div><strong>Sexo</strong><span>{detail.motorista.sexo || 'Não informado'}</span></div>
+                    <div><strong>Placa</strong><span>{detail.motorista.placa || 'Não informado'}</span></div>
+                    <div><strong>Tipo de motorista</strong><span>{detail.motorista.driverType || 'Não informado'}</span></div>
+                    <div><strong>Política de cadastro</strong><span>{detail.motorista.signupPolicy || 'Não informado'}</span></div>
                     <div><strong>Telefone</strong><span>{detail.motorista.telefone || 'Não informado'}</span></div>
                     <div><strong>WhatsApp</strong><span>{detail.motorista.whatsapp || 'Não informado'}</span></div>
                     <div><strong>E-mail</strong><span>{detail.motorista.email || 'Não informado'}</span></div>
@@ -4976,6 +4987,10 @@ function AtendimentoScreen({
                     <div><strong>Base</strong><span>{selectedMotoristaBase}</span></div>
                     <div><strong>Favorecido</strong><span>{detail.motorista.nomeFavorecido || 'Não informado'}</span></div>
                     <div><strong>CPF/CNPJ favorecido</strong><span>{detail.motorista.cpfFavorecido || detail.motorista.cnpjFavorecido || 'Não informado'}</span></div>
+                    <div><strong>E-mail do favorecido</strong><span>{detail.motorista.emailFavorecido || 'Não informado'}</span></div>
+                    <div><strong>Telefone do favorecido</strong><span>{detail.motorista.telefoneFavorecido || 'Não informado'}</span></div>
+                    <div><strong>Validade GR</strong><span>{detail.motorista.validadeGr ? new Date(detail.motorista.validadeGr).toLocaleDateString('pt-BR') : 'Não informado'}</span></div>
+                    <div><strong>Cadastro na base</strong><span>{detail.motorista.active ? 'Ativo' : 'Inativo'}</span></div>
                     <div><strong>CEP</strong><span>{detail.motorista.cep || 'Não informado'}</span></div>
                     <div><strong>Criado em</strong><span>{new Date(detail.motorista.dataCriacao).toLocaleString('pt-BR')}</span></div>
                     <div><strong>Atualizado em</strong><span>{new Date(detail.motorista.ultimaAtualizacao).toLocaleString('pt-BR')}</span></div>
@@ -5550,6 +5565,15 @@ function AtendimentoScreen({
                 />
               </label>
               <label className="field">
+                <span>CNPJ do cadastro</span>
+                <input
+                  value={motoristaEditForm.cnpj}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) => (current ? { ...current, cnpj: event.target.value } : current))
+                  }
+                />
+              </label>
+              <label className="field">
                 <span>RG</span>
                 <input
                   value={motoristaEditForm.rg}
@@ -5585,6 +5609,71 @@ function AtendimentoScreen({
                   <option value="inativo">Inativo</option>
                   <option value="bloqueado">Bloqueado</option>
                 </select>
+              </label>
+              <label className="field">
+                <span>Base</span>
+                <input
+                  value={motoristaEditForm.base}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) => (current ? { ...current, base: event.target.value } : current))
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>Sexo</span>
+                <input
+                  value={motoristaEditForm.sexo}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) => (current ? { ...current, sexo: event.target.value } : current))
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>Placa</span>
+                <input
+                  value={motoristaEditForm.placa}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) => (current ? { ...current, placa: event.target.value } : current))
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>Tipo de motorista</span>
+                <input
+                  value={motoristaEditForm.driverType}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) => (current ? { ...current, driverType: event.target.value } : current))
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>Política de cadastro</span>
+                <input
+                  value={motoristaEditForm.signupPolicy}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) => (current ? { ...current, signupPolicy: event.target.value } : current))
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>Quantidade de fontes</span>
+                <input
+                  inputMode="numeric"
+                  value={motoristaEditForm.sourceCount}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) => (current ? { ...current, sourceCount: event.target.value } : current))
+                  }
+                />
+              </label>
+              <label className="field field--checkbox">
+                <span>Cadastro ativo na base de pré-cadastros</span>
+                <input
+                  type="checkbox"
+                  checked={motoristaEditForm.active}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) => (current ? { ...current, active: event.target.checked } : current))
+                  }
+                />
               </label>
               <label className="field">
                 <span>Telefone</span>
@@ -5666,6 +5755,62 @@ function AtendimentoScreen({
                     setMotoristaEditForm((current) =>
                       current ? { ...current, empresaVinculada: event.target.value } : current
                     )
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>Nome do favorecido</span>
+                <input
+                  value={motoristaEditForm.favorecidoNome}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) => (current ? { ...current, favorecidoNome: event.target.value } : current))
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>CPF do favorecido</span>
+                <input
+                  value={motoristaEditForm.favorecidoCpf}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) => (current ? { ...current, favorecidoCpf: event.target.value } : current))
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>CNPJ do favorecido</span>
+                <input
+                  value={motoristaEditForm.favorecidoCnpj}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) => (current ? { ...current, favorecidoCnpj: event.target.value } : current))
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>E-mail do favorecido</span>
+                <input
+                  type="email"
+                  value={motoristaEditForm.favorecidoEmail}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) => (current ? { ...current, favorecidoEmail: event.target.value } : current))
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>Telefone do favorecido</span>
+                <input
+                  value={motoristaEditForm.favorecidoTelefone}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) => (current ? { ...current, favorecidoTelefone: event.target.value } : current))
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>Validade GR</span>
+                <input
+                  type="date"
+                  value={motoristaEditForm.validadeGr}
+                  onChange={(event) =>
+                    setMotoristaEditForm((current) => (current ? { ...current, validadeGr: event.target.value } : current))
                   }
                 />
               </label>

@@ -444,12 +444,77 @@ async function fetchDriverRegistryByCpfDigits(cpfDigits: string) {
   return rows[0] || null;
 }
 
+async function updateDriverRegistryRow(row: DriverRegistryRawRow | null, values: Record<string, unknown>) {
+  if (!row) {
+    return;
+  }
+
+  const metadata = await getDriverRegistryMetadata();
+  if (!metadata) {
+    return;
+  }
+
+  const idColumn = getColumn(metadata, ["id", "uuid", "codigo", "driver_id", "identificador"]);
+  const rowId = getRecordValue(row, [idColumn || "id"]);
+  if (!idColumn || !rowId) {
+    return;
+  }
+
+  const columnValues: Record<string, unknown> = {
+    display_name: values.nome,
+    normalized_name: values.nome ? normalizeText(String(values.nome)) : undefined,
+    cpf: values.cpf ? formatCpf(String(values.cpf)) : undefined,
+    cpf_digits: values.cpf ? digitsOnly(String(values.cpf)) : undefined,
+    cnpj: (values.favorecidoCnpj || values.cnpj) ? String(values.favorecidoCnpj || values.cnpj).trim() : undefined,
+    cnpj_digits: (values.favorecidoCnpj || values.cnpj)
+      ? digitsOnly(String(values.favorecidoCnpj || values.cnpj))
+      : undefined,
+    rg: values.rg,
+    data_nascimento: values.dataNascimento || null,
+    sexo: values.sexo,
+    placa: values.placa,
+    base: values.base,
+    email: values.email,
+    phone: values.telefone,
+    nome_favorecido: values.favorecidoNome,
+    cpf_favorecido: values.favorecidoCpf,
+    cpf_favorecido_digits: values.favorecidoCpf ? digitsOnly(String(values.favorecidoCpf)) : undefined,
+    email_favorecido: values.favorecidoEmail,
+    telefone_favorecido: values.favorecidoTelefone,
+    validade_gr: values.validadeGr || null,
+    driver_type: values.driverType,
+    signup_policy: values.signupPolicy,
+    active: values.active,
+    source_count: values.sourceCount === "" ? null : values.sourceCount
+  };
+
+  const entries = Object.entries(columnValues).filter(
+    ([column, value]) => metadata.columns.has(column) && value !== undefined
+  );
+
+  if (entries.length === 0) {
+    return;
+  }
+
+  const params = entries.map(([, value]) => value);
+  const assignments = entries.map(([column], index) => `${quoteDriverRegistryIdentifier(column)} = $${index + 1}`);
+  params.push(rowId);
+
+  await prisma.$executeRawUnsafe(
+    `UPDATE ${quoteDriverRegistryIdentifier(metadata.schema)}.${quoteDriverRegistryIdentifier(DRIVER_REGISTRY_TABLE)} SET ${assignments.join(", ")} WHERE ${quoteDriverRegistryIdentifier(idColumn)}::text = $${params.length}`,
+    ...params
+  );
+}
+
 function driverRegistryAsAtendimentoPayload(row: DriverRegistryRawRow) {
   const metadata = {
     id: getRecordValue(row, ["id", "uuid", "codigo", "driver_id", "identificador"]),
     base: getRecordValue(row, DRIVER_REGISTRY_BASE_CANDIDATES),
     name: getRecordValue(row, ["display_name", "normalized_name", "nome", "name", "full_name", "nome_completo", "driver_name", "razao_social"]),
     cpf: getRecordValue(row, [...DRIVER_REGISTRY_CPF_CANDIDATES, "documento", "document_number", "documento_numero"]),
+    cpfDigits: getRecordValue(row, ["cpf_digits", "cpf_numero"]),
+    cnpj: getRecordValue(row, ["cnpj", "cnpj_digits"]),
+    cnpjDigits: getRecordValue(row, ["cnpj_digits"]),
     rg: getRecordValue(row, ["rg", "registro_geral", "rg_numero"]),
     sexo: getRecordValue(row, DRIVER_REGISTRY_SEXO_CANDIDATES),
     placa: getRecordValue(row, DRIVER_REGISTRY_PLATE_CANDIDATES),
@@ -472,6 +537,9 @@ function driverRegistryAsAtendimentoPayload(row: DriverRegistryRawRow) {
     externalId: String(metadata.id || ""),
     nome: metadata.name || "Sem nome",
     cpf: metadata.cpf || "",
+    cpfDigits: digitsOnly(metadata.cpfDigits || metadata.cpf || ""),
+    cnpj: metadata.cnpj,
+    cnpjDigits: digitsOnly(metadata.cnpjDigits || metadata.cnpj || ""),
     cpfFormatado: formatCpf(metadata.cpf),
     rg: metadata.rg,
     base: metadata.base,
@@ -494,7 +562,13 @@ function driverRegistryAsAtendimentoPayload(row: DriverRegistryRawRow) {
     favorecidoCnpj: metadata.favorecidoCnpj,
     favorecidoEmail: metadata.favorecidoEmail,
     favorecidoTelefone: metadata.favorecidoTelefone,
-    validadeGr: metadata.validadeGr
+    validadeGr: metadata.validadeGr,
+    driverType: getRecordValue(row, ["driver_type", "tipo_motorista"]),
+    signupPolicy: getRecordValue(row, ["signup_policy", "politica_cadastro"]),
+    active: getRecordValue(row, ["active", "ativo"]) !== "false",
+    sourceCount: getRecordValue(row, ["source_count", "quantidade_fontes"]),
+    createdAt: getDateValue(row, ["created_at", "criado_em"]),
+    updatedAt: getDateValue(row, ["updated_at", "atualizado_em"])
   };
 }
 
@@ -1012,6 +1086,9 @@ async function loadMotoristaDetail(motoristaId: string) {
       id: motorista.id,
       nome: motorista.nome,
       cpf: motorista.cpf,
+      cpfDigits: registryData?.cpfDigits || digitsOnly(motorista.cpf),
+      cnpj: registryData?.cnpj || null,
+      cnpjDigits: registryData?.cnpjDigits || null,
       rg: motorista.rg,
       dataNascimento: motorista.dataNascimento,
       telefone: motorista.telefone,
@@ -1026,9 +1103,20 @@ async function loadMotoristaDetail(motoristaId: string) {
       ultimaAtualizacao: motorista.atualizadoEm,
       empresaVinculada: motorista.empresaVinculada,
       base: registryData?.base || null,
+      sexo: registryData?.sexo || null,
+      placa: registryData?.placa || null,
+      driverType: registryData?.driverType || null,
+      signupPolicy: registryData?.signupPolicy || null,
+      active: registryData?.active ?? motorista.statusCadastro === "ativo",
+      sourceCount: registryData?.sourceCount || null,
+      registryCreatedAt: registryData?.createdAt || null,
+      registryUpdatedAt: registryData?.updatedAt || null,
       nomeFavorecido: registryData?.favorecidoNome || null,
       cpfFavorecido: registryData?.favorecidoCpf || null,
       cnpjFavorecido: registryData?.favorecidoCnpj || null,
+      emailFavorecido: registryData?.favorecidoEmail || null,
+      telefoneFavorecido: registryData?.favorecidoTelefone || null,
+      validadeGr: registryData?.validadeGr || null,
       observacoesGerais: motorista.observacoesGerais,
       classificacoes: motorista.classificacoes.map((item) => ({
         id: item.classificacao.id,
@@ -1415,6 +1503,43 @@ router.patch("/motoristas/:id", (req, res) => {
       return;
     }
 
+    const currentMotorista = await prisma.motorista.findUnique({
+      where: { id: motoristaId },
+      select: { cpf: true }
+    });
+    const registryRow = await fetchDriverRegistryByCpfDigits(currentMotorista?.cpf || "").catch(() => null);
+    const dataNascimento = dataNascimentoRaw ? new Date(dataNascimentoRaw) : null;
+
+    if (dataNascimento && !Number.isFinite(dataNascimento.getTime())) {
+      res.status(400).json({ message: "Informe uma data de nascimento valida." });
+      return;
+    }
+
+    const registryValues = {
+      ...body,
+      nome,
+      cpf,
+      dataNascimento: dataNascimentoRaw || null,
+      telefone,
+      email,
+      base: String(body.base || "").trim() || null,
+      sexo: String(body.sexo || "").trim() || null,
+      placa: String(body.placa || "").trim() || null,
+      cnpj: String(body.cnpj || "").trim() || null,
+      driverType: String(body.driverType || "").trim() || null,
+      signupPolicy: String(body.signupPolicy || "").trim() || null,
+      active: body.active === undefined ? statusCadastro === "ativo" : Boolean(body.active),
+      sourceCount: String(body.sourceCount || "").trim(),
+    favorecidoNome: String(body.favorecidoNome || "").trim() || null,
+    favorecidoCpf: String(body.favorecidoCpf || "").trim() || null,
+    favorecidoCnpj: String(body.favorecidoCnpj || "").trim() || null,
+      favorecidoEmail: String(body.favorecidoEmail || "").trim() || null,
+      favorecidoTelefone: String(body.favorecidoTelefone || "").trim() || null,
+      validadeGr: String(body.validadeGr || "").trim() || null
+    };
+
+    await updateDriverRegistryRow(registryRow, registryValues);
+
     const updated = await prisma.motorista.update({
       where: {
         id: motoristaId
@@ -1423,7 +1548,7 @@ router.patch("/motoristas/:id", (req, res) => {
         nome,
         cpf,
         rg,
-        dataNascimento: dataNascimentoRaw ? new Date(dataNascimentoRaw) : null,
+        dataNascimento,
         telefone,
         whatsapp,
         email,

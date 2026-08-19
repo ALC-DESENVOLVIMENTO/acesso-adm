@@ -19,6 +19,7 @@ const modules = [
   { codigo: "dashboard", nome: "Dashboard", descricao: "Visao geral do sistema" },
   { codigo: "pdfs", nome: "Envio de PDFs", descricao: "Operacao de upload e versionamento de PDFs" },
   { codigo: "users", nome: "Usuarios", descricao: "Gestao de usuarios e niveis de acesso" },
+  { codigo: "periods", nome: "Criação de Período", descricao: "Criação e gerenciamento de períodos de pagamento" },
   { codigo: "financeiro", nome: "Financeiro", descricao: "Bases e visoes financeiras" },
   { codigo: "atendimento", nome: "Atendimento", descricao: "CRM do motorista e chamados" }
 ];
@@ -30,6 +31,7 @@ const permissions = [
   { codigo: "pdfs.replace", nome: "Substituir PDFs", moduloCodigo: "pdfs" },
   { codigo: "users.view", nome: "Visualizar usuarios", moduloCodigo: "users" },
   { codigo: "users.manage", nome: "Gerenciar usuarios", moduloCodigo: "users" },
+  { codigo: "periods.view", nome: "Acessar criação de período", moduloCodigo: "periods" },
   { codigo: "financeiro.view", nome: "Visualizar financeiro", moduloCodigo: "financeiro" },
   { codigo: "financeiro.export", nome: "Exportar notas fiscais", moduloCodigo: "financeiro" },
   { codigo: "financeiro.import", nome: "Importar planilha financeira", moduloCodigo: "financeiro" },
@@ -193,6 +195,7 @@ async function main() {
     "pdfs.replace",
     "users.view",
     "users.manage",
+    "periods.view",
     "financeiro.view",
     "financeiro.export",
     "financeiro.import",
@@ -214,6 +217,7 @@ async function main() {
     "pdfs.replace",
     "users.view",
     "users.manage",
+    "periods.view",
     "financeiro.view",
     "financeiro.export",
     "financeiro.import",
@@ -253,9 +257,8 @@ async function main() {
       where: { email: user.email },
       update: {
         nome: user.nome,
-        nivelId: levelMap[user.nivel],
-        ativo: true,
-        bloqueado: false
+        // Existing users are managed from the portal. Do not overwrite their
+        // level, active state, blocked state, or permissions during deploy.
       },
       create: {
         nome: user.nome,
