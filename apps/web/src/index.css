@@ -5254,3 +5254,17 @@ body.theme-dark :where(.filter-select svg, .field:has(select) svg) {
 .faturamento-history-list { display: grid; gap: 8px; }.faturamento-history-list button { display: flex; justify-content: space-between; gap: 12px; text-align: left; padding: 12px 14px; border: 1px solid var(--border, #e6e8ef); border-radius: 10px; background: transparent; color: var(--text, #172033); cursor: pointer; }.faturamento-history-list button.is-selected { border-color: #eb0000; background: rgba(235,0,0,.06); }.faturamento-history-list span { color: var(--muted, #64748b); font-size: 12px; }.faturamento-search { display: flex; align-items: center; gap: 8px; color: #eb0000; }.faturamento-search input { min-width: 260px; }
 @media (max-width: 900px) { .faturamento-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }.faturamento-grid { grid-template-columns: 1fr; } }
 @media (max-width: 560px) { .faturamento-kpis { grid-template-columns: 1fr; }.faturamento-history-list button, .panel-heading { align-items: flex-start; flex-direction: column; }.faturamento-search, .faturamento-search input { width: 100%; }.faturamento-toolbar > * { width: 100%; } }
+/* Faturamento refinements */
+.faturamento-references { min-width: 190px; color: var(--muted, #64748b); font-size: 12px; }
+.faturamento-references summary { min-height: 42px; display: flex; align-items: center; padding: 0 12px; border: 1px solid var(--border, #e6e8ef); border-radius: 10px; cursor: pointer; font-weight: 700; }
+.faturamento-references > div { display: grid; gap: 8px; margin-top: 8px; padding: 10px; border: 1px solid var(--border, #e6e8ef); border-radius: 10px; background: var(--surface, #fff); }
+.faturamento-references label { display: grid; gap: 4px; text-transform: none; letter-spacing: normal; }
+.faturamento-references input { max-width: 190px; font-size: 11px; }
+.faturamento-history--top { margin-bottom: 2px; }
+.faturamento-history-hint, .panel-subtitle, .faturamento-bar small { color: var(--muted, #64748b); font-size: 12px; }
+.faturamento-discount { color: #b45309 !important; }
+.faturamento-insight { display: grid; gap: 4px; margin-top: 22px; padding: 14px; border-radius: 12px; background: rgba(235,0,0,.05); color: var(--muted, #64748b); font-size: 12px; }
+.faturamento-insight strong { color: var(--text, #172033); }
+.faturamento-data .table-scroll { max-height: 620px; overflow: auto; }
+.faturamento-data table { min-width: 1050px; }
+.faturamento-data th { position: sticky; top: 0; z-index: 1; background: var(--panel, #fff); }

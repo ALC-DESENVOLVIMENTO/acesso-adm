@@ -950,7 +950,7 @@ export type FaturamentoSummary = {
     totalRoutes: number;
     totalGeneral: number;
     byCategory: Record<string, number>;
-    byBase: Array<{ sigla: string; nomeBase: string; linhas: number; total: number }>;
+    byBase: Array<{ sigla: string; nomeBase: string; linhas: number; veiculos: number; total: number; descontos: number }>;
   };
   types: Array<{ value: string; label: string }>;
 };

@@ -5,7 +5,7 @@ import * as XLSX from "xlsx";
 import { Prisma } from "@prisma/client";
 import { requireAuth, requireModuleAccess, requirePermission } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
-import { parseFaturamentoReferences, parsePreFatura, type FaturamentoTipo } from "./faturamento-parser.js";
+import { parseFaturamentoReferences, parsePreFatura, type FaturamentoReferences, type FaturamentoTipo } from "./faturamento-parser.js";
 
 const router = Router();
 const DB_SCHEMA = process.env.DB_SCHEMA || "portal_administrativo";
@@ -21,6 +21,7 @@ const typeLabels: Record<FaturamentoTipo, string> = { lastmile: "LastMile", line
 function number(value: unknown) { return Number(value || 0); }
 function cleanType(value: unknown): FaturamentoTipo | null { return typeSchema[String(value || "").toLowerCase()] || null; }
 function safeFilename(value: string) { return value.replace(/[^a-z0-9_-]+/gi, "_").slice(0, 80); }
+function referenceKey(value: unknown) { return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/gi, "").toLowerCase(); }
 
 router.use(requireAuth, requireModuleAccess("faturamento"));
 
@@ -39,7 +40,7 @@ router.get("/summary", async (req, res) => {
   let dashboard: any = { totalRows: 0, totalRoutes: 0, totalGeneral: 0, byCategory: {}, byBase: [] };
   if (selected) {
     const items = await prisma.$queryRawUnsafe<Array<any>>(`
-      SELECT categoria, sigla_base, nome_base, COUNT(*)::int AS linhas, COALESCE(SUM(total),0)::float AS total
+      SELECT categoria, sigla_base, nome_base, COUNT(*)::int AS linhas, COUNT(DISTINCT NULLIF(veiculo_modal, ''))::int AS veiculos, COALESCE(SUM(total),0)::float AS total
       FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}' GROUP BY categoria, sigla_base, nome_base
     `);
     dashboard.totalRows = number(selected.total_linhas); dashboard.totalRoutes = number(selected.total_rotas); dashboard.totalGeneral = number(selected.total_geral);
@@ -47,8 +48,8 @@ router.get("/summary", async (req, res) => {
     for (const item of items) {
       dashboard.byCategory[item.categoria] = (dashboard.byCategory[item.categoria] || 0) + number(item.total);
       const base = item.sigla_base || "Sem base";
-      bases[base] ||= { sigla: base, nomeBase: item.nome_base || base, linhas: 0, total: 0 };
-      bases[base].linhas += number(item.linhas); bases[base].total += number(item.total);
+      bases[base] ||= { sigla: base, nomeBase: item.nome_base || base, linhas: 0, veiculos: 0, total: 0, descontos: 0 };
+      bases[base].linhas += number(item.linhas); bases[base].veiculos += number(item.veiculos); bases[base].total += number(item.total); if (item.categoria !== "principal") bases[base].descontos += number(item.total);
     }
     dashboard.byBase = Object.values(bases).sort((a: any, b: any) => b.total - a.total);
   }
@@ -75,7 +76,24 @@ router.post("/pre-faturas/importar", requirePermission("faturamento.import"), up
   const tipo = cleanType(req.body.type);
   if (!tipo) { res.status(400).json({ message: "Selecione o tipo da pré-fatura: LastMile, LineHaul ou MeliOne." }); return; }
   try {
-    const references = parseFaturamentoReferences(files?.baseReference?.[0]?.buffer, files?.vehicleReference?.[0]?.buffer);
+    const savedReferences = await prisma.$queryRawUnsafe<Array<{ tipo: string; dados: FaturamentoReferences }>>(`SELECT tipo, dados FROM "${DB_SCHEMA}"."faturamento_referencias" WHERE tipo IN ('bases', 'frotas')`);
+    const references: FaturamentoReferences = { bases: {}, fleets: {} };
+    for (const reference of savedReferences) { if (reference.tipo === "bases") references.bases = reference.dados?.bases || {}; if (reference.tipo === "frotas") references.fleets = reference.dados?.fleets || {}; }
+    const uploadedReferences = parseFaturamentoReferences(files?.baseReference?.[0]?.buffer, files?.vehicleReference?.[0]?.buffer);
+    Object.assign(references.bases, uploadedReferences.bases); Object.assign(references.fleets, uploadedReferences.fleets);
+    for (const [tipo, dados] of [["bases", { bases: references.bases }], ["frotas", { fleets: references.fleets }]] as const) {
+      if (Object.keys(tipo === "bases" ? uploadedReferences.bases : uploadedReferences.fleets).length) {
+        await prisma.$executeRaw(Prisma.sql`INSERT INTO ${Prisma.raw(`"${DB_SCHEMA}"."faturamento_referencias"`)} (tipo, dados, usuario_id) VALUES (${tipo}, ${JSON.stringify(dados)}::jsonb, ${req.auth!.userId}::uuid) ON CONFLICT (tipo) DO UPDATE SET dados = EXCLUDED.dados, usuario_id = EXCLUDED.usuario_id, atualizado_em = now()`);
+      }
+    }
+    if (Object.keys(uploadedReferences.bases).length || Object.keys(uploadedReferences.fleets).length) {
+      const existingItems = await prisma.$queryRawUnsafe<Array<{ id: string; sigla_base: string | null; veiculo_modal: string | null }>>(`SELECT id, sigla_base, veiculo_modal FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens"`);
+      for (const item of existingItems) {
+        const nomeBase = references.bases[referenceKey(item.sigla_base)] || null;
+        const tipoFrota = references.fleets[referenceKey(item.veiculo_modal)] || null;
+        if (nomeBase || tipoFrota) await prisma.$executeRaw(Prisma.sql`UPDATE ${Prisma.raw(`"${DB_SCHEMA}"."faturamento_pre_fatura_itens"`)} SET nome_base = COALESCE(${nomeBase}, nome_base), tipo_frota = COALESCE(${tipoFrota}, tipo_frota) WHERE id = ${item.id}::uuid`);
+      }
+    }
     const parsed = parsePreFatura(preFile.buffer, preFile.originalname, references);
     const hash = crypto.createHash("sha256").update(preFile.buffer).digest("hex");
     const existing = await prisma.$queryRawUnsafe<Array<any>>(`SELECT id FROM "${DB_SCHEMA}"."faturamento_pre_faturas" WHERE operacao = 'mercado_livre' AND tipo = '${tipo}' AND resumo->>'hash' = '${hash}' LIMIT 1`);

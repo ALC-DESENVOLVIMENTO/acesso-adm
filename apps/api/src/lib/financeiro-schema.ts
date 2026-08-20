@@ -250,7 +250,18 @@ CREATE TABLE IF NOT EXISTS "${DB_SCHEMA}"."faturamento_pre_fatura_itens" (
   CONSTRAINT faturamento_pre_fatura_itens_pre_fatura_fk FOREIGN KEY (pre_fatura_id) REFERENCES "${DB_SCHEMA}"."faturamento_pre_faturas"(id) ON DELETE CASCADE
 );
 `);
+  await ensureTable(`
+CREATE TABLE IF NOT EXISTS "${DB_SCHEMA}"."faturamento_referencias" (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tipo VARCHAR(30) NOT NULL UNIQUE,
+  dados JSONB NOT NULL DEFAULT '{}'::jsonb,
+  usuario_id UUID NOT NULL,
+  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT faturamento_referencias_usuario_fk FOREIGN KEY (usuario_id) REFERENCES "${DB_SCHEMA}"."usuarios"(id) ON DELETE RESTRICT
+);
+`);
   await ensureIndex(`CREATE INDEX IF NOT EXISTS "faturamento_pre_faturas_tipo_criado_idx" ON "${DB_SCHEMA}"."faturamento_pre_faturas" ("operacao", "tipo", "criado_em" DESC);`);
   await ensureIndex(`CREATE INDEX IF NOT EXISTS "faturamento_pre_fatura_itens_pre_fatura_idx" ON "${DB_SCHEMA}"."faturamento_pre_fatura_itens" ("pre_fatura_id");`);
   await ensureIndex(`CREATE INDEX IF NOT EXISTS "faturamento_pre_fatura_itens_base_idx" ON "${DB_SCHEMA}"."faturamento_pre_fatura_itens" ("pre_fatura_id", "sigla_base");`);
+  await ensureIndex(`CREATE INDEX IF NOT EXISTS "faturamento_referencias_tipo_idx" ON "${DB_SCHEMA}"."faturamento_referencias" ("tipo");`);
 }

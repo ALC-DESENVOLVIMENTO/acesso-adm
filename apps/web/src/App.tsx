@@ -163,7 +163,7 @@ const userModuleOptions = [
   { code: "users", label: "Cadastro de Usuários" },
   { code: "periods", label: "Criação de Período" },
   { code: "financeiro", label: "Financeiro" },
-  { code: "faturamento", label: "Faturamento" },
+  { code: "faturamento", label: "Faturamento > Mercado Livre" },
   { code: "atendimento", label: "CRM do Motorista" }
 ] as const;
 
@@ -409,6 +409,7 @@ function App() {
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [adminMenuOpen, setAdminMenuOpen] = useState(true);
+  const [faturamentoMenuOpen, setFaturamentoMenuOpen] = useState(true);
   const [cadastrosMenuOpen, setCadastrosMenuOpen] = useState(true);
   const [quickActions, setQuickActions] = useState<RouteView[]>([]);
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary>(initialSummary);
@@ -466,7 +467,11 @@ function App() {
   }, [currentUser]);
 
   const administrativeItems = useMemo(
-    () => allowedMenu.filter((item) => item.key !== "users"),
+    () => allowedMenu.filter((item) => item.key !== "users" && item.key !== "faturamento"),
+    [allowedMenu]
+  );
+  const faturamentoItems = useMemo(
+    () => allowedMenu.filter((item) => item.key === "faturamento"),
     [allowedMenu]
   );
   const cadastroItems = useMemo(
@@ -2085,6 +2090,17 @@ function App() {
                 </div>
               ) : null}
             </div>
+
+            {faturamentoItems.length > 0 ? (
+              <div className="sidebar__group sidebar__group--faturamento">
+                <button className="sidebar__group-toggle" type="button" aria-expanded={faturamentoMenuOpen} onClick={() => setFaturamentoMenuOpen((current) => !current)}>
+                  <ChartLineUp size={22} />
+                  <span>Faturamento</span>
+                  <CaretDown className={faturamentoMenuOpen ? "sidebar__group-caret--open" : ""} size={16} />
+                </button>
+                {faturamentoMenuOpen ? <div className="sidebar__group-items">{faturamentoItems.map((item) => { const Icon = item.icon; const isActive = activeView === item.key; return <button key={item.key} className={`sidebar__item ${isActive ? "sidebar__item--active" : ""}`} aria-current={isActive ? "page" : undefined} onClick={() => navigateToRoute(item.key)} type="button"><Icon size={22} /><span>Mercado Livre</span></button>; })}</div> : null}
+              </div>
+            ) : null}
 
             {cadastroItems.length > 0 ? (
               <div className="sidebar__group">
