@@ -153,11 +153,13 @@ export type PeriodBase = {
 export type PaymentBase = PeriodBase & {
   active: boolean;
   acronym?: string | null;
+  acronyms?: string[];
 };
 
 export type PaymentBasePayload = {
   name: string;
   acronym?: string | null;
+  acronyms?: string[];
   paymentType: PaymentFrequency;
   active: boolean;
 };

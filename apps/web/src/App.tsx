@@ -26,6 +26,7 @@ import {
   List,
   SignOut,
   TrashSimple,
+  X,
   UserCirclePlus,
   UsersThree
 } from "@phosphor-icons/react";
@@ -438,7 +439,7 @@ function App() {
   const [editingBase, setEditingBase] = useState<PaymentBase | null>(null);
   const [baseFormValues, setBaseFormValues] = useState({
     name: "",
-    acronym: "",
+    acronyms: [] as string[],
     paymentType: "semanal" as "semanal" | "quinzenal" | "mensal",
     active: true
   });
@@ -1773,13 +1774,13 @@ function App() {
       base
           ? {
             name: base.name,
-            acronym: base.acronym || "",
+            acronyms: base.acronyms || (base.acronym ? [base.acronym] : []),
             paymentType: base.paymentType,
             active: base.active
           }
         : {
             name: "",
-            acronym: "",
+            acronyms: [],
             paymentType: "semanal",
             active: true
           }
@@ -1797,7 +1798,7 @@ function App() {
     try {
       const payload = {
         name: baseFormValues.name.trim(),
-        acronym: baseFormValues.acronym.trim() || null,
+        acronyms: baseFormValues.acronyms,
         paymentType: baseFormValues.paymentType,
         active: baseFormValues.active
       };
@@ -1835,6 +1836,7 @@ function App() {
     try {
       const response = await updatePaymentBase(token, base.id, {
         name: base.name,
+        acronyms: base.acronyms || (base.acronym ? [base.acronym] : []),
         paymentType: base.paymentType,
         active: !base.active
       });
@@ -2585,15 +2587,44 @@ function App() {
                   />
                 </label>
 
-                <label className="field">
-                  <span>Sigla oficial</span>
-                  <input
-                    name="baseAcronym"
-                    placeholder="Ex.: SSP10"
-                    value={baseFormValues.acronym}
-                    onChange={(event) => setBaseFormValues((current) => ({ ...current, acronym: event.target.value.toUpperCase() }))}
-                  />
-                </label>
+                <div className="field base-acronym-field">
+                  <span>Siglas oficiais</span>
+                  <div className="base-sigla-picker">
+                    <div className="base-sigla-chips" aria-live="polite">
+                      {baseFormValues.acronyms.map((acronym) => (
+                        <span className="base-sigla-chip" key={acronym}>
+                          {acronym}
+                          <button
+                            type="button"
+                            aria-label={`Remover sigla ${acronym}`}
+                            onClick={() => setBaseFormValues((current) => ({
+                              ...current,
+                              acronyms: current.acronyms.filter((item) => item !== acronym)
+                            }))}
+                          >
+                            <X size={13} weight="bold" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <input
+                      name="baseAcronym"
+                      placeholder="Digite uma sigla e pressione Enter"
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter" && event.key !== "," && event.key !== ";") return;
+                        event.preventDefault();
+                        const value = event.currentTarget.value.trim().toUpperCase();
+                        if (!value) return;
+                        setBaseFormValues((current) => ({
+                          ...current,
+                          acronyms: Array.from(new Set([...current.acronyms, value])).slice(0, 12)
+                        }));
+                        event.currentTarget.value = "";
+                      }}
+                    />
+                  </div>
+                  <small className="field-hint">Adicione todas as siglas usadas nos arquivos, uma por vez.</small>
+                </div>
 
                 <label className="field">
                   <span>Tipo de pagamento</span>

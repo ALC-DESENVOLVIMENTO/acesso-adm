@@ -179,7 +179,7 @@ model Usuario {
 model BasePagamento {
   id             String                    @id @default(uuid()) @db.Uuid
   nome           String                    @unique @db.VarChar(150)
-  sigla          String?                   @db.VarChar(40)
+  sigla          String?                   @db.VarChar(255)
   tipoPadrao     PaymentFrequencyCode       @map("tipo_padrao")
   ativo          Boolean                   @default(true)
   uploads        UploadPdf[]

@@ -73,10 +73,26 @@ const REQUIRED_UPLOAD_TABLE_COLUMNS: CompatibilityColumn[] = [
   {
     table: "bases_pagamento",
     column: "sigla",
-    typeSql: "VARCHAR(40)",
+    typeSql: "VARCHAR(255)",
     comment: "Adicionar sigla oficial às bases de pagamento"
   }
 ];
+
+async function ensureBaseAcronymCapacity() {
+  const result = await prisma.$queryRawUnsafe<{ character_maximum_length: number | null }[]>(
+    `SELECT character_maximum_length
+       FROM information_schema.columns
+      WHERE table_schema = '${DB_SCHEMA}'
+        AND table_name = 'bases_pagamento'
+        AND column_name = 'sigla'`
+  );
+
+  const length = result.at(0)?.character_maximum_length;
+  if (length !== null && length !== undefined && length < 255) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "${DB_SCHEMA}"."bases_pagamento" ALTER COLUMN "sigla" TYPE VARCHAR(255);`);
+    console.log("Compatibilidade: ampliado o campo de siglas das bases.");
+  }
+}
 
 async function hasColumn(table: string, column: string) {
   const result = await prisma.$queryRawUnsafe<{ exists: boolean }[]>(
@@ -93,6 +109,7 @@ async function hasColumn(table: string, column: string) {
 }
 
 export async function ensureDatabaseCompatibilityColumns() {
+  await ensureBaseAcronymCapacity();
   for (const item of REQUIRED_UPLOAD_TABLE_COLUMNS) {
     const exists = await hasColumn(item.table, item.column);
 

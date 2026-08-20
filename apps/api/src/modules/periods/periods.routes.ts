@@ -62,10 +62,24 @@ const periodLifecycleSchema = z.object({
 
 const basePayloadSchema = z.object({
   name: z.string().min(3),
-  sigla: z.string().trim().max(40).optional().nullable(),
+  sigla: z.string().trim().max(255).optional().nullable(),
+  acronyms: z.array(z.string().trim().min(1).max(40)).max(12).optional(),
   paymentType: z.enum(["semanal", "quinzenal", "mensal"]),
   active: z.boolean().optional().default(true)
 });
+
+function normalizeBaseAcronyms(values: Array<string | null | undefined>) {
+  return Array.from(new Set(
+    values
+      .flatMap((value) => String(value || "").split(/[;,\n]+/))
+      .map((value) => value.trim().toUpperCase())
+      .filter(Boolean)
+  )).slice(0, 12);
+}
+
+function baseAcronyms(value: string | null | undefined) {
+  return normalizeBaseAcronyms([value]);
+}
 
 const duplicateReviewActionSchema = z.object({
   action: z.enum(["aprovar", "reprovar", "redirecionar"]),
@@ -265,10 +279,12 @@ function toDateOnlyString(value: Date) {
 }
 
 function serializeBase(base: { id: string; nome: string; sigla?: string | null; tipoPadrao: string; ativo: boolean }) {
+  const acronyms = baseAcronyms(base.sigla);
   return {
     id: base.id,
     name: base.nome,
-    acronym: base.sigla || null,
+    acronym: acronyms[0] || null,
+    acronyms,
     paymentType: base.tipoPadrao,
     active: base.ativo
   };
@@ -426,7 +442,7 @@ router.post("/bases", requireAdmin, (req, res) => {
     const created = await prisma.basePagamento.create({
       data: {
         nome: parsed.data.name,
-        sigla: parsed.data.sigla || null,
+        sigla: normalizeBaseAcronyms(parsed.data.acronyms || [parsed.data.sigla]).join(", ") || null,
         tipoPadrao: parsed.data.paymentType,
         ativo: parsed.data.active
       }
@@ -492,7 +508,7 @@ router.patch("/bases/:id", requireAdmin, (req, res) => {
       },
       data: {
         nome: parsed.data.name,
-        sigla: parsed.data.sigla || null,
+        sigla: normalizeBaseAcronyms(parsed.data.acronyms || [parsed.data.sigla]).join(", ") || null,
         tipoPadrao: parsed.data.paymentType,
         ativo: parsed.data.active
       }
