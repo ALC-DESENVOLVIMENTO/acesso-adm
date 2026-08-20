@@ -22,6 +22,7 @@ function number(value: unknown) { return Number(value || 0); }
 function cleanType(value: unknown): FaturamentoTipo | null { return typeSchema[String(value || "").toLowerCase()] || null; }
 function safeFilename(value: string) { return value.replace(/[^a-z0-9_-]+/gi, "_").slice(0, 80); }
 function referenceKey(value: unknown) { return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/gi, "").toLowerCase(); }
+function splitBaseAcronyms(value: unknown) { return String(value || "").split(/[\/;,\n]+/).map((item) => item.trim()).filter(Boolean); }
 function fortnightLabel(fileName: string) {
   const normalized = fileName.toUpperCase();
   const months: Record<string, string> = { JANEIRO: "janeiro", FEVEREIRO: "fevereiro", MARCO: "março", ABRIL: "abril", MAIO: "maio", JUNHO: "junho", JULHO: "julho", AGOSTO: "agosto", SETEMBRO: "setembro", OUTUBRO: "outubro", NOVEMBRO: "novembro", DEZEMBRO: "dezembro" };
@@ -47,6 +48,12 @@ router.get("/summary", async (req, res) => {
   const selected = latestByType[requestedType] || latestByType.lastmile || rows[0] || null;
   let dashboard: any = { totalRows: 0, totalVehicles: 0, totalRoutes: 0, totalGeneral: 0, totalAmbulances: 0, totalPnrs: 0, weekendRoutes: 0, byCategory: {}, byBase: [], byModal: [], ambulancesByBase: [], missingBaseRows: 0, siglaOnlyRows: 0 };
   if (selected) {
+    const officialBases = await prisma.basePagamento.findMany({ select: { nome: true, sigla: true } });
+    const officialBaseByKey = new Map<string, { nome: string; siglas: string[] }>();
+    for (const base of officialBases) {
+      const normalized = { nome: base.nome, siglas: splitBaseAcronyms(base.sigla) };
+      [base.nome, ...normalized.siglas].forEach((value) => officialBaseByKey.set(referenceKey(value), normalized));
+    }
     const items = await prisma.$queryRawUnsafe<Array<any>>(`
       SELECT categoria, sigla_base, nome_base, COUNT(*)::int AS linhas, COUNT(DISTINCT NULLIF(id_rota, ''))::int AS rotas, COUNT(DISTINCT COALESCE(NULLIF(veiculo_modal, ''), NULLIF(tipo_frota, '')))::int AS veiculos, COALESCE(SUM(total),0)::float AS total
       FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}' GROUP BY categoria, sigla_base, nome_base
@@ -69,7 +76,7 @@ router.get("/summary", async (req, res) => {
     dashboard.totalVehicles = number((await prisma.$queryRawUnsafe<Array<{ count: number }>>(`SELECT COUNT(DISTINCT COALESCE(NULLIF(placa, ''), NULLIF(CONCAT_WS('|', motorista, COALESCE(NULLIF(veiculo_modal, ''), NULLIF(tipo_frota, ''))), '')))::int AS count FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}' AND categoria = 'principal'`))[0]?.count);
     const extraTotals = await prisma.$queryRawUnsafe<Array<{ ambulances: number; pnrs: number; weekend: number }>>(`
       SELECT
-        COUNT(DISTINCT COALESCE(NULLIF(placa, ''), NULLIF(CONCAT_WS('|', motorista, COALESCE(NULLIF(veiculo_modal, ''), NULLIF(tipo_frota, ''))), ''))) FILTER (WHERE categoria = 'principal' AND (tipo_frota ILIKE '%ambul%' OR veiculo_modal ILIKE '%ambul%' OR km_range ILIKE '%ambul%'))::int AS ambulances,
+        COUNT(*) FILTER (WHERE categoria = 'principal' AND (tipo_frota ILIKE '%ambul%' OR veiculo_modal ILIKE '%ambul%' OR km_range ILIKE '%ambul%'))::int AS ambulances,
         COUNT(DISTINCT NULLIF(id_rota, '')) FILTER (WHERE categoria IN ('pnrs', 'pnrs_bugadas'))::int AS pnrs,
         COUNT(DISTINCT NULLIF(id_rota, '')) FILTER (WHERE categoria = 'principal' AND (km_range ILIKE '%SATURDAY DAY ROUTE%' OR km_range ILIKE '%HOLIDAY DAY ROUTE%' OR km_ranger ILIKE '%SATURDAY DAY ROUTE%' OR km_ranger ILIKE '%HOLIDAY DAY ROUTE%'))::int AS weekend
       FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}'
@@ -79,12 +86,22 @@ router.get("/summary", async (req, res) => {
     dashboard.weekendRoutes = number(extraTotals[0]?.weekend);
     dashboard.byModal = await prisma.$queryRawUnsafe<Array<any>>(`
       SELECT COALESCE(NULLIF(veiculo_modal, ''), NULLIF(tipo_frota, ''), 'Não informado') AS modal, COUNT(DISTINCT COALESCE(NULLIF(placa, ''), NULLIF(CONCAT_WS('|', motorista, COALESCE(NULLIF(veiculo_modal, ''), NULLIF(tipo_frota, ''))), '')))::int AS veiculos, COUNT(DISTINCT NULLIF(id_rota, ''))::int AS rotas, COALESCE(SUM(total),0)::float AS total
-      FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}' AND categoria = 'principal' GROUP BY COALESCE(NULLIF(veiculo_modal, ''), NULLIF(tipo_frota, ''), 'Não informado') ORDER BY total DESC LIMIT 30
+      FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}' AND categoria = 'principal' GROUP BY COALESCE(NULLIF(veiculo_modal, ''), NULLIF(tipo_frota, ''), 'Não informado') ORDER BY total DESC
     `);
     dashboard.ambulancesByBase = await prisma.$queryRawUnsafe<Array<any>>(`
-      SELECT COALESCE(NULLIF(nome_base, ''), NULLIF(sigla_base, ''), 'Base não identificada') AS base, COUNT(DISTINCT COALESCE(NULLIF(placa, ''), NULLIF(CONCAT_WS('|', motorista, COALESCE(NULLIF(veiculo_modal, ''), NULLIF(tipo_frota, ''))), '')))::int AS solicitacoes, COUNT(DISTINCT NULLIF(id_rota, ''))::int AS rotas, COALESCE(SUM(total),0)::float AS total
+      SELECT COALESCE(NULLIF(nome_base, ''), NULLIF(sigla_base, ''), 'Base não identificada') AS base, COUNT(*)::int AS solicitacoes, COUNT(DISTINCT NULLIF(id_rota, ''))::int AS rotas, COALESCE(SUM(total),0)::float AS total
       FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}' AND categoria = 'principal' AND (tipo_frota ILIKE '%ambul%' OR veiculo_modal ILIKE '%ambul%' OR km_range ILIKE '%ambul%') GROUP BY nome_base, sigla_base ORDER BY solicitacoes DESC
     `);
+    dashboard.byBase = dashboard.byBase.map((base: any) => {
+      const official = officialBaseByKey.get(referenceKey(base.sigla)) || officialBaseByKey.get(referenceKey(base.nomeBase));
+      if (!official) return base;
+      const matchedSigla = official.siglas.find((sigla) => referenceKey(sigla) === referenceKey(base.sigla)) || official.siglas[0] || base.sigla;
+      return { ...base, nomeBase: official.nome, sigla: matchedSigla };
+    });
+    dashboard.ambulancesByBase = dashboard.ambulancesByBase.map((base: any) => {
+      const official = officialBaseByKey.get(referenceKey(base.base));
+      return official ? { ...base, base: official.nome } : base;
+    });
     const quality = await prisma.$queryRawUnsafe<Array<{ missing: number; siglaOnly: number }>>(`
       SELECT COUNT(DISTINCT NULLIF(id_rota, '')) FILTER (WHERE NULLIF(TRIM(sigla_base), '') IS NULL)::int AS missing, COUNT(DISTINCT NULLIF(id_rota, '')) FILTER (WHERE NULLIF(TRIM(sigla_base), '') IS NOT NULL AND TRIM(COALESCE(nome_base,'')) = TRIM(sigla_base))::int AS "siglaOnly"
       FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}'
