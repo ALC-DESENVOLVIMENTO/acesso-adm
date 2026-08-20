@@ -939,6 +939,45 @@ export function fetchFinanceiroNotaFiscalContent(token: string, receivedId: stri
   return requestBlob(`/financeiro/driver-pdfs/${receivedId}/content`, token);
 }
 
+export type FaturamentoSummary = {
+  operation: string;
+  selectedType: string;
+  selected: any | null;
+  latestByType: Record<string, any>;
+  preFaturas: any[];
+  dashboard: {
+    totalRows: number;
+    totalRoutes: number;
+    totalGeneral: number;
+    byCategory: Record<string, number>;
+    byBase: Array<{ sigla: string; nomeBase: string; linhas: number; total: number }>;
+  };
+  types: Array<{ value: string; label: string }>;
+};
+
+export function fetchFaturamentoSummary(token: string, type = "lastmile") {
+  return request<FaturamentoSummary>(`/faturamento/summary?type=${encodeURIComponent(type)}`, { headers: { Authorization: `Bearer ${token}` } });
+}
+
+export function importFaturamentoPreFatura(token: string, file: File, type: string, references?: { base?: File; vehicle?: File }) {
+  const body = new FormData();
+  body.append("file", file);
+  body.append("type", type);
+  if (references?.base) body.append("baseReference", references.base);
+  if (references?.vehicle) body.append("vehicleReference", references.vehicle);
+  return requestMultipart<{ message: string; id: string; numero: string; totalLinhas: number; totalGeral: number }>({ path: "/faturamento/pre-faturas/importar", token, body });
+}
+
+export function fetchFaturamentoPreFatura(token: string, id: string, search = "") {
+  return request<{ preFatura: any; items: any[]; total: number; page: number; pageSize: number }>(`/faturamento/pre-faturas/${id}?search=${encodeURIComponent(search)}`, { headers: { Authorization: `Bearer ${token}` } });
+}
+
+export async function downloadFaturamento(token: string, id: string) {
+  const result = await requestBlob(`/faturamento/pre-faturas/${id}/exportar`, token);
+  const url = URL.createObjectURL(result.blob);
+  const anchor = document.createElement("a"); anchor.href = url; anchor.download = result.filename || "faturamento.xlsx"; anchor.click(); URL.revokeObjectURL(url);
+}
+
 export function approveFinanceiroNotaFiscal(token: string, receivedId: string) {
   return request<{ message: string; receivedId: string; status: string }>(
     `/financeiro/driver-pdfs/${receivedId}/approve`,

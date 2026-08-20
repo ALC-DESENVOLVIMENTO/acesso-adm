@@ -90,11 +90,14 @@ import { ApiError } from "./lib/api";
 const FinanceiroScreen = lazy(() =>
   import("./FinanceiroScreen").then((module) => ({ default: module.FinanceiroScreen }))
 );
+const FaturamentoScreen = lazy(() =>
+  import("./FaturamentoScreen").then((module) => ({ default: module.FaturamentoScreen }))
+);
 
 type AccessLevel = "N1" | "N2" | "N3" | "N4";
 type AuthView = "login" | "first-access";
 type ViewState = AuthView | RouteView;
-type RouteView = "dashboard" | "pdfs" | "users" | "periods" | "financeiro" | "atendimento";
+type RouteView = "dashboard" | "pdfs" | "users" | "periods" | "financeiro" | "faturamento" | "atendimento";
 type QuickActionRoute = Exclude<RouteView, "dashboard">;
 
 type SessionUser = LoginResponse["user"];
@@ -130,6 +133,7 @@ const routePaths: Record<RouteView, string> = {
   users: "/usuarios",
   periods: "/periodos",
   financeiro: "/financeiro",
+  faturamento: "/faturamento",
   atendimento: "/atendimento"
 };
 
@@ -139,6 +143,7 @@ const menuItems = [
   { key: "users", label: "Cadastro de Usuários", icon: UserCirclePlus },
   { key: "periods", label: "Criação de Período", icon: CalendarBlank },
   { key: "financeiro", label: "Financeiro", icon: FilePdf },
+  { key: "faturamento", label: "Faturamento", icon: ChartLineUp },
   { key: "atendimento", label: "CRM do Motorista", icon: ChatCenteredDots }
 ] as const;
 
@@ -148,6 +153,7 @@ const moduleLabels: Record<string, string> = {
   users: "Cadastro de Usuários",
   periods: "Criação de Período",
   financeiro: "Financeiro",
+  faturamento: "Faturamento",
   atendimento: "CRM do Motorista"
 };
 
@@ -157,6 +163,7 @@ const userModuleOptions = [
   { code: "users", label: "Cadastro de Usuários" },
   { code: "periods", label: "Criação de Período" },
   { code: "financeiro", label: "Financeiro" },
+  { code: "faturamento", label: "Faturamento" },
   { code: "atendimento", label: "CRM do Motorista" }
 ] as const;
 
@@ -172,6 +179,7 @@ const quickActionLabels: Record<RouteView, { title: string; description: string;
   users: { title: "Cadastrar Usuário", description: "Adicione novos usuários e níveis de acesso.", icon: UserCirclePlus },
   periods: { title: "Criação de Período", description: "Gerencie períodos e bases.", icon: CalendarBlank },
   financeiro: { title: "Financeiro", description: "Acompanhe notas fiscais, espelho e importação financeira.", icon: FilePdf },
+  faturamento: { title: "Faturamento", description: "Importe e acompanhe pré-faturas por operação.", icon: ChartLineUp },
   atendimento: { title: "CRM do Motorista", description: "Abra o CRM do motorista.", icon: ChatCenteredDots }
 };
 
@@ -319,6 +327,10 @@ function getRouteViewFromPath(pathname: string): RouteView {
     return "financeiro";
   }
 
+  if (normalized === "/faturamento") {
+    return "faturamento";
+  }
+
   if (normalized === "/atendimento") {
     return "atendimento";
   }
@@ -337,6 +349,7 @@ function getRouteLabel(view: RouteView) {
     users: "Cadastro de Usuários",
     periods: "Criação de Período",
     financeiro: "Financeiro",
+    faturamento: "Faturamento",
     atendimento: "CRM do Motorista"
   };
 
@@ -2445,6 +2458,11 @@ function App() {
               onRefreshPeriods={loadPeriodData}
               onOpenMotorista={openMotoristaInAtendimento}
             />
+          </Suspense>
+        ) : null}
+        {!accessDenied && activeView === "faturamento" ? (
+          <Suspense fallback={<section className="panel"><p className="loading-note">Carregando faturamento...</p></section>}>
+            <FaturamentoScreen token={token} currentUser={currentUser} />
           </Suspense>
         ) : null}
         {!accessDenied && activeView === "pdfs" ? (

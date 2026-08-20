@@ -5235,3 +5235,22 @@ body.theme-dark :where(.filter-select svg, .field:has(select) svg) {
 }
 
 
+/* Faturamento: visualização operacional das pré-faturas por operação. */
+.faturamento-screen { gap: 18px; }
+.faturamento-toolbar { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; padding: 18px; background: var(--panel, #fff); border: 1px solid var(--border, #e6e8ef); border-radius: 18px; }
+.faturamento-toolbar label { display: grid; gap: 6px; color: var(--muted, #64748b); font-size: 12px; font-weight: 700; }
+.faturamento-toolbar select, .faturamento-search input { min-height: 42px; border: 1px solid var(--border, #e6e8ef); border-radius: 10px; padding: 0 12px; background: var(--surface, #fff); color: var(--text, #172033); }
+.faturamento-operation { display: grid; gap: 5px; min-width: 180px; margin-right: auto; }
+.faturamento-operation span, .faturamento-toolbar label { text-transform: uppercase; letter-spacing: .08em; }
+.faturamento-file { position: relative; display: flex !important; align-items: center; gap: 8px; min-height: 42px; padding: 0 14px; border: 1px dashed #eb0000; border-radius: 10px; color: var(--text, #172033) !important; text-transform: none !important; letter-spacing: normal !important; cursor: pointer; }
+.faturamento-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.faturamento-reference { min-width: 150px; }.faturamento-reference input { width: 100%; min-height: 38px; padding: 8px; border: 1px solid var(--border, #e6e8ef); border-radius: 10px; background: var(--surface, #fff); color: var(--text, #172033); font-size: 11px; }
+.faturamento-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.faturamento-kpis article { display: grid; grid-template-columns: 32px 1fr; column-gap: 10px; align-items: center; padding: 18px; background: var(--panel, #fff); border: 1px solid var(--border, #e6e8ef); border-radius: 16px; }
+.faturamento-kpis article svg { grid-row: span 2; color: #eb0000; }.faturamento-kpis strong { font-size: 20px; }.faturamento-kpis span { color: var(--muted, #64748b); font-size: 12px; }
+.faturamento-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; }.panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+.faturamento-bar { display: grid; gap: 8px; margin: 16px 0; }.faturamento-bar > div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }.faturamento-bar span { color: var(--muted, #64748b); }.faturamento-bar i { display: block; height: 9px; border-radius: 99px; background: linear-gradient(90deg, #eb0000, #ff7373); }
+.faturamento-category { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--border, #e6e8ef); }.faturamento-category:last-child { border-bottom: 0; }
+.faturamento-history-list { display: grid; gap: 8px; }.faturamento-history-list button { display: flex; justify-content: space-between; gap: 12px; text-align: left; padding: 12px 14px; border: 1px solid var(--border, #e6e8ef); border-radius: 10px; background: transparent; color: var(--text, #172033); cursor: pointer; }.faturamento-history-list button.is-selected { border-color: #eb0000; background: rgba(235,0,0,.06); }.faturamento-history-list span { color: var(--muted, #64748b); font-size: 12px; }.faturamento-search { display: flex; align-items: center; gap: 8px; color: #eb0000; }.faturamento-search input { min-width: 260px; }
+@media (max-width: 900px) { .faturamento-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }.faturamento-grid { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { .faturamento-kpis { grid-template-columns: 1fr; }.faturamento-history-list button, .panel-heading { align-items: flex-start; flex-direction: column; }.faturamento-search, .faturamento-search input { width: 100%; }.faturamento-toolbar > * { width: 100%; } }

@@ -203,4 +203,54 @@ CREATE TABLE IF NOT EXISTS "${DB_SCHEMA}"."webhook_eventos" (
   await ensureIndex(`CREATE INDEX IF NOT EXISTS "webhook_eventos_importacao_id_idx" ON "${DB_SCHEMA}"."webhook_eventos" ("importacao_id");`);
   await ensureIndex(`CREATE INDEX IF NOT EXISTS "webhook_eventos_pagamento_id_idx" ON "${DB_SCHEMA}"."webhook_eventos" ("pagamento_id");`);
   await ensureIndex(`CREATE INDEX IF NOT EXISTS "webhook_eventos_status_idx" ON "${DB_SCHEMA}"."webhook_eventos" ("status");`);
+
+  await ensureTable(`
+CREATE TABLE IF NOT EXISTS "${DB_SCHEMA}"."faturamento_pre_faturas" (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  operacao VARCHAR(50) NOT NULL,
+  tipo VARCHAR(40) NOT NULL,
+  numero VARCHAR(80) NOT NULL,
+  nome_arquivo VARCHAR(255) NOT NULL,
+  nome_aba_principal VARCHAR(180) NOT NULL,
+  usuario_id UUID NOT NULL,
+  criado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+  total_linhas INTEGER NOT NULL DEFAULT 0,
+  total_rotas INTEGER NOT NULL DEFAULT 0,
+  total_geral NUMERIC(14,2) NOT NULL DEFAULT 0,
+  status VARCHAR(30) NOT NULL DEFAULT 'concluida',
+  resumo JSONB NOT NULL DEFAULT '{}'::jsonb,
+  CONSTRAINT faturamento_pre_faturas_usuario_fk FOREIGN KEY (usuario_id) REFERENCES "${DB_SCHEMA}"."usuarios"(id) ON DELETE RESTRICT
+);
+`);
+  await ensureTable(`
+CREATE TABLE IF NOT EXISTS "${DB_SCHEMA}"."faturamento_pre_fatura_itens" (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pre_fatura_id UUID NOT NULL,
+  aba VARCHAR(120) NOT NULL,
+  linha_excel INTEGER NOT NULL,
+  categoria VARCHAR(40) NOT NULL,
+  descricao TEXT,
+  veiculo_modal VARCHAR(120),
+  svc_continuacao VARCHAR(180),
+  svc VARCHAR(120),
+  sigla_base VARCHAR(80),
+  nome_base VARCHAR(150),
+  km_range VARCHAR(120),
+  km_ranger VARCHAR(120),
+  id_rota VARCHAR(120),
+  data_inicio VARCHAR(40),
+  data_fim VARCHAR(40),
+  placa VARCHAR(30),
+  motorista VARCHAR(180),
+  quantidade NUMERIC(14,3),
+  preco_unitario NUMERIC(14,2),
+  total NUMERIC(14,2),
+  tipo_frota VARCHAR(120),
+  raw JSONB NOT NULL DEFAULT '{}'::jsonb,
+  CONSTRAINT faturamento_pre_fatura_itens_pre_fatura_fk FOREIGN KEY (pre_fatura_id) REFERENCES "${DB_SCHEMA}"."faturamento_pre_faturas"(id) ON DELETE CASCADE
+);
+`);
+  await ensureIndex(`CREATE INDEX IF NOT EXISTS "faturamento_pre_faturas_tipo_criado_idx" ON "${DB_SCHEMA}"."faturamento_pre_faturas" ("operacao", "tipo", "criado_em" DESC);`);
+  await ensureIndex(`CREATE INDEX IF NOT EXISTS "faturamento_pre_fatura_itens_pre_fatura_idx" ON "${DB_SCHEMA}"."faturamento_pre_fatura_itens" ("pre_fatura_id");`);
+  await ensureIndex(`CREATE INDEX IF NOT EXISTS "faturamento_pre_fatura_itens_base_idx" ON "${DB_SCHEMA}"."faturamento_pre_fatura_itens" ("pre_fatura_id", "sigla_base");`);
 }

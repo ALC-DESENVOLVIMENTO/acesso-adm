@@ -21,6 +21,8 @@ const modules = [
   { codigo: "users", nome: "Usuarios", descricao: "Gestao de usuarios e niveis de acesso" },
   { codigo: "periods", nome: "Criação de Período", descricao: "Criação e gerenciamento de períodos de pagamento" },
   { codigo: "financeiro", nome: "Financeiro", descricao: "Bases e visoes financeiras" },
+  { codigo: "faturamento", nome: "Faturamento", descricao: "Pré-faturas por operação" },
+  { codigo: "faturamento", nome: "Faturamento", descricao: "Pré-faturas por operação" },
   { codigo: "atendimento", nome: "Atendimento", descricao: "CRM do motorista e chamados" }
 ];
 
@@ -44,6 +46,12 @@ const permissions = [
   { codigo: "financeiro.apagar.export", nome: "Exportar A pagar", moduloCodigo: "financeiro" },
   { codigo: "financeiro.apagar.inconsistencias", nome: "Visualizar inconsistencias de A pagar", moduloCodigo: "financeiro" },
   { codigo: "financeiro.nota.approve", nome: "Aprovar nota fiscal em análise", moduloCodigo: "financeiro" },
+  { codigo: "faturamento.view", nome: "Visualizar faturamento", moduloCodigo: "faturamento" },
+  { codigo: "faturamento.import", nome: "Importar pré-fatura", moduloCodigo: "faturamento" },
+  { codigo: "faturamento.export", nome: "Exportar faturamento", moduloCodigo: "faturamento" },
+  { codigo: "faturamento.view", nome: "Visualizar faturamento", moduloCodigo: "faturamento" },
+  { codigo: "faturamento.import", nome: "Importar pré-fatura", moduloCodigo: "faturamento" },
+  { codigo: "faturamento.export", nome: "Exportar faturamento", moduloCodigo: "faturamento" },
   { codigo: "atendimento.view", nome: "Visualizar atendimento", moduloCodigo: "atendimento" },
   { codigo: "atendimento.manage", nome: "Gerenciar atendimento", moduloCodigo: "atendimento" }
 ];
@@ -209,6 +217,12 @@ async function main() {
     "financeiro.apagar.export",
     "financeiro.apagar.inconsistencias",
     "financeiro.nota.approve",
+    "faturamento.view",
+    "faturamento.import",
+    "faturamento.export",
+    "faturamento.view",
+    "faturamento.import",
+    "faturamento.export",
     "atendimento.view",
     "atendimento.manage"
   ],
@@ -232,6 +246,12 @@ async function main() {
     "financeiro.apagar.export",
     "financeiro.apagar.inconsistencias",
     "financeiro.nota.approve",
+    "faturamento.view",
+    "faturamento.import",
+    "faturamento.export",
+    "faturamento.view",
+    "faturamento.import",
+    "faturamento.export",
     "atendimento.view",
     "atendimento.manage"
   ]
