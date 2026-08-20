@@ -139,7 +139,7 @@ const menuItems = [
   { key: "users", label: "Cadastro de Usuários", icon: UserCirclePlus },
   { key: "periods", label: "Criação de Período", icon: CalendarBlank },
   { key: "financeiro", label: "Financeiro", icon: FilePdf },
-  { key: "atendimento", label: "Atendimento", icon: ChatCenteredDots }
+  { key: "atendimento", label: "CRM do Motorista", icon: ChatCenteredDots }
 ] as const;
 
 const moduleLabels: Record<string, string> = {
@@ -148,7 +148,7 @@ const moduleLabels: Record<string, string> = {
   users: "Cadastro de Usuários",
   periods: "Criação de Período",
   financeiro: "Financeiro",
-  atendimento: "Atendimento"
+  atendimento: "CRM do Motorista"
 };
 
 const userModuleOptions = [
@@ -157,7 +157,7 @@ const userModuleOptions = [
   { code: "users", label: "Cadastro de Usuários" },
   { code: "periods", label: "Criação de Período" },
   { code: "financeiro", label: "Financeiro" },
-  { code: "atendimento", label: "Atendimento" }
+  { code: "atendimento", label: "CRM do Motorista" }
 ] as const;
 
 const loginPreviewImages = ["/login-preview-dashboard.png", "/login-preview-pdfs.png"];
@@ -172,7 +172,7 @@ const quickActionLabels: Record<RouteView, { title: string; description: string;
   users: { title: "Cadastrar Usuário", description: "Adicione novos usuários e níveis de acesso.", icon: UserCirclePlus },
   periods: { title: "Criação de Período", description: "Gerencie períodos e bases.", icon: CalendarBlank },
   financeiro: { title: "Financeiro", description: "Acompanhe notas fiscais, espelho e importação financeira.", icon: FilePdf },
-  atendimento: { title: "Atendimento", description: "Abra o CRM do motorista.", icon: ChatCenteredDots }
+  atendimento: { title: "CRM do Motorista", description: "Abra o CRM do motorista.", icon: ChatCenteredDots }
 };
 
 function isQuickActionRoute(route: RouteView): route is QuickActionRoute {
@@ -337,7 +337,7 @@ function getRouteLabel(view: RouteView) {
     users: "Cadastro de Usuários",
     periods: "Criação de Período",
     financeiro: "Financeiro",
-    atendimento: "Atendimento"
+    atendimento: "CRM do Motorista"
   };
 
   return labels[view];
@@ -395,6 +395,8 @@ function App() {
   const [profileActionLoading, setProfileActionLoading] = useState(false);
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [adminMenuOpen, setAdminMenuOpen] = useState(true);
+  const [cadastrosMenuOpen, setCadastrosMenuOpen] = useState(true);
   const [quickActions, setQuickActions] = useState<RouteView[]>([]);
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary>(initialSummary);
   const [users, setUsers] = useState<UserSummary[]>([]);
@@ -449,6 +451,15 @@ function App() {
       return currentUser.modules.includes(item.key);
     });
   }, [currentUser]);
+
+  const administrativeItems = useMemo(
+    () => allowedMenu.filter((item) => item.key !== "users"),
+    [allowedMenu]
+  );
+  const cadastroItems = useMemo(
+    () => allowedMenu.filter((item) => item.key === "users"),
+    [allowedMenu]
+  );
 
   useEffect(() => {
     document.body.classList.toggle("theme-dark", shouldUseDarkTheme);
@@ -2029,22 +2040,73 @@ function App() {
       <aside className="sidebar" aria-label="Menu principal">
         <div>
           <nav className="sidebar__nav" aria-label="Navegação principal">
-            {allowedMenu.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeView === item.key;
-                  return (
-                    <button
-                      key={item.key}
-                      className={`sidebar__item ${isActive ? "sidebar__item--active" : ""}`}
-                      aria-current={isActive ? "page" : undefined}
-                      onClick={() => navigateToRoute(item.key)}
-                      type="button"
-                    >
-                  <Icon size={22} />
-                  <span>{item.label}</span>
+            <div className="sidebar__group">
+              <button
+                className="sidebar__group-toggle"
+                type="button"
+                aria-expanded={adminMenuOpen}
+                onClick={() => setAdminMenuOpen((current) => !current)}
+              >
+                <GearSix size={22} />
+                <span>Módulo Administrativo</span>
+                <CaretDown className={adminMenuOpen ? "sidebar__group-caret--open" : ""} size={16} />
+              </button>
+              {adminMenuOpen ? (
+                <div className="sidebar__group-items">
+                  {administrativeItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = activeView === item.key;
+                    return (
+                      <button
+                        key={item.key}
+                        className={`sidebar__item ${isActive ? "sidebar__item--active" : ""}`}
+                        aria-current={isActive ? "page" : undefined}
+                        onClick={() => navigateToRoute(item.key)}
+                        type="button"
+                      >
+                        <Icon size={22} />
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
+
+            {cadastroItems.length > 0 ? (
+              <div className="sidebar__group">
+                <button
+                  className="sidebar__group-toggle"
+                  type="button"
+                  aria-expanded={cadastrosMenuOpen}
+                  onClick={() => setCadastrosMenuOpen((current) => !current)}
+                >
+                  <Database size={22} />
+                  <span>Cadastros</span>
+                  <CaretDown className={cadastrosMenuOpen ? "sidebar__group-caret--open" : ""} size={16} />
                 </button>
-              );
-            })}
+                {cadastrosMenuOpen ? (
+                  <div className="sidebar__group-items">
+                    {cadastroItems.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = activeView === item.key;
+                      return (
+                        <button
+                          key={item.key}
+                          className={`sidebar__item ${isActive ? "sidebar__item--active" : ""}`}
+                          aria-current={isActive ? "page" : undefined}
+                          onClick={() => navigateToRoute(item.key)}
+                          type="button"
+                        >
+                          <Icon size={22} />
+                          <span>{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </nav>
         </div>
 
@@ -5085,7 +5147,7 @@ function AtendimentoScreen({
     <div className="screen screen--crm">
       <section className="screen__intro screen__intro--crm">
         <div>
-          <p className="eyebrow">Atendimento</p>
+          <p className="eyebrow">CRM do Motorista</p>
           <h1>CRM do Motorista</h1>
           <p>
             Localize o motorista por nome ou CPF, acompanhe o histórico completo e resolva os

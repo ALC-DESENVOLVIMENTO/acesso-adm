@@ -991,6 +991,57 @@ button {
   transition: width 0.28s ease;
 }
 
+.sidebar__group {
+  display: grid;
+  gap: 6px;
+}
+
+.sidebar__group-items {
+  display: grid;
+  gap: 6px;
+}
+
+.sidebar__group-toggle {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: #6a7589;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.sidebar__group-toggle svg {
+  flex: 0 0 22px;
+  min-width: 22px;
+}
+
+.sidebar__group-toggle > svg:last-child {
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.sidebar__group-toggle:hover {
+  background: rgba(235, 0, 0, 0.06);
+  color: #eb0000;
+}
+
+.sidebar__group-caret--open {
+  transform: rotate(180deg);
+}
+
 .sidebar__item,
 .sidebar__logout {
   position: relative;
@@ -1030,6 +1081,7 @@ button {
 }
 
 .sidebar__item span,
+.sidebar__group-toggle span,
 .sidebar__logout span,
 .sidebar__brand-caption {
   opacity: 0;
@@ -1039,6 +1091,7 @@ button {
 }
 
 .sidebar:hover .sidebar__item span,
+.sidebar:hover .sidebar__group-toggle span,
 .sidebar:hover .sidebar__logout span,
 .sidebar:hover .sidebar__brand-caption {
   opacity: 1;
@@ -1050,6 +1103,10 @@ button {
   background-clip: padding-box;
   color: #eb0000;
   box-shadow: inset 3px 0 0 #eb0000;
+}
+
+.sidebar:hover .sidebar__group-toggle > svg:last-child {
+  opacity: 1;
 }
 
 .shell-content {
@@ -3927,6 +3984,7 @@ button {
   }
 
   .sidebar__item,
+  .sidebar__group-toggle,
   .sidebar__logout {
     justify-content: flex-start;
     padding: 14px 16px;
@@ -3941,8 +3999,14 @@ button {
   }
 
   .sidebar__item span,
+  .sidebar__group-toggle span,
   .sidebar__logout span,
   .sidebar__brand-caption {
+    opacity: 1;
+    max-width: 190px;
+  }
+
+  .sidebar__group-toggle > svg:last-child {
     opacity: 1;
   }
 
