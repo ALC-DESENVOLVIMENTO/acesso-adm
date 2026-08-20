@@ -22,6 +22,12 @@ function number(value: unknown) { return Number(value || 0); }
 function cleanType(value: unknown): FaturamentoTipo | null { return typeSchema[String(value || "").toLowerCase()] || null; }
 function safeFilename(value: string) { return value.replace(/[^a-z0-9_-]+/gi, "_").slice(0, 80); }
 function referenceKey(value: unknown) { return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/gi, "").toLowerCase(); }
+function fortnightLabel(fileName: string) {
+  const normalized = fileName.toUpperCase();
+  if (/\b1\s*Q\b|1A?\s*QUINZENA/.test(normalized)) return "1ª quinzena";
+  if (/\b2\s*Q\b|2A?\s*QUINZENA/.test(normalized)) return "2ª quinzena";
+  return "Quinzena não identificada";
+}
 
 router.use(requireAuth, requireModuleAccess("faturamento"));
 
@@ -37,7 +43,7 @@ router.get("/summary", async (req, res) => {
   const latestByType: Record<string, any> = {};
   rows.forEach((row) => { if (!latestByType[row.tipo]) latestByType[row.tipo] = row; });
   const selected = latestByType[requestedType] || latestByType.lastmile || rows[0] || null;
-  let dashboard: any = { totalRows: 0, totalRoutes: 0, totalGeneral: 0, byCategory: {}, byBase: [] };
+  let dashboard: any = { totalRows: 0, totalRoutes: 0, totalGeneral: 0, byCategory: {}, byBase: [], byModal: [], ambulancesByBase: [], missingBaseRows: 0, siglaOnlyRows: 0 };
   if (selected) {
     const items = await prisma.$queryRawUnsafe<Array<any>>(`
       SELECT categoria, sigla_base, nome_base, COUNT(*)::int AS linhas, COUNT(DISTINCT NULLIF(veiculo_modal, ''))::int AS veiculos, COALESCE(SUM(total),0)::float AS total
@@ -52,6 +58,19 @@ router.get("/summary", async (req, res) => {
       bases[base].linhas += number(item.linhas); bases[base].veiculos += number(item.veiculos); bases[base].total += number(item.total); if (item.categoria !== "principal") bases[base].descontos += number(item.total);
     }
     dashboard.byBase = Object.values(bases).sort((a: any, b: any) => b.total - a.total);
+    dashboard.byModal = await prisma.$queryRawUnsafe<Array<any>>(`
+      SELECT COALESCE(NULLIF(veiculo_modal, ''), 'Não informado') AS modal, COUNT(*)::int AS linhas, COUNT(DISTINCT NULLIF(id_rota, ''))::int AS rotas, COALESCE(SUM(total),0)::float AS total
+      FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}' GROUP BY COALESCE(NULLIF(veiculo_modal, ''), 'Não informado') ORDER BY total DESC LIMIT 30
+    `);
+    dashboard.ambulancesByBase = await prisma.$queryRawUnsafe<Array<any>>(`
+      SELECT COALESCE(NULLIF(nome_base, ''), NULLIF(sigla_base, ''), 'Sem base') AS base, COUNT(*)::int AS solicitacoes, COUNT(DISTINCT NULLIF(id_rota, ''))::int AS rotas, COALESCE(SUM(total),0)::float AS total
+      FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}' AND veiculo_modal ILIKE '%ambul%' GROUP BY COALESCE(NULLIF(nome_base, ''), NULLIF(sigla_base, ''), 'Sem base') ORDER BY solicitacoes DESC
+    `);
+    const quality = await prisma.$queryRawUnsafe<Array<{ missing: number; siglaOnly: number }>>(`
+      SELECT COUNT(*) FILTER (WHERE NULLIF(TRIM(sigla_base), '') IS NULL)::int AS missing, COUNT(*) FILTER (WHERE NULLIF(TRIM(sigla_base), '') IS NOT NULL AND TRIM(COALESCE(nome_base,'')) = TRIM(sigla_base))::int AS "siglaOnly"
+      FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}'
+    `);
+    dashboard.missingBaseRows = number(quality[0]?.missing); dashboard.siglaOnlyRows = number(quality[0]?.siglaOnly);
   }
   res.json({ operation: "mercado_livre", selectedType: selected?.tipo || requestedType, selected, latestByType, preFaturas: rows, dashboard, types: Object.entries(typeLabels).map(([value, label]) => ({ value, label })) });
 });
@@ -99,7 +118,7 @@ router.post("/pre-faturas/importar", requirePermission("faturamento.import"), up
     const existing = await prisma.$queryRawUnsafe<Array<any>>(`SELECT id FROM "${DB_SCHEMA}"."faturamento_pre_faturas" WHERE operacao = 'mercado_livre' AND tipo = '${tipo}' AND resumo->>'hash' = '${hash}' LIMIT 1`);
     if (existing[0]) { res.status(409).json({ message: "Esta pré-fatura já foi importada.", id: existing[0].id }); return; }
     const totalGeneral = parsed.items.reduce((sum, item) => sum + (item.categoria === "principal" ? item.total || 0 : 0), 0);
-    const summary = { ...parsed.resumo, hash, hashArquivo: hash, tipoLabel: typeLabels[tipo] };
+    const summary = { ...parsed.resumo, hash, hashArquivo: hash, tipoLabel: typeLabels[tipo], quinzena: fortnightLabel(preFile.originalname) };
     const preId = crypto.randomUUID();
     await prisma.$executeRaw(Prisma.sql`INSERT INTO ${Prisma.raw(`"${DB_SCHEMA}"."faturamento_pre_faturas"`)} (id, operacao, tipo, numero, nome_arquivo, nome_aba_principal, usuario_id, total_linhas, total_rotas, total_geral, resumo) VALUES (${preId}::uuid, 'mercado_livre', ${tipo}, ${parsed.numero}, ${preFile.originalname}, ${parsed.nomeAbaPrincipal}, ${req.auth!.userId}::uuid, ${parsed.items.length}, ${new Set(parsed.items.map((item) => item.idRota).filter(Boolean)).size}, ${totalGeneral}, ${JSON.stringify(summary)}::jsonb)`);
     for (let start = 0; start < parsed.items.length; start += 250) {

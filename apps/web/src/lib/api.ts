@@ -152,10 +152,12 @@ export type PeriodBase = {
 
 export type PaymentBase = PeriodBase & {
   active: boolean;
+  acronym?: string | null;
 };
 
 export type PaymentBasePayload = {
   name: string;
+  acronym?: string | null;
   paymentType: PaymentFrequency;
   active: boolean;
 };
@@ -939,6 +941,12 @@ export function fetchFinanceiroNotaFiscalContent(token: string, receivedId: stri
   return requestBlob(`/financeiro/driver-pdfs/${receivedId}/content`, token);
 }
 
+export function importPaymentBases(token: string, file: File) {
+  const body = new FormData();
+  body.append("file", file);
+  return requestMultipart<{ message: string; imported: number; sheet: string }>({ path: "/periods/bases/importar", token, body });
+}
+
 export type FaturamentoSummary = {
   operation: string;
   selectedType: string;
@@ -951,6 +959,10 @@ export type FaturamentoSummary = {
     totalGeneral: number;
     byCategory: Record<string, number>;
     byBase: Array<{ sigla: string; nomeBase: string; linhas: number; veiculos: number; total: number; descontos: number }>;
+    byModal: Array<{ modal: string; linhas: number; rotas: number; total: number }>;
+    ambulancesByBase: Array<{ base: string; solicitacoes: number; rotas: number; total: number }>;
+    missingBaseRows: number;
+    siglaOnlyRows: number;
   };
   types: Array<{ value: string; label: string }>;
 };

@@ -69,6 +69,12 @@ const REQUIRED_UPLOAD_TABLE_COLUMNS: CompatibilityColumn[] = [
     column: "content",
     typeSql: "BYTEA",
     comment: "Adicionar coluna content em driver_pdf_received"
+  },
+  {
+    table: "bases_pagamento",
+    column: "sigla",
+    typeSql: "VARCHAR(40)",
+    comment: "Adicionar sigla oficial às bases de pagamento"
   }
 ];
 

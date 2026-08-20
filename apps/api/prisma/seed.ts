@@ -22,7 +22,7 @@ const modules = [
   { codigo: "periods", nome: "Criação de Período", descricao: "Criação e gerenciamento de períodos de pagamento" },
   { codigo: "financeiro", nome: "Financeiro", descricao: "Bases e visoes financeiras" },
   { codigo: "faturamento", nome: "Faturamento", descricao: "Pré-faturas por operação" },
-  { codigo: "faturamento", nome: "Faturamento", descricao: "Pré-faturas por operação" },
+  { codigo: "bases", nome: "Cadastros de Bases", descricao: "Nomes e siglas oficiais das bases" },
   { codigo: "atendimento", nome: "Atendimento", descricao: "CRM do motorista e chamados" }
 ];
 
@@ -49,9 +49,8 @@ const permissions = [
   { codigo: "faturamento.view", nome: "Visualizar faturamento", moduloCodigo: "faturamento" },
   { codigo: "faturamento.import", nome: "Importar pré-fatura", moduloCodigo: "faturamento" },
   { codigo: "faturamento.export", nome: "Exportar faturamento", moduloCodigo: "faturamento" },
-  { codigo: "faturamento.view", nome: "Visualizar faturamento", moduloCodigo: "faturamento" },
-  { codigo: "faturamento.import", nome: "Importar pré-fatura", moduloCodigo: "faturamento" },
-  { codigo: "faturamento.export", nome: "Exportar faturamento", moduloCodigo: "faturamento" },
+  { codigo: "bases.view", nome: "Visualizar cadastros de bases", moduloCodigo: "bases" },
+  { codigo: "bases.manage", nome: "Gerenciar cadastros de bases", moduloCodigo: "bases" },
   { codigo: "atendimento.view", nome: "Visualizar atendimento", moduloCodigo: "atendimento" },
   { codigo: "atendimento.manage", nome: "Gerenciar atendimento", moduloCodigo: "atendimento" }
 ];
@@ -220,9 +219,8 @@ async function main() {
     "faturamento.view",
     "faturamento.import",
     "faturamento.export",
-    "faturamento.view",
-    "faturamento.import",
-    "faturamento.export",
+    "bases.view",
+    "bases.manage",
     "atendimento.view",
     "atendimento.manage"
   ],
@@ -249,9 +247,8 @@ async function main() {
     "faturamento.view",
     "faturamento.import",
     "faturamento.export",
-    "faturamento.view",
-    "faturamento.import",
-    "faturamento.export",
+    "bases.view",
+    "bases.manage",
     "atendimento.view",
     "atendimento.manage"
   ]

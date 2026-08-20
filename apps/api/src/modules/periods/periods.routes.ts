@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
+import multer from "multer";
+import * as XLSX from "xlsx";
 import { UploadStatus } from "@prisma/client";
 import { requireAdmin, requireAuth } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
@@ -9,6 +11,7 @@ import { notifyPdfOnline } from "../../lib/pdfonline-bridge.js";
 import { normalizeText, resolveDriverRegistryByIdentity } from "../../lib/driver-registry.js";
 
 const router = Router();
+const baseReferenceUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
 
 router.use(requireAuth, (req, res, next) => {
   if (!req.auth) {
@@ -59,6 +62,7 @@ const periodLifecycleSchema = z.object({
 
 const basePayloadSchema = z.object({
   name: z.string().min(3),
+  sigla: z.string().trim().max(40).optional().nullable(),
   paymentType: z.enum(["semanal", "quinzenal", "mensal"]),
   active: z.boolean().optional().default(true)
 });
@@ -260,10 +264,11 @@ function toDateOnlyString(value: Date) {
     .split("T")[0];
 }
 
-function serializeBase(base: { id: string; nome: string; tipoPadrao: string; ativo: boolean }) {
+function serializeBase(base: { id: string; nome: string; sigla?: string | null; tipoPadrao: string; ativo: boolean }) {
   return {
     id: base.id,
     name: base.nome,
+    acronym: base.sigla || null,
     paymentType: base.tipoPadrao,
     active: base.ativo
   };
@@ -421,6 +426,7 @@ router.post("/bases", requireAdmin, (req, res) => {
     const created = await prisma.basePagamento.create({
       data: {
         nome: parsed.data.name,
+        sigla: parsed.data.sigla || null,
         tipoPadrao: parsed.data.paymentType,
         ativo: parsed.data.active
       }
@@ -486,6 +492,7 @@ router.patch("/bases/:id", requireAdmin, (req, res) => {
       },
       data: {
         nome: parsed.data.name,
+        sigla: parsed.data.sigla || null,
         tipoPadrao: parsed.data.paymentType,
         ativo: parsed.data.active
       }
@@ -913,6 +920,29 @@ router.patch("/:id/lifecycle", requireAdmin, (req, res) => {
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
   });
+});
+
+router.post("/bases/importar", requireAdmin, baseReferenceUpload.single("file"), (req, res) => {
+  void (async () => {
+    if (!req.file || !req.auth) { res.status(400).json({ message: "Selecione a planilha Bases e Siglas.xlsx." }); return; }
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer", raw: false });
+    const sheetName = workbook.SheetNames.find((name) => /resp|sigla/i.test(name)) || workbook.SheetNames[0];
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[sheetName], { header: 1, defval: null, blankrows: false, raw: false });
+    let imported = 0;
+    for (const row of rows.slice(1)) {
+      const name = String(row[0] || "").trim();
+      const acronym = String(row[1] || "").trim();
+      if (!name || !acronym) continue;
+      await prisma.basePagamento.upsert({
+        where: { nome: name },
+        update: { sigla: acronym, ativo: true },
+        create: { nome: name, sigla: acronym, tipoPadrao: "semanal", ativo: true }
+      });
+      imported += 1;
+    }
+    await prisma.logAuditoria.create({ data: { usuarioId: req.auth.userId, acao: "importar_bases_siglas", entidade: "bases_pagamento", detalhes: { arquivo: req.file.originalname, aba: sheetName, importadas: imported } } });
+    res.json({ message: `${imported} base(s) atualizada(s) com sucesso.`, imported, sheet: sheetName });
+  })().catch((error) => res.status(400).json({ message: error instanceof Error ? error.message : "Não foi possível importar as bases." }));
 });
 
 router.patch("/:id/status", requireAdmin, (req, res) => {

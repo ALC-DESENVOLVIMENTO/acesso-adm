@@ -34,6 +34,7 @@ import {
   createUser,
   createPaymentPeriod,
   createPaymentBase,
+  importPaymentBases,
   deletePaymentPeriod,
   deleteUser,
   deleteUpload,
@@ -93,11 +94,14 @@ const FinanceiroScreen = lazy(() =>
 const FaturamentoScreen = lazy(() =>
   import("./FaturamentoScreen").then((module) => ({ default: module.FaturamentoScreen }))
 );
+const BasesScreen = lazy(() =>
+  import("./BasesScreen").then((module) => ({ default: module.BasesScreen }))
+);
 
 type AccessLevel = "N1" | "N2" | "N3" | "N4";
 type AuthView = "login" | "first-access";
 type ViewState = AuthView | RouteView;
-type RouteView = "dashboard" | "pdfs" | "users" | "periods" | "financeiro" | "faturamento" | "atendimento";
+type RouteView = "dashboard" | "pdfs" | "users" | "bases" | "periods" | "financeiro" | "faturamento" | "atendimento";
 type QuickActionRoute = Exclude<RouteView, "dashboard">;
 
 type SessionUser = LoginResponse["user"];
@@ -131,6 +135,7 @@ const routePaths: Record<RouteView, string> = {
   dashboard: "/dashboard",
   pdfs: "/envio-pdfs",
   users: "/usuarios",
+  bases: "/cadastros/bases",
   periods: "/periodos",
   financeiro: "/financeiro",
   faturamento: "/faturamento",
@@ -141,6 +146,7 @@ const menuItems = [
   { key: "dashboard", label: "Dashboard", icon: HouseLine },
   { key: "pdfs", label: "Envio de PDFs", icon: FileArrowUp },
   { key: "users", label: "Cadastro de Usuários", icon: UserCirclePlus },
+  { key: "bases", label: "Cadastros de Bases", icon: Database },
   { key: "periods", label: "Criação de Período", icon: CalendarBlank },
   { key: "financeiro", label: "Financeiro", icon: FilePdf },
   { key: "faturamento", label: "Faturamento", icon: ChartLineUp },
@@ -151,6 +157,7 @@ const moduleLabels: Record<string, string> = {
   dashboard: "Dashboard",
   pdfs: "Envio de PDFs",
   users: "Cadastro de Usuários",
+  bases: "Cadastros de Bases",
   periods: "Criação de Período",
   financeiro: "Financeiro",
   faturamento: "Faturamento",
@@ -161,6 +168,7 @@ const userModuleOptions = [
   { code: "dashboard", label: "Dashboard" },
   { code: "pdfs", label: "Envio de PDFs" },
   { code: "users", label: "Cadastro de Usuários" },
+  { code: "bases", label: "Cadastros de Bases" },
   { code: "periods", label: "Criação de Período" },
   { code: "financeiro", label: "Financeiro" },
   { code: "faturamento", label: "Faturamento > Mercado Livre" },
@@ -177,6 +185,7 @@ const quickActionLabels: Record<RouteView, { title: string; description: string;
   dashboard: { title: "Dashboard", description: "Visão geral do portal.", icon: HouseLine },
   pdfs: { title: "Enviar PDF", description: "Faça o envio de novos documentos.", icon: FileArrowUp },
   users: { title: "Cadastrar Usuário", description: "Adicione novos usuários e níveis de acesso.", icon: UserCirclePlus },
+  bases: { title: "Cadastros de Bases", description: "Gerencie nomes e siglas oficiais.", icon: Database },
   periods: { title: "Criação de Período", description: "Gerencie períodos e bases.", icon: CalendarBlank },
   financeiro: { title: "Financeiro", description: "Acompanhe notas fiscais, espelho e importação financeira.", icon: FilePdf },
   faturamento: { title: "Faturamento", description: "Importe e acompanhe pré-faturas por operação.", icon: ChartLineUp },
@@ -319,6 +328,10 @@ function getRouteViewFromPath(pathname: string): RouteView {
     return "users";
   }
 
+  if (normalized === "/cadastros/bases") {
+    return "bases";
+  }
+
   if (normalized === "/periodos") {
     return "periods";
   }
@@ -347,6 +360,7 @@ function getRouteLabel(view: RouteView) {
     dashboard: "Dashboard",
     pdfs: "Envio de PDFs",
     users: "Cadastro de Usuários",
+    bases: "Cadastros de Bases",
     periods: "Criação de Período",
     financeiro: "Financeiro",
     faturamento: "Faturamento",
@@ -423,6 +437,7 @@ function App() {
   const [editingBase, setEditingBase] = useState<PaymentBase | null>(null);
   const [baseFormValues, setBaseFormValues] = useState({
     name: "",
+    acronym: "",
     paymentType: "semanal" as "semanal" | "quinzenal" | "mensal",
     active: true
   });
@@ -467,7 +482,7 @@ function App() {
   }, [currentUser]);
 
   const administrativeItems = useMemo(
-    () => allowedMenu.filter((item) => item.key !== "users" && item.key !== "faturamento"),
+    () => allowedMenu.filter((item) => !["users", "bases", "faturamento"].includes(item.key)),
     [allowedMenu]
   );
   const faturamentoItems = useMemo(
@@ -475,7 +490,7 @@ function App() {
     [allowedMenu]
   );
   const cadastroItems = useMemo(
-    () => allowedMenu.filter((item) => item.key === "users"),
+    () => allowedMenu.filter((item) => item.key === "users" || item.key === "bases"),
     [allowedMenu]
   );
 
@@ -1755,13 +1770,15 @@ function App() {
     setEditingBase(base);
     setBaseFormValues(
       base
-        ? {
+          ? {
             name: base.name,
+            acronym: base.acronym || "",
             paymentType: base.paymentType,
             active: base.active
           }
         : {
             name: "",
+            acronym: "",
             paymentType: "semanal",
             active: true
           }
@@ -1779,6 +1796,7 @@ function App() {
     try {
       const payload = {
         name: baseFormValues.name.trim(),
+        acronym: baseFormValues.acronym.trim() || null,
         paymentType: baseFormValues.paymentType,
         active: baseFormValues.active
       };
@@ -2509,6 +2527,11 @@ function App() {
             createUserSignal={createUserSignal}
           />
         ) : null}
+        {!accessDenied && activeView === "bases" ? (
+          <Suspense fallback={<section className="panel"><p className="loading-note">Carregando cadastros de bases...</p></section>}>
+            <BasesScreen token={token} bases={paymentBases} onRefresh={loadPeriodData} onOpenEditor={openBaseEditor} onToggleActive={handleToggleBaseActive} />
+          </Suspense>
+        ) : null}
         {!accessDenied && activeView === "atendimento" ? (
           <AtendimentoScreen
             token={token}
@@ -2558,6 +2581,16 @@ function App() {
                         name: event.target.value
                       }))
                     }
+                  />
+                </label>
+
+                <label className="field">
+                  <span>Sigla oficial</span>
+                  <input
+                    name="baseAcronym"
+                    placeholder="Ex.: SSP10"
+                    value={baseFormValues.acronym}
+                    onChange={(event) => setBaseFormValues((current) => ({ ...current, acronym: event.target.value.toUpperCase() }))}
                   />
                 </label>
 
@@ -3363,18 +3396,6 @@ function PeriodsScreen({
           </button>
         </div>
 
-        <div className="period-launch-card">
-          <div>
-            <strong>Bases cadastradas</strong>
-            <p>Edite nome, tipo e status das bases sem sair do módulo de períodos.</p>
-          </div>
-          <div className="period-launch-card__actions">
-            <button className="ghost-button cta-motion cta-motion--ghost" type="button" onClick={() => setIsBasePanelOpen(true)}>
-              Gerenciar bases
-              <ArrowRight size={16} />
-            </button>
-          </div>
-        </div>
       </section>
 
       <section className="panel">
