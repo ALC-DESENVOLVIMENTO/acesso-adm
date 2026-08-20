@@ -955,11 +955,12 @@ export type FaturamentoSummary = {
   preFaturas: any[];
   dashboard: {
     totalRows: number;
+    totalVehicles: number;
     totalRoutes: number;
     totalGeneral: number;
     byCategory: Record<string, number>;
-    byBase: Array<{ sigla: string; nomeBase: string; linhas: number; veiculos: number; total: number; descontos: number }>;
-    byModal: Array<{ modal: string; linhas: number; rotas: number; total: number }>;
+    byBase: Array<{ sigla: string; nomeBase: string; linhas: number; rotas: number; veiculos: number; total: number; descontos: number }>;
+    byModal: Array<{ modal: string; veiculos: number; rotas: number; total: number }>;
     ambulancesByBase: Array<{ base: string; solicitacoes: number; rotas: number; total: number }>;
     missingBaseRows: number;
     siglaOnlyRows: number;
