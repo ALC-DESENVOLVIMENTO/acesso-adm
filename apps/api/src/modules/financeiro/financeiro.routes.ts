@@ -799,10 +799,20 @@ router.get("/summary", (_req, res) => {
         },
         select: {
           id: true,
+          nome: true,
+          dataInicio: true,
+          dataFim: true,
           status: true,
           bases: {
             select: {
-              id: true
+              id: true,
+              basePagamento: {
+                select: {
+                  id: true,
+                  nome: true,
+                  tipoPadrao: true
+                }
+              }
             }
           }
         }
@@ -832,7 +842,9 @@ router.get("/summary", (_req, res) => {
           caminhoArquivo: true,
           criadoEm: true,
           usuarioId: true,
-          status: true
+          status: true,
+          statusPagamento: true,
+          valorTotalPdf: true
         }
       })
     ]);
@@ -868,7 +880,9 @@ router.get("/summary", (_req, res) => {
       }
     });
 
-    const { visibleUploads } = dedupeLatestUploadsByMotorista(uploads);
+    // O resumo precisa preservar o mesmo motorista em períodos/bases diferentes.
+    // A substituição já é resolvida por filterVisibleUploads.
+    const visibleUploads = filterVisibleUploads(uploads);
     const espelhoUploads = visibleUploads;
     const uploadById = new Map(uploads.map((upload) => [upload.id, upload] as const));
     const activeMotoristaIds = new Set(
@@ -892,6 +906,111 @@ router.get("/summary", (_req, res) => {
     const attendanceStatuses = new Set(["em_atendimento", "chamado_aberto"]);
     const concludedStatuses = new Set(["processo_concluido", "pago"]);
 
+    type SummaryMetric = {
+      pdfsSent: number;
+      notesReceived: number;
+      notesPending: number;
+      paidMotoristas: number;
+      amountToPay: number;
+      amountPaid: number;
+    };
+
+    const emptyMetric = (): SummaryMetric => ({
+      pdfsSent: 0,
+      notesReceived: 0,
+      notesPending: 0,
+      paidMotoristas: 0,
+      amountToPay: 0,
+      amountPaid: 0
+    });
+    const periodMetrics = new Map<string, SummaryMetric>();
+    const baseMetrics = new Map<string, SummaryMetric & { id: string; name: string; periodId: string; periodName: string }>();
+    const uploadScopes = new Set<string>();
+    const noteByScope = new Map<string, string>();
+
+    for (const receipt of filteredReceivedRows) {
+      const scope = resolveReceivedScope(receipt, uploadById);
+      if (scope.motoristaId && scope.periodoPagamentoId && scope.basePagamentoId) {
+        const key = `${scope.motoristaId}|${scope.periodoPagamentoId}|${scope.basePagamentoId}`;
+        const current = noteByScope.get(key);
+        if (!current || receipt.status === "processo_concluido" || receipt.status === "nota_fiscal_aprovada") {
+          noteByScope.set(key, receipt.status);
+        }
+      }
+    }
+
+    for (const upload of visibleUploads) {
+      if (!upload.periodoPagamentoId || !upload.basePagamentoId || !upload.motoristaId) {
+        continue;
+      }
+
+      const scopeKey = `${upload.motoristaId}|${upload.periodoPagamentoId}|${upload.basePagamentoId}`;
+      if (uploadScopes.has(scopeKey)) {
+        continue;
+      }
+      uploadScopes.add(scopeKey);
+
+      const periodMetric = periodMetrics.get(upload.periodoPagamentoId) || emptyMetric();
+      const baseInfo = periods
+        .find((period) => period.id === upload.periodoPagamentoId)
+        ?.bases.find((periodBase) => periodBase.basePagamento.id === upload.basePagamentoId);
+      const baseKey = `${upload.periodoPagamentoId}|${upload.basePagamentoId}`;
+      const baseMetric = baseMetrics.get(baseKey) || {
+        id: upload.basePagamentoId,
+        name: baseInfo?.basePagamento.nome || "Base não identificada",
+        periodId: upload.periodoPagamentoId,
+        periodName: periods.find((period) => period.id === upload.periodoPagamentoId)?.nome || "Período não identificado",
+        ...emptyMetric()
+      };
+      const amount = upload.valorTotalPdf ? Number(upload.valorTotalPdf.toString()) : 0;
+      const noteStatus = noteByScope.get(scopeKey);
+      const noteReceived = Boolean(noteStatus && receivedNoteStatuses.has(noteStatus));
+      const noteApproved = noteStatus === "nota_fiscal_aprovada" || noteStatus === "processo_concluido";
+      const isPaid = upload.statusPagamento === FinanceiroStatusPagamento.PAGO;
+      const isBlocked = upload.statusPagamento === FinanceiroStatusPagamento.BLOQUEADO;
+      const isPayable = noteApproved && !isPaid && !isBlocked;
+
+      periodMetric.pdfsSent += 1;
+      baseMetric.pdfsSent += 1;
+      if (noteReceived) {
+        periodMetric.notesReceived += 1;
+        baseMetric.notesReceived += 1;
+      }
+      if (isPaid) {
+        periodMetric.paidMotoristas += 1;
+        baseMetric.paidMotoristas += 1;
+        periodMetric.amountPaid += amount;
+        baseMetric.amountPaid += amount;
+      } else if (isPayable) {
+        periodMetric.amountToPay += amount;
+        baseMetric.amountToPay += amount;
+      }
+
+      periodMetrics.set(upload.periodoPagamentoId, periodMetric);
+      baseMetrics.set(baseKey, baseMetric);
+    }
+
+    const periodSummaries = periods.map((period) => {
+      const metric = periodMetrics.get(period.id) || emptyMetric();
+      return {
+        id: period.id,
+        name: period.nome,
+        startDate: toIso(period.dataInicio),
+        endDate: toIso(period.dataFim),
+        ...metric,
+        notesPending: Math.max(metric.pdfsSent - metric.notesReceived, 0),
+        bases: Array.from(baseMetrics.values())
+          .filter((base) => base.periodId === period.id)
+          .map((base) => ({
+            ...base,
+            notesPending: Math.max(base.pdfsSent - base.notesReceived, 0)
+          }))
+      };
+    });
+
+    const totalAmountToPay = periodSummaries.reduce((sum, period) => sum + period.amountToPay, 0);
+    const totalAmountPaid = periodSummaries.reduce((sum, period) => sum + period.amountPaid, 0);
+
     res.json({
       activePeriods: periods.length,
       bases,
@@ -899,6 +1018,21 @@ router.get("/summary", (_req, res) => {
       pdfsSent: sentMotoristas,
       notesReceived: completedMotoristas,
       notesPending: Math.max(sentMotoristas - completedMotoristas, 0),
+      amountToPay: totalAmountToPay,
+      amountPaid: totalAmountPaid,
+      periodSummaries,
+      baseSummaries: Array.from(baseMetrics.values()).map((base) => ({
+        id: base.id,
+        name: base.name,
+        periodId: base.periodId,
+        periodName: base.periodName,
+        pdfsSent: base.pdfsSent,
+        notesReceived: base.notesReceived,
+        notesPending: Math.max(base.pdfsSent - base.notesReceived, 0),
+        paidMotoristas: base.paidMotoristas,
+        amountToPay: base.amountToPay,
+        amountPaid: base.amountPaid
+      })),
       inAnalysis: countUnique(filteredReceivedRows.filter((item) => analysisStatuses.has(item.status)).map((item) => item.motoristaId)),
       rejected: countUnique(filteredReceivedRows.filter((item) => rejectedStatuses.has(item.status)).map((item) => item.motoristaId)),
       inAttendance: countUnique(filteredReceivedRows.filter((item) => attendanceStatuses.has(item.status)).map((item) => item.motoristaId)),

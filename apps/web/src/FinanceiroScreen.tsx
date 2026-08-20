@@ -3,7 +3,9 @@ import {
   Bell,
   CaretDown,
   CalendarBlank,
+  CheckCircle,
   ChartLineUp,
+  Coins,
   ClockCounterClockwise,
   Eye,
   FileArrowUp,
@@ -94,14 +96,27 @@ const initialSummary: FinanceiroSummary = {
   inAnalysis: 0,
   rejected: 0,
   inAttendance: 0,
-  concluded: 0
+  concluded: 0,
+  amountToPay: 0,
+  amountPaid: 0,
+  periodSummaries: [],
+  baseSummaries: []
 };
 
 function normalizeFinanceiroSummary(summary: FinanceiroSummary | null | undefined): FinanceiroSummary {
   return {
     ...initialSummary,
-    ...(summary || {})
+    ...(summary || {}),
+    periodSummaries: Array.isArray(summary?.periodSummaries) ? summary.periodSummaries : [],
+    baseSummaries: Array.isArray(summary?.baseSummaries) ? summary.baseSummaries : []
   };
+}
+
+function formatFinanceCurrency(value: number | null | undefined) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL"
+  }).format(Number(value || 0));
 }
 
 const initialPeriodForm: PeriodFormState = {
@@ -896,7 +911,55 @@ export function FinanceiroScreen({
         </div>
       </section>
 
-      <section className="stats-grid stats-grid--three finance-stats">
+      <section className="finance-overview">
+        <article className="finance-chart-card">
+          <div className="finance-chart-card__header">
+            <div>
+              <p className="eyebrow">Operação em andamento</p>
+              <h3>Movimentação por base</h3>
+              <p>Dados reais dos períodos ativos, atualizados a partir dos espelhos e notas registradas.</p>
+            </div>
+            <ChartLineUp size={30} aria-hidden="true" />
+          </div>
+          {summary.baseSummaries.length > 0 ? (
+            <div className="finance-chart-list">
+              {summary.baseSummaries.map((base) => {
+                const maximum = Math.max(base.pdfsSent, base.notesReceived, base.paidMotoristas, 1);
+                return (
+                  <div className="finance-chart-row" key={`${base.periodId}-${base.id}`}>
+                    <div className="finance-chart-row__label">
+                      <strong>{base.name}</strong>
+                      <span>{base.periodName}</span>
+                    </div>
+                    <div className="finance-chart-bars" aria-label={`${base.name}: ${base.pdfsSent} PDFs, ${base.notesReceived} notas recebidas e ${base.paidMotoristas} pagos`}>
+                      <span className="finance-chart-bar finance-chart-bar--pdf" style={{ width: `${(base.pdfsSent / maximum) * 100}%` }}>
+                        <small>{base.pdfsSent} PDFs</small>
+                      </span>
+                      <span className="finance-chart-bar finance-chart-bar--note" style={{ width: `${(base.notesReceived / maximum) * 100}%` }}>
+                        <small>{base.notesReceived} notas</small>
+                      </span>
+                      <span className="finance-chart-bar finance-chart-bar--paid" style={{ width: `${(base.paidMotoristas / maximum) * 100}%` }}>
+                        <small>{base.paidMotoristas} pagos</small>
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="crm-empty-screen">
+              <strong>Nenhuma movimentação encontrada</strong>
+              <p>Os dados aparecerão quando houver espelhos ou notas nos períodos ativos.</p>
+            </div>
+          )}
+          <div className="finance-chart-legend" aria-label="Legenda do gráfico">
+            <span><i className="finance-chart-dot finance-chart-dot--pdf" /> PDFs enviados</span>
+            <span><i className="finance-chart-dot finance-chart-dot--note" /> Notas recebidas</span>
+            <span><i className="finance-chart-dot finance-chart-dot--paid" /> Motoristas pagos</span>
+          </div>
+        </article>
+
+        <div className="finance-kpi-grid">
         <article className="stat-card">
           <div className="stat-card__icon">
             <CalendarBlank size={30} />
@@ -957,6 +1020,38 @@ export function FinanceiroScreen({
             <small>Processos finalizados</small>
           </div>
         </article>
+        <article className="stat-card stat-card--money">
+          <div className="stat-card__icon"><Coins size={30} /></div>
+          <div>
+            <strong>{formatFinanceCurrency(summary.amountToPay)}</strong>
+            <span>Valor a pagar</span>
+            <small>Processos aptos aguardando pagamento</small>
+          </div>
+        </article>
+        <article className="stat-card stat-card--money">
+          <div className="stat-card__icon"><CheckCircle size={30} /></div>
+          <div>
+            <strong>{formatFinanceCurrency(summary.amountPaid)}</strong>
+            <span>Valor já pago</span>
+            <small>Pagamentos confirmados na operação</small>
+          </div>
+        </article>
+        </div>
+      </section>
+
+      <section className="finance-period-values">
+        {summary.periodSummaries.map((period) => (
+          <article className="finance-period-value-card" key={period.id}>
+            <div>
+              <strong>{period.name}</strong>
+              <span>{period.pdfsSent} espelhos, {period.notesReceived} notas recebidas e {period.paidMotoristas} pagos</span>
+            </div>
+            <div className="finance-period-value-card__amounts">
+              <span>A pagar <strong>{formatFinanceCurrency(period.amountToPay)}</strong></span>
+              <span>Já pago <strong>{formatFinanceCurrency(period.amountPaid)}</strong></span>
+            </div>
+          </article>
+        ))}
       </section>
 
       {busyMessage ? (

@@ -206,6 +206,42 @@ export type FinanceiroSummary = {
   rejected: number;
   inAttendance: number;
   concluded: number;
+  amountToPay: number;
+  amountPaid: number;
+  periodSummaries: Array<{
+    id: string;
+    name: string;
+    startDate: string | null;
+    endDate: string | null;
+    pdfsSent: number;
+    notesReceived: number;
+    notesPending: number;
+    paidMotoristas: number;
+    amountToPay: number;
+    amountPaid: number;
+    bases: Array<{
+      id: string;
+      name: string;
+      pdfsSent: number;
+      notesReceived: number;
+      notesPending: number;
+      paidMotoristas: number;
+      amountToPay: number;
+      amountPaid: number;
+    }>;
+  }>;
+  baseSummaries: Array<{
+    id: string;
+    name: string;
+    periodId: string;
+    periodName: string;
+    pdfsSent: number;
+    notesReceived: number;
+    notesPending: number;
+    paidMotoristas: number;
+    amountToPay: number;
+    amountPaid: number;
+  }>;
 };
 
 export type FinanceiroBaseCard = {

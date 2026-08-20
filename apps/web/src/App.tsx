@@ -374,6 +374,7 @@ function canAccessRoute(user: SessionUser | null, route: RouteView) {
 function App() {
   const initialRoute = getRouteViewFromPath(window.location.pathname);
   const [view, setView] = useState<ViewState>("login");
+  const [sessionResolving, setSessionResolving] = useState(true);
   const [activeView, setActiveView] = useState<RouteView>(initialRoute);
   const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
   const [token, setToken] = useState("");
@@ -465,6 +466,23 @@ function App() {
     }
   }, [themeMode]);
 
+  const restoreRouteScrollPosition = (route: RouteView) => {
+    try {
+      const savedPosition = Number(window.sessionStorage.getItem(`portal-adm.scroll-position:${route}`) || "0");
+
+      if (!Number.isFinite(savedPosition) || savedPosition <= 0) {
+        return;
+      }
+
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ top: savedPosition, behavior: "auto" });
+        window.setTimeout(() => window.scrollTo({ top: savedPosition, behavior: "auto" }), 180);
+      });
+    } catch {
+      // Ignore storage restrictions and keep the browser's default scroll behavior.
+    }
+  };
+
   useEffect(() => {
     if (!currentUser || view === "login" || view === "first-access") {
       return;
@@ -472,15 +490,20 @@ function App() {
 
     const storageKey = `portal-adm.scroll-position:${activeView}`;
     let restoreFrame = 0;
+    let restoreTimeout = 0;
 
-    try {
-      const savedPosition = Number(window.sessionStorage.getItem(storageKey) || "0");
-      restoreFrame = window.requestAnimationFrame(() => {
-        window.scrollTo({ top: Number.isFinite(savedPosition) ? savedPosition : 0, behavior: "auto" });
-      });
-    } catch {
-      // Ignore storage restrictions and keep the browser's default scroll behavior.
-    }
+    const restoreScrollPosition = () => {
+      try {
+        const savedPosition = Number(window.sessionStorage.getItem(storageKey) || "0");
+        const top = Number.isFinite(savedPosition) ? savedPosition : 0;
+        window.scrollTo({ top, behavior: "auto" });
+        restoreTimeout = window.setTimeout(() => window.scrollTo({ top, behavior: "auto" }), 250);
+      } catch {
+        // Ignore storage restrictions and keep the browser's default scroll behavior.
+      }
+    };
+
+    restoreFrame = window.requestAnimationFrame(restoreScrollPosition);
 
     const savePosition = () => {
       try {
@@ -493,6 +516,7 @@ function App() {
     window.addEventListener("scroll", savePosition, { passive: true });
     return () => {
       window.cancelAnimationFrame(restoreFrame);
+      window.clearTimeout(restoreTimeout);
       savePosition();
       window.removeEventListener("scroll", savePosition);
     };
@@ -677,6 +701,15 @@ function App() {
   };
 
   useEffect(() => {
+    const previousScrollRestoration = window.history.scrollRestoration;
+    window.history.scrollRestoration = "manual";
+
+    return () => {
+      window.history.scrollRestoration = previousScrollRestoration;
+    };
+  }, []);
+
+  useEffect(() => {
     const storedSession = localStorage.getItem("portal-admin-session");
 
     if (!storedSession) {
@@ -686,6 +719,7 @@ function App() {
       }
       setAccessDenied(null);
       setView("login");
+      setSessionResolving(false);
       return;
     }
 
@@ -733,6 +767,8 @@ function App() {
         }
 
         clearSessionAndGoLogin("Não foi possível recuperar sua sessão. Faça login novamente.");
+      } finally {
+        setSessionResolving(false);
       }
     })();
   }, []);
@@ -869,6 +905,7 @@ function App() {
         }
 
         setFlashMessage(null);
+        restoreRouteScrollPosition(activeView);
       } catch (error) {
         if (cancelled) {
           return;
@@ -883,6 +920,7 @@ function App() {
       } finally {
         if (!cancelled) {
           setLoadingMessage("");
+          restoreRouteScrollPosition(activeView);
         }
       }
     };
@@ -1766,6 +1804,15 @@ function App() {
       setLoadingMessage("");
     }
   };
+
+  if (sessionResolving) {
+    return (
+      <main className="session-loading" aria-live="polite">
+        <img src={logoSrc} alt="ALC Pereira Filho Transportes" />
+        <span>Carregando sessão...</span>
+      </main>
+    );
+  }
 
   if (view === "login") {
     return (
