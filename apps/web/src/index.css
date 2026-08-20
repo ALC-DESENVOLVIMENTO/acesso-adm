@@ -3252,6 +3252,45 @@ button {
   gap: 14px;
 }
 
+.finance-base-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 16px 0 14px;
+  padding: 0 14px;
+  min-height: 46px;
+  border: 1px solid rgba(235, 0, 0, 0.18);
+  border-radius: 14px;
+  background: var(--surface);
+  color: #eb0000;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.finance-base-search:focus-within {
+  border-color: rgba(235, 0, 0, 0.58);
+  box-shadow: 0 0 0 4px rgba(235, 0, 0, 0.1);
+}
+
+.finance-base-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 12px 0;
+}
+
+.finance-base-search input::placeholder {
+  color: var(--muted);
+}
+
+.finance-base-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
 .finance-base-card {
   display: grid;
   gap: 14px;

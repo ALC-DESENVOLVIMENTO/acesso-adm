@@ -14,7 +14,7 @@ import {
   TrashSimple,
   UsersThree
 } from "@phosphor-icons/react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   createPaymentPeriod,
   deletePaymentPeriod,
@@ -271,6 +271,7 @@ export function FinanceiroScreen({
   const [selectedPeriodId, setSelectedPeriodId] = useState(() => readFinanceViewState().periodId || "");
   const [selectedBaseId, setSelectedBaseId] = useState(() => readFinanceViewState().baseId || "all");
   const [periodViewTab, setPeriodViewTab] = useState<"bases" | "motoristas">(() => readFinanceViewState().periodViewTab || "bases");
+  const [baseSearchTerm, setBaseSearchTerm] = useState("");
   const [financeTab, setFinanceTab] = useState<FinanceTab>(() => readFinanceViewState().tab || "exportacao");
   const [previewFilter, setPreviewFilter] = useState<PreviewFilter>("todos");
   const [searchTerm, setSearchTerm] = useState("");
@@ -291,6 +292,31 @@ export function FinanceiroScreen({
   const [deleteTarget, setDeleteTarget] = useState<PaymentPeriod | null>(null);
   const [periodForm, setPeriodForm] = useState<PeriodFormState>(initialPeriodForm);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!exportMenuOpen) {
+      return;
+    }
+
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!exportMenuRef.current?.contains(event.target as Node)) {
+        setExportMenuOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setExportMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [exportMenuOpen]);
 
   useEffect(() => {
     sessionStorage.setItem(
@@ -325,6 +351,16 @@ export function FinanceiroScreen({
 
     return allowedBases.find((base) => base.id === selectedBaseId) || null;
   }, [allowedBases, selectedBaseId]);
+
+  const visibleBaseCards = useMemo(() => {
+    const normalizedSearch = normalizeFilterText(baseSearchTerm);
+
+    if (!normalizedSearch) {
+      return baseCards;
+    }
+
+    return baseCards.filter((base) => normalizeFilterText(base.name).includes(normalizedSearch));
+  }, [baseCards, baseSearchTerm]);
 
   const statusOptions = useMemo(() => {
     const labels = new Map<string, string>();
@@ -445,8 +481,11 @@ export function FinanceiroScreen({
     if (!selectedPeriodId) {
       setBaseCards([]);
       setSelectedBaseId("all");
+      setBaseSearchTerm("");
       return;
     }
+
+    setBaseSearchTerm("");
 
     void (async () => {
       try {
@@ -1026,7 +1065,7 @@ export function FinanceiroScreen({
                   Motoristas do período
                 </button>
               </div>
-              <div className="finance-export-menu">
+              <div className="finance-export-menu" ref={exportMenuRef}>
                 <button
                   className="ghost-button ghost-button--small finance-export-button cta-motion cta-motion--ghost"
                   type="button"
@@ -1079,8 +1118,21 @@ export function FinanceiroScreen({
               </div>
             )}
 
+            {selectedPeriod ? (
+              <label className="finance-base-search">
+                <MagnifyingGlass size={18} aria-hidden="true" />
+                <input
+                  type="search"
+                  value={baseSearchTerm}
+                  onChange={(event) => setBaseSearchTerm(event.target.value)}
+                  placeholder="Buscar base por nome"
+                  aria-label="Buscar base por nome"
+                />
+              </label>
+            ) : null}
+
             <div className="finance-base-grid">
-              {baseCards.map((base) => (
+              {visibleBaseCards.map((base) => (
                 <article className="finance-base-card" key={base.id}>
                   <div className="finance-base-card__top">
                     <div>
@@ -1107,6 +1159,12 @@ export function FinanceiroScreen({
                   </button>
                 </article>
               ))}
+              {selectedPeriod && visibleBaseCards.length === 0 ? (
+                <div className="crm-empty-screen finance-base-empty">
+                  <strong>Nenhuma base encontrada</strong>
+                  <p>Ajuste o texto da busca para localizar outra base.</p>
+                </div>
+              ) : null}
             </div>
           </article>
 
