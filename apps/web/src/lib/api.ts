@@ -956,6 +956,9 @@ export type FaturamentoSummary = {
   dashboard: {
     totalRows: number;
     totalVehicles: number;
+    totalAmbulances: number;
+    totalPnrs: number;
+    weekendRoutes: number;
     totalRoutes: number;
     totalGeneral: number;
     byCategory: Record<string, number>;

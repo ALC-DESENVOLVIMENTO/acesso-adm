@@ -59,14 +59,35 @@ function text(value: unknown) {
   return String(value).trim();
 }
 
+function repairEncoding(value: unknown) {
+  let current = text(value);
+  for (let attempt = 0; attempt < 2 && /[ÃÂ]/.test(current); attempt += 1) {
+    const repaired = Buffer.from(current, "latin1").toString("utf8");
+    if (!repaired || repaired.includes("�") || repaired === current) break;
+    current = repaired;
+  }
+  return current;
+}
+
 function key(value: unknown) {
-  return text(value)
+  return repairEncoding(value)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/Ã.|Â/g, "")
     .replace(/[^a-z0-9]+/gi, " ")
     .trim()
     .toLowerCase();
+}
+
+function referenceKey(value: unknown) {
+  return key(value).replace(/ /g, "");
+}
+
+function resolveFleet(fleets: Record<string, string>, ...values: unknown[]) {
+  for (const value of values) {
+    const resolved = fleets[referenceKey(value)] || fleets[key(value)];
+    if (resolved) return repairEncoding(resolved);
+  }
+  return null;
 }
 
 function findIndex(headers: string[], ...aliases: string[]) {
@@ -75,9 +96,23 @@ function findIndex(headers: string[], ...aliases: string[]) {
 
 function parseNumber(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
-  const raw = text(value).replace(/R\$\s*/gi, "").replace(/\s/g, "");
+  const raw = text(value).replace(/R\$\s*/gi, "").replace(/\s/g, "").replace(/[^0-9,.-]/g, "");
   if (!raw) return null;
-  const normalized = raw.includes(",") ? raw.replace(/\./g, "").replace(",", ".") : raw.replace(/[^0-9.-]/g, "");
+  const comma = raw.lastIndexOf(",");
+  const dot = raw.lastIndexOf(".");
+  let normalized = raw;
+  if (comma >= 0 && dot >= 0) {
+    const decimalIndex = Math.max(comma, dot);
+    normalized = `${raw.slice(0, decimalIndex).replace(/[.,]/g, "")}.${raw.slice(decimalIndex + 1).replace(/[.,]/g, "")}`;
+  } else if (comma >= 0) {
+    normalized = `${raw.slice(0, comma).replace(/\./g, "")}.${raw.slice(comma + 1).replace(/\./g, "")}`;
+  } else if ((raw.match(/\./g) || []).length > 1) {
+    const parts = raw.split(".");
+    const decimal = parts.pop() || "";
+    normalized = decimal.length <= 2 ? `${parts.join("")}.${decimal}` : parts.join("") + decimal;
+  } else if (dot >= 0 && raw.length - dot - 1 === 3) {
+    normalized = raw.replace(".", "");
+  }
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : null;
 }
@@ -126,16 +161,20 @@ export function parsePreFatura(buffer: Buffer, originalName: string, references:
       if (!row.some((value) => text(value))) continue;
       const raw: Record<string, unknown> = {};
       headers.forEach((header, index) => { if (header) raw[header] = row[index]; });
+      const veiculoModal = repairEncoding(getValue(row, indexes.vehicle)) || null;
+      const kmRange = repairEncoding(getValue(row, indexes.kmRange)) || null;
+      const kmRanger = repairEncoding(getValue(row, indexes.kmRanger)) || null;
+      const svc = repairEncoding(getValue(row, indexes.svc)) || null;
       const item: FaturamentoItem = {
         aba: sheetName, linhaExcel: rowIndex + 1, categoria: category,
-        descricao: text(getValue(row, indexes.descricao)) || null, veiculoModal: text(getValue(row, indexes.vehicle)) || null,
-        svcContinuacao: text(getValue(row, indexes.svcCont)) || null, svc: text(getValue(row, indexes.svc)) || null,
-        siglaBase: text(getValue(row, indexes.sigla)) || null, nomeBase: references.bases[key(getValue(row, indexes.sigla)).replace(/ /g, "")] || text(getValue(row, indexes.sigla)) || null,
-        kmRange: text(getValue(row, indexes.kmRange)) || null, kmRanger: text(getValue(row, indexes.kmRanger)) || null,
-        idRota: text(getValue(row, indexes.route)) || null, dataInicio: text(getValue(row, indexes.start)) || null,
-        dataFim: text(getValue(row, indexes.end)) || null, placa: text(getValue(row, indexes.plate)) || null,
-        motorista: text(getValue(row, indexes.driver)) || null, quantidade: parseNumber(getValue(row, indexes.quantity)),
-        precoUnitario: parseNumber(getValue(row, indexes.unit)), total: parseNumber(getValue(row, indexes.total)), tipoFrota: references.fleets[key(getValue(row, indexes.vehicle))] || null, raw
+        descricao: repairEncoding(getValue(row, indexes.descricao)) || null, veiculoModal,
+        svcContinuacao: repairEncoding(getValue(row, indexes.svcCont)) || null, svc,
+        siglaBase: repairEncoding(getValue(row, indexes.sigla)) || null, nomeBase: references.bases[referenceKey(getValue(row, indexes.sigla))] || repairEncoding(getValue(row, indexes.sigla)) || null,
+        kmRange, kmRanger,
+        idRota: repairEncoding(getValue(row, indexes.route)) || null, dataInicio: repairEncoding(getValue(row, indexes.start)) || null,
+        dataFim: repairEncoding(getValue(row, indexes.end)) || null, placa: repairEncoding(getValue(row, indexes.plate)) || null,
+        motorista: repairEncoding(getValue(row, indexes.driver)) || null, quantidade: parseNumber(getValue(row, indexes.quantity)),
+        precoUnitario: parseNumber(getValue(row, indexes.unit)), total: parseNumber(getValue(row, indexes.total)), tipoFrota: resolveFleet(references.fleets, veiculoModal, kmRange, kmRanger, svc) || null, raw
       };
       items.push(item);
     }

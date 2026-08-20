@@ -24,3 +24,31 @@ test("rejeita arquivo sem identificação de pré-fatura", () => {
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([["Motorista"], ["João"]]), "Detalhes");
   assert.throws(() => parsePreFatura(XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }), "arquivo.xlsx"), /número da pré-fatura/);
 });
+
+test("resolve o tipo de frota salvo no banco mesmo com texto corrompido no Excel", () => {
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ["Veículos", "Sigla Base", "ID da rota", "Motorista", "Total"],
+    ["UtilitÃ¡rio", "SSP10", "R1", "João", "100,00"]
+  ]), "Detalhes da pré-fatura #456");
+  const parsed = parsePreFatura(XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }), "pre-fatura #456.xlsx", {
+    bases: { ssp10: "São Paulo" },
+    fleets: { utilitario: "Utilitário leve" }
+  });
+  assert.equal(parsed.items[0].veiculoModal, "Utilitário");
+  assert.equal(parsed.items[0].tipoFrota, "Utilitário leve");
+});
+
+test("normaliza valores monetários brasileiros, americanos e com pontos repetidos", () => {
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ["Veículos", "ID da rota", "Preço unitário", "TOTAL"],
+    ["VUC", "R1", "R$ 1.234,50", "R$ 2.324.65"],
+    ["VUC", "R2", "1,234.50", "1.234.567,89"]
+  ]), "Detalhes da pré-fatura #789");
+  const parsed = parsePreFatura(XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }), "pre-fatura #789.xlsx");
+  assert.equal(parsed.items[0].precoUnitario, 1234.5);
+  assert.equal(parsed.items[0].total, 2324.65);
+  assert.equal(parsed.items[1].precoUnitario, 1234.5);
+  assert.equal(parsed.items[1].total, 1234567.89);
+});

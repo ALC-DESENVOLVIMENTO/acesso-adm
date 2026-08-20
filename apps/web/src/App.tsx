@@ -17,6 +17,7 @@ import {
   FunnelSimple,
   GearSix,
   HouseLine,
+  Handshake,
   LockKey,
   LockSimple,
   MagnifyingGlass,
@@ -149,7 +150,7 @@ const menuItems = [
   { key: "bases", label: "Cadastros de Bases", icon: Database },
   { key: "periods", label: "Criação de Período", icon: CalendarBlank },
   { key: "financeiro", label: "Financeiro", icon: FilePdf },
-  { key: "faturamento", label: "Faturamento", icon: ChartLineUp },
+  { key: "faturamento", label: "Faturamento", icon: Handshake },
   { key: "atendimento", label: "CRM do Motorista", icon: ChatCenteredDots }
 ] as const;
 

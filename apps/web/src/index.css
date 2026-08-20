@@ -5237,6 +5237,10 @@ body.theme-dark :where(.filter-select svg, .field:has(select) svg) {
 
 /* Faturamento: visualização operacional das pré-faturas por operação. */
 .faturamento-screen { gap: 18px; }
+.faturamento-heading { align-items: center; }
+.faturamento-title { display: flex; align-items: center; gap: 16px; }
+.faturamento-title h1 { margin: 0; }
+.mercado-livre-brand { width: 46px; height: 46px; object-fit: contain; }
 .faturamento-toolbar { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; padding: 18px; background: var(--panel, #fff); border: 1px solid var(--border, #e6e8ef); border-radius: 18px; }
 .faturamento-toolbar label { display: grid; gap: 6px; color: var(--muted, #64748b); font-size: 12px; font-weight: 700; }
 .faturamento-toolbar select, .faturamento-search input { min-height: 42px; border: 1px solid var(--border, #e6e8ef); border-radius: 10px; padding: 0 12px; background: var(--surface, #fff); color: var(--text, #172033); }
@@ -5248,8 +5252,38 @@ body.theme-dark :where(.filter-select svg, .field:has(select) svg) {
 .faturamento-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .faturamento-kpis article { display: grid; grid-template-columns: 32px 1fr; column-gap: 10px; align-items: center; padding: 18px; background: var(--panel, #fff); border: 1px solid var(--border, #e6e8ef); border-radius: 16px; }
 .faturamento-kpis article svg { grid-row: span 2; color: #eb0000; }.faturamento-kpis strong { font-size: 20px; }.faturamento-kpis span { color: var(--muted, #64748b); font-size: 12px; }
-.faturamento-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; }.panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+.faturamento-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 28px; margin-top: 10px; }.panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+.faturamento-grid--overview { grid-template-columns: 1fr; gap: 36px; margin-top: 18px; }
 .faturamento-bar { display: grid; gap: 8px; margin: 16px 0; }.faturamento-bar > div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }.faturamento-bar span { color: var(--muted, #64748b); }.faturamento-bar i { display: block; height: 9px; border-radius: 99px; background: linear-gradient(90deg, #eb0000, #ff7373); }
+.faturamento-base-viewport { overflow-x: auto; padding: 4px 4px 12px; scrollbar-width: thin; }
+.faturamento-base-chart { display: grid; grid-template-columns: repeat(4, minmax(240px, 1fr)); gap: 14px; min-width: 100%; transition: width .25s ease; }
+.faturamento-base-chart .faturamento-bar { padding: 16px; margin: 0; border: 1px solid var(--border, #e6e8ef); border-radius: 14px; background: linear-gradient(145deg, rgba(235,0,0,.06), transparent); }
+.faturamento-base-chart .faturamento-bar > div { min-height: 74px; align-items: flex-start; flex-direction: column; }
+.faturamento-base-chart .faturamento-bar > div span { font-size: 12px; }
+.faturamento-base-chart .faturamento-bar em { color: var(--text, #172033); font-size: 16px; font-style: normal; font-weight: 800; }
+.faturamento-bar strong { display: flex; align-items: center; gap: 8px; }.faturamento-bar strong b { display: inline-grid; place-items: center; width: 25px; height: 25px; border-radius: 8px; color: #eb0000; background: rgba(235,0,0,.1); font-size: 10px; }
+.faturamento-chart-actions { display: flex; align-items: center; gap: 14px; }.faturamento-chart-actions label { display: flex; align-items: center; gap: 8px; color: var(--muted, #64748b); font-size: 12px; font-weight: 700; }.faturamento-chart-actions input[type="range"] { accent-color: #eb0000; width: 110px; }
+.faturamento-map-controls { display: inline-flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid rgba(235,0,0,.22); border-radius: 12px; background: rgba(235,0,0,.05); color: #eb0000; font-size: 11px; font-weight: 800; }.faturamento-map-controls output { color: var(--text, #172033); }
+.faturamento-column-viewport { overflow-x: auto; margin-top: 18px; padding: 26px 18px 14px; border: 1px solid var(--border, #e6e8ef); border-radius: 18px; background: linear-gradient(180deg, rgba(235,0,0,.035), var(--surface, #fff)); scrollbar-width: thin; }
+.faturamento-column-chart { display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); align-items: end; gap: 20px; min-width: 1000px; min-height: 360px; padding: 0 8px; transform-origin: center bottom; transition: width .25s ease; }
+.faturamento-column-node { display: grid; align-items: end; gap: 7px; min-width: 0; text-align: center; }.faturamento-column-value { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px; min-height: 18px; padding: 10px 8px; border-radius: 14px 14px 6px 6px; background: linear-gradient(180deg, #eb0000, #ff8181); color: #fff; box-shadow: 0 10px 18px rgba(235,0,0,.18); }.faturamento-column-value strong { font-size: 12px; white-space: nowrap; }.faturamento-column-node > b { color: #eb0000; font-size: 11px; }.faturamento-column-node > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }.faturamento-column-node > small { min-height: 28px; color: var(--muted, #64748b); font-size: 11px; line-height: 1.35; }
+.faturamento-bars-viewport { overflow-x: auto; margin-top: 18px; padding: 16px 18px 18px; border: 1px solid var(--border, #e6e8ef); border-radius: 18px; background: linear-gradient(180deg, rgba(235,0,0,.035), var(--surface, #fff)); scrollbar-width: thin; }
+.faturamento-bars-chart { display: grid; gap: 14px; min-width: 760px; padding: 4px 0; transition: width .25s ease; }
+.faturamento-bar-row { display: grid; grid-template-columns: minmax(220px, 30%) minmax(360px, 1fr); align-items: center; gap: 22px; min-height: 58px; }
+.faturamento-bar-label { display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: center; column-gap: 10px; min-width: 0; }
+.faturamento-bar-label b { color: #eb0000; font-size: 12px; }
+.faturamento-bar-label strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.faturamento-bar-label small { grid-column: 2; color: var(--muted, #64748b); font-size: 11px; line-height: 1.3; }
+.faturamento-bar-track { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.faturamento-bar-track span { display: block; height: 22px; min-width: 12px; border-radius: 999px; background: linear-gradient(90deg, #eb0000, #ff8585); box-shadow: 0 7px 14px rgba(235,0,0,.16); transition: width .3s ease; }
+.faturamento-bar-track strong { flex: 0 0 auto; color: var(--text, #0f172a); font-size: 12px; white-space: nowrap; }
+.faturamento-export-image-button { display: inline-flex; align-items: center; gap: 8px; min-width: 118px; justify-content: center; border: 1px solid rgba(235,0,0,.22); background: linear-gradient(135deg, rgba(235,0,0,.1), rgba(235,0,0,.03)); color: var(--text, #0f172a); box-shadow: 0 8px 18px rgba(235,0,0,.1); }
+.faturamento-export-image-button:hover:not(:disabled) { border-color: #eb0000; background: #eb0000; color: #fff; transform: translateY(-1px); }
+.faturamento-export-image-button:disabled { cursor: wait; opacity: .7; }
+@media (max-width: 720px) { .faturamento-bar-row { grid-template-columns: minmax(180px, 38%) minmax(300px, 1fr); gap: 14px; } .faturamento-bars-chart { min-width: 680px; } }
+.faturamento-map-viewport { min-height: 600px; overflow: auto; margin-top: 18px; padding: 12px; border: 1px solid var(--border, #e6e8ef); border-radius: 18px; background: #eef1f5; scrollbar-width: thin; }
+.faturamento-map-canvas { display: grid; grid-template-columns: repeat(5, minmax(190px, 1fr)); grid-auto-rows: 130px; gap: 14px; min-width: 1050px; min-height: 560px; transform-origin: center center; transition: transform .25s ease; background-color: #f8fafc; background-image: linear-gradient(rgba(148,163,184,.16) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,.16) 1px, transparent 1px), radial-gradient(circle at 20% 20%, rgba(235,0,0,.07), transparent 28%); background-size: 42px 42px, 42px 42px, auto; border: 1px solid rgba(148,163,184,.22); border-radius: 14px; }
+.faturamento-map-node { width: auto; min-height: 112px; padding: 14px; display: grid; grid-template-columns: 22px 1fr; align-content: start; gap: 5px 8px; border: 1px solid rgba(235,0,0,.22); border-radius: 14px; background: rgba(255,255,255,.94); box-shadow: 0 10px 24px rgba(15,23,42,.1); }.faturamento-map-node > svg { color: #eb0000; }.faturamento-map-node div { display: grid; gap: 2px; }.faturamento-map-node strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }.faturamento-map-node small, .faturamento-map-node span { color: var(--muted, #64748b); font-size: 11px; }.faturamento-map-node span { grid-column: 1 / -1; }.faturamento-map-node b { grid-column: 1 / -1; color: var(--text, #172033); font-size: 14px; }
 .faturamento-category { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--border, #e6e8ef); }.faturamento-category:last-child { border-bottom: 0; }
 .faturamento-history-list { display: grid; gap: 8px; }.faturamento-history-list button { display: flex; justify-content: space-between; gap: 12px; text-align: left; padding: 12px 14px; border: 1px solid var(--border, #e6e8ef); border-radius: 10px; background: transparent; color: var(--text, #172033); cursor: pointer; }.faturamento-history-list button.is-selected { border-color: #eb0000; background: rgba(235,0,0,.06); }.faturamento-history-list span { color: var(--muted, #64748b); font-size: 12px; }.faturamento-search { display: flex; align-items: center; gap: 8px; color: #eb0000; }.faturamento-search input { min-width: 260px; }
 @media (max-width: 900px) { .faturamento-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }.faturamento-grid { grid-template-columns: 1fr; } }
@@ -5279,14 +5313,25 @@ body.theme-dark :where(.filter-select svg, .field:has(select) svg) {
 .faturamento-toolbar-options, .faturamento-toolbar-upload { display: flex; align-items: end; gap: 14px; flex-wrap: wrap; width: 100%; }
 .faturamento-toolbar-options { padding-bottom: 2px; }
 .faturamento-toolbar-options .faturamento-operation { flex: 1 1 220px; min-width: 180px; margin-right: auto; }
+.faturamento-operation small { color: var(--muted, #64748b); font-size: 12px; font-weight: 700; letter-spacing: .01em; }
 .faturamento-toolbar-options > label { flex: 0 1 220px; }
 .faturamento-toolbar-options .faturamento-references { flex: 0 1 210px; }
+.faturamento-history-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex: 0 0 auto; white-space: nowrap; border: 1px solid rgba(235,0,0,.24); border-radius: 12px; background: rgba(235,0,0,.06); color: #eb0000; box-shadow: 0 8px 18px rgba(235,0,0,.08); }
 .faturamento-toolbar-upload { align-items: center; padding-top: 2px; border-top: 1px solid var(--border, #e6e8ef); }
 .faturamento-toolbar-upload .faturamento-file { flex: 1 1 360px; min-width: 260px; }
 .faturamento-toolbar-upload .faturamento-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .faturamento-toolbar-upload .primary-button { width: auto !important; min-width: 0 !important; max-width: 210px; flex: 0 0 auto !important; white-space: nowrap; }
+.faturamento-modal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
+.faturamento-modal { display: grid; gap: 8px; margin: 0; padding: 16px; border: 1px solid var(--border, #e6e8ef); border-radius: 14px; background: linear-gradient(135deg, var(--surface, #fff), rgba(235,0,0,.035)); }
+.faturamento-modal-heading { display: flex; align-items: center; gap: 10px; }
+.faturamento-modal-heading b { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; color: #eb0000; background: rgba(235,0,0,.1); font-size: 11px; }
+.faturamento-modal span { color: var(--muted, #64748b); font-size: 12px; }
+.faturamento-modal-total { font-size: 14px; }
+.faturamento-modal i { display: block; height: 7px; border-radius: 99px; background: linear-gradient(90deg, #eb0000, #ff7878); }
 @media (max-width: 800px) {
   .faturamento-toolbar-options, .faturamento-toolbar-upload { align-items: stretch; }
   .faturamento-toolbar-options > *, .faturamento-toolbar-upload > * { width: 100%; max-width: none; flex-basis: 100%; }
   .faturamento-toolbar-upload .primary-button { width: 100% !important; }
 }
+@media (max-width: 700px) { .faturamento-modal-grid { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .faturamento-heading { align-items: flex-start; }.faturamento-title { gap: 10px; }.mercado-livre-brand { width: 38px; height: 38px; }.faturamento-chart-actions { align-items: flex-start; flex-direction: column; gap: 8px; }.faturamento-bar > div { align-items: flex-start; flex-direction: column; }.faturamento-map-viewport { min-height: 480px; }.faturamento-map-canvas { min-height: 440px; } }

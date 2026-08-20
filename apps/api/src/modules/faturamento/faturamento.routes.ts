@@ -45,34 +45,45 @@ router.get("/summary", async (req, res) => {
   const latestByType: Record<string, any> = {};
   rows.forEach((row) => { if (!latestByType[row.tipo]) latestByType[row.tipo] = row; });
   const selected = latestByType[requestedType] || latestByType.lastmile || rows[0] || null;
-  let dashboard: any = { totalRows: 0, totalVehicles: 0, totalRoutes: 0, totalGeneral: 0, byCategory: {}, byBase: [], byModal: [], ambulancesByBase: [], missingBaseRows: 0, siglaOnlyRows: 0 };
+  let dashboard: any = { totalRows: 0, totalVehicles: 0, totalRoutes: 0, totalGeneral: 0, totalAmbulances: 0, totalPnrs: 0, weekendRoutes: 0, byCategory: {}, byBase: [], byModal: [], ambulancesByBase: [], missingBaseRows: 0, siglaOnlyRows: 0 };
   if (selected) {
     const items = await prisma.$queryRawUnsafe<Array<any>>(`
-      SELECT categoria, sigla_base, nome_base, COUNT(*)::int AS linhas, COUNT(DISTINCT NULLIF(id_rota, ''))::int AS rotas, COUNT(DISTINCT NULLIF(veiculo_modal, ''))::int AS veiculos, COALESCE(SUM(total),0)::float AS total
+      SELECT categoria, sigla_base, nome_base, COUNT(*)::int AS linhas, COUNT(DISTINCT NULLIF(id_rota, ''))::int AS rotas, COUNT(DISTINCT COALESCE(NULLIF(veiculo_modal, ''), NULLIF(tipo_frota, '')))::int AS veiculos, COALESCE(SUM(total),0)::float AS total
       FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}' GROUP BY categoria, sigla_base, nome_base
     `);
     const baseItems = await prisma.$queryRawUnsafe<Array<any>>(`
-      SELECT sigla_base, nome_base, COUNT(*)::int AS linhas, COUNT(DISTINCT NULLIF(id_rota, ''))::int AS rotas, COUNT(DISTINCT COALESCE(NULLIF(placa, ''), NULLIF(CONCAT_WS('|', motorista, veiculo_modal), '')))::int AS veiculos, COALESCE(SUM(total),0)::float AS total, COALESCE(SUM(total) FILTER (WHERE categoria <> 'principal'),0)::float AS descontos
-      FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}' GROUP BY sigla_base, nome_base
+      SELECT sigla_base, nome_base, COUNT(*)::int AS linhas, COUNT(DISTINCT NULLIF(id_rota, ''))::int AS rotas, COUNT(DISTINCT COALESCE(NULLIF(placa, ''), NULLIF(CONCAT_WS('|', motorista, COALESCE(NULLIF(veiculo_modal, ''), NULLIF(tipo_frota, ''))), '')))::int AS veiculos, COALESCE(SUM(total),0)::float AS total, COALESCE(SUM(total) FILTER (WHERE categoria <> 'principal'),0)::float AS descontos
+      FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}' AND categoria = 'principal' GROUP BY sigla_base, nome_base
     `);
-    dashboard.totalRows = number(selected.total_linhas); dashboard.totalRoutes = number(selected.total_rotas); dashboard.totalGeneral = number(selected.total_geral);
+    dashboard.totalRows = number(selected.total_linhas); dashboard.totalRoutes = number(selected.total_rotas);
     const bases: Record<string, any> = {};
     for (const item of items) {
       dashboard.byCategory[item.categoria] = (dashboard.byCategory[item.categoria] || 0) + number(item.total);
     }
+    dashboard.totalGeneral = number(dashboard.byCategory.principal);
     for (const item of baseItems) {
-      const base = item.sigla_base || "Sem base";
+      const base = item.sigla_base || "Base não identificada";
       bases[base] = { sigla: base, nomeBase: item.nome_base || base, linhas: number(item.linhas), rotas: number(item.rotas), veiculos: number(item.veiculos), total: number(item.total), descontos: number(item.descontos) };
     }
     dashboard.byBase = Object.values(bases).sort((a: any, b: any) => b.total - a.total);
-    dashboard.totalVehicles = number((await prisma.$queryRawUnsafe<Array<{ count: number }>>(`SELECT COUNT(DISTINCT COALESCE(NULLIF(placa, ''), NULLIF(CONCAT_WS('|', motorista, veiculo_modal), '')))::int AS count FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}'`))[0]?.count);
+    dashboard.totalVehicles = number((await prisma.$queryRawUnsafe<Array<{ count: number }>>(`SELECT COUNT(DISTINCT COALESCE(NULLIF(placa, ''), NULLIF(CONCAT_WS('|', motorista, COALESCE(NULLIF(veiculo_modal, ''), NULLIF(tipo_frota, ''))), '')))::int AS count FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}' AND categoria = 'principal'`))[0]?.count);
+    const extraTotals = await prisma.$queryRawUnsafe<Array<{ ambulances: number; pnrs: number; weekend: number }>>(`
+      SELECT
+        COUNT(DISTINCT COALESCE(NULLIF(placa, ''), NULLIF(CONCAT_WS('|', motorista, COALESCE(NULLIF(veiculo_modal, ''), NULLIF(tipo_frota, ''))), ''))) FILTER (WHERE categoria = 'principal' AND (tipo_frota ILIKE '%ambul%' OR veiculo_modal ILIKE '%ambul%' OR km_range ILIKE '%ambul%'))::int AS ambulances,
+        COUNT(DISTINCT NULLIF(id_rota, '')) FILTER (WHERE categoria IN ('pnrs', 'pnrs_bugadas'))::int AS pnrs,
+        COUNT(DISTINCT NULLIF(id_rota, '')) FILTER (WHERE categoria = 'principal' AND (km_range ILIKE '%SATURDAY DAY ROUTE%' OR km_range ILIKE '%HOLIDAY DAY ROUTE%' OR km_ranger ILIKE '%SATURDAY DAY ROUTE%' OR km_ranger ILIKE '%HOLIDAY DAY ROUTE%'))::int AS weekend
+      FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}'
+    `);
+    dashboard.totalAmbulances = number(extraTotals[0]?.ambulances);
+    dashboard.totalPnrs = number(extraTotals[0]?.pnrs);
+    dashboard.weekendRoutes = number(extraTotals[0]?.weekend);
     dashboard.byModal = await prisma.$queryRawUnsafe<Array<any>>(`
-      SELECT COALESCE(NULLIF(veiculo_modal, ''), 'Não informado') AS modal, COUNT(DISTINCT COALESCE(NULLIF(placa, ''), NULLIF(CONCAT_WS('|', motorista, veiculo_modal), '')))::int AS veiculos, COUNT(DISTINCT NULLIF(id_rota, ''))::int AS rotas, COALESCE(SUM(total),0)::float AS total
-      FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}' GROUP BY COALESCE(NULLIF(veiculo_modal, ''), 'Não informado') ORDER BY total DESC LIMIT 30
+      SELECT COALESCE(NULLIF(veiculo_modal, ''), NULLIF(tipo_frota, ''), 'Não informado') AS modal, COUNT(DISTINCT COALESCE(NULLIF(placa, ''), NULLIF(CONCAT_WS('|', motorista, COALESCE(NULLIF(veiculo_modal, ''), NULLIF(tipo_frota, ''))), '')))::int AS veiculos, COUNT(DISTINCT NULLIF(id_rota, ''))::int AS rotas, COALESCE(SUM(total),0)::float AS total
+      FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}' AND categoria = 'principal' GROUP BY COALESCE(NULLIF(veiculo_modal, ''), NULLIF(tipo_frota, ''), 'Não informado') ORDER BY total DESC LIMIT 30
     `);
     dashboard.ambulancesByBase = await prisma.$queryRawUnsafe<Array<any>>(`
-      SELECT COALESCE(NULLIF(nome_base, ''), NULLIF(sigla_base, ''), 'Sem base') AS base, COUNT(DISTINCT COALESCE(NULLIF(placa, ''), NULLIF(CONCAT_WS('|', motorista, veiculo_modal), '')))::int AS solicitacoes, COUNT(DISTINCT NULLIF(id_rota, ''))::int AS rotas, COALESCE(SUM(total),0)::float AS total
-      FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}' AND (veiculo_modal ILIKE '%ambul%' OR km_range ILIKE '%ambul%') GROUP BY COALESCE(NULLIF(nome_base, ''), NULLIF(sigla_base, ''), 'Sem base') ORDER BY solicitacoes DESC
+      SELECT COALESCE(NULLIF(nome_base, ''), NULLIF(sigla_base, ''), 'Base não identificada') AS base, COUNT(DISTINCT COALESCE(NULLIF(placa, ''), NULLIF(CONCAT_WS('|', motorista, COALESCE(NULLIF(veiculo_modal, ''), NULLIF(tipo_frota, ''))), '')))::int AS solicitacoes, COUNT(DISTINCT NULLIF(id_rota, ''))::int AS rotas, COALESCE(SUM(total),0)::float AS total
+      FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}' AND categoria = 'principal' AND (tipo_frota ILIKE '%ambul%' OR veiculo_modal ILIKE '%ambul%' OR km_range ILIKE '%ambul%') GROUP BY nome_base, sigla_base ORDER BY solicitacoes DESC
     `);
     const quality = await prisma.$queryRawUnsafe<Array<{ missing: number; siglaOnly: number }>>(`
       SELECT COUNT(DISTINCT NULLIF(id_rota, '')) FILTER (WHERE NULLIF(TRIM(sigla_base), '') IS NULL)::int AS missing, COUNT(DISTINCT NULLIF(id_rota, '')) FILTER (WHERE NULLIF(TRIM(sigla_base), '') IS NOT NULL AND TRIM(COALESCE(nome_base,'')) = TRIM(sigla_base))::int AS "siglaOnly"
