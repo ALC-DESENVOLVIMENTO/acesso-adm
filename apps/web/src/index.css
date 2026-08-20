@@ -5254,6 +5254,7 @@ body.theme-dark :where(.filter-select svg, .field:has(select) svg) {
 .faturamento-kpis article svg { grid-row: span 2; color: #eb0000; }.faturamento-kpis strong { font-size: 20px; }.faturamento-kpis span { color: var(--muted, #64748b); font-size: 12px; }
 .faturamento-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 28px; margin-top: 10px; }.panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
 .faturamento-grid--overview { grid-template-columns: 1fr; gap: 36px; margin-top: 18px; }
+.faturamento-grid--overview > .panel:nth-child(2) { display: none; }
 .faturamento-bar { display: grid; gap: 8px; margin: 16px 0; }.faturamento-bar > div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }.faturamento-bar span { color: var(--muted, #64748b); }.faturamento-bar i { display: block; height: 9px; border-radius: 99px; background: linear-gradient(90deg, #eb0000, #ff7373); }
 .faturamento-base-viewport { overflow-x: auto; padding: 4px 4px 12px; scrollbar-width: thin; }
 .faturamento-base-chart { display: grid; grid-template-columns: repeat(4, minmax(240px, 1fr)); gap: 14px; min-width: 100%; transition: width .25s ease; }
