@@ -71,7 +71,7 @@ const basePayloadSchema = z.object({
 function normalizeBaseAcronyms(values: Array<string | null | undefined>) {
   return Array.from(new Set(
     values
-      .flatMap((value) => String(value || "").split(/[;,\n]+/))
+      .flatMap((value) => String(value || "").split(/[\/;,\n]+/))
       .map((value) => value.trim().toUpperCase())
       .filter(Boolean)
   )).slice(0, 12);
@@ -79,6 +79,10 @@ function normalizeBaseAcronyms(values: Array<string | null | undefined>) {
 
 function baseAcronyms(value: string | null | undefined) {
   return normalizeBaseAcronyms([value]);
+}
+
+function comparableBaseName(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase().replace(/\s+/g, " ");
 }
 
 const duplicateReviewActionSchema = z.object({
@@ -944,16 +948,21 @@ router.post("/bases/importar", requireAdmin, baseReferenceUpload.single("file"),
     const workbook = XLSX.read(req.file.buffer, { type: "buffer", raw: false });
     const sheetName = workbook.SheetNames.find((name) => /resp|sigla/i.test(name)) || workbook.SheetNames[0];
     const rows = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[sheetName], { header: 1, defval: null, blankrows: false, raw: false });
+    const existingBases = await prisma.basePagamento.findMany({ select: { id: true, nome: true } });
+    const existingByName = new Map(existingBases.map((base) => [comparableBaseName(base.nome), base]));
     let imported = 0;
     for (const row of rows.slice(1)) {
       const name = String(row[0] || "").trim();
       const acronym = String(row[1] || "").trim();
       if (!name || !acronym) continue;
-      await prisma.basePagamento.upsert({
-        where: { nome: name },
-        update: { sigla: acronym, ativo: true },
-        create: { nome: name, sigla: acronym, tipoPadrao: "semanal", ativo: true }
-      });
+      const acronyms = normalizeBaseAcronyms([acronym]).join(", ");
+      const existing = existingByName.get(comparableBaseName(name));
+      if (existing) {
+        await prisma.basePagamento.update({ where: { id: existing.id }, data: { nome: name, sigla: acronyms, ativo: true } });
+      } else {
+        const created = await prisma.basePagamento.create({ data: { nome: name, sigla: acronyms, tipoPadrao: "semanal", ativo: true } });
+        existingByName.set(comparableBaseName(name), created);
+      }
       imported += 1;
     }
     await prisma.logAuditoria.create({ data: { usuarioId: req.auth.userId, acao: "importar_bases_siglas", entidade: "bases_pagamento", detalhes: { arquivo: req.file.originalname, aba: sheetName, importadas: imported } } });

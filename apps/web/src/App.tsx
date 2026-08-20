@@ -1850,7 +1850,7 @@ function App() {
         setFlashMessage({ type: "success", text: response.message });
       }
 
-      await loadPeriodData();
+      await loadPaymentBasesData();
       setBaseEditorOpen(false);
       setEditingBase(null);
       return true;
@@ -1881,7 +1881,7 @@ function App() {
       });
 
       setFlashMessage({ type: "success", text: response.message });
-      await loadPeriodData();
+      await loadPaymentBasesData();
       return true;
     } catch (error) {
       setFlashMessage({
@@ -2586,7 +2586,7 @@ function App() {
         {baseEditorOpen ? (
           <div className="modal-overlay" onClick={() => setBaseEditorOpen(false)}>
             <div
-              className="modal-card modal-card--confirm modal-card--periods modal-card--create"
+              className="modal-card modal-card--confirm modal-card--periods modal-card--create modal-card--base-editor"
               role="dialog"
               aria-modal="true"
               aria-labelledby="base-editor-title"
