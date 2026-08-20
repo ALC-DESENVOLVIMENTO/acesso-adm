@@ -180,6 +180,7 @@ const userModuleOptions = [
 const loginPreviewImages = ["/login-preview-dashboard.png", "/login-preview-pdfs.png"];
 
 const quickActionStorageKey = "portal-adm.quick-actions";
+const sidebarGroupsStorageKey = "portal-adm.sidebar-groups";
 const themeStorageKey = "portal-adm.theme";
 const periodsViewStateKey = "portal-adm.periods-view-state";
 const pdfsViewStateKey = "portal-adm.pdfs-view-state";
@@ -600,6 +601,35 @@ function App() {
   }, [currentUser, quickActions]);
 
   useEffect(() => {
+    if (!currentUser) return;
+    const key = `${sidebarGroupsStorageKey}:${currentUser.id}`;
+    try {
+      const raw = window.localStorage.getItem(key);
+      const saved = raw ? JSON.parse(raw) as Partial<Record<"administrativo" | "faturamento" | "cadastros", boolean>> : null;
+      if (saved) {
+        if (typeof saved.administrativo === "boolean") setAdminMenuOpen(saved.administrativo);
+        if (typeof saved.faturamento === "boolean") setFaturamentoMenuOpen(saved.faturamento);
+        if (typeof saved.cadastros === "boolean") setCadastrosMenuOpen(saved.cadastros);
+      }
+    } catch {
+      // Keep the default open state when browser storage is unavailable.
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    try {
+      window.localStorage.setItem(`${sidebarGroupsStorageKey}:${currentUser.id}`, JSON.stringify({
+        administrativo: adminMenuOpen,
+        faturamento: faturamentoMenuOpen,
+        cadastros: cadastrosMenuOpen
+      }));
+    } catch {
+      // Keep the preference in memory when browser storage is unavailable.
+    }
+  }, [adminMenuOpen, faturamentoMenuOpen, cadastrosMenuOpen, currentUser]);
+
+  useEffect(() => {
     if (view !== "login") {
       return;
     }
@@ -742,6 +772,13 @@ function App() {
   const loadPeriodData = async () => {
     const [periodsData, basesData] = await Promise.all([fetchPaymentPeriods(token), fetchPaymentBases(token)]);
     setPaymentPeriods(periodsData);
+    setPaymentBases(basesData);
+    setPeriodDataLoaded(true);
+  };
+
+  const loadPaymentBasesData = async () => {
+    setPeriodDataLoaded(false);
+    const basesData = await fetchPaymentBases(token);
     setPaymentBases(basesData);
     setPeriodDataLoaded(true);
   };
@@ -936,7 +973,9 @@ function App() {
           }
         }
 
-        if ((activeView === "periods" || activeView === "financeiro") && canSeePeriodData) {
+        if (activeView === "bases" && canSeePeriodData) {
+          tasks.push(loadPaymentBasesData());
+        } else if ((activeView === "periods" || activeView === "financeiro") && canSeePeriodData) {
           tasks.push(loadPeriodData());
         }
 
@@ -2532,7 +2571,7 @@ function App() {
         ) : null}
         {!accessDenied && activeView === "bases" ? (
           <Suspense fallback={<section className="panel"><p className="loading-note">Carregando cadastros de bases...</p></section>}>
-            <BasesScreen token={token} bases={paymentBases} onRefresh={loadPeriodData} onOpenEditor={openBaseEditor} onToggleActive={handleToggleBaseActive} />
+            <BasesScreen token={token} bases={paymentBases} isLoading={!periodDataLoaded} onRefresh={loadPeriodData} onOpenEditor={openBaseEditor} onToggleActive={handleToggleBaseActive} />
           </Suspense>
         ) : null}
         {!accessDenied && activeView === "atendimento" ? (

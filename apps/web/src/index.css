@@ -5351,6 +5351,7 @@ body.theme-dark :where(.filter-select svg, .field:has(select) svg) {
 .bases-import input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .bases-toolbar > button { min-height: 50px; white-space: nowrap; }
 .bases-panel { overflow: hidden; }
+.bases-loading { display: grid; place-items: center; min-height: 180px; color: var(--muted, #64748b); font-size: .92rem; }
 .bases-panel .panel-heading { align-items: flex-end; gap: 18px; }
 .bases-source { color: var(--muted, #64748b); font-size: .82rem; }
 .bases-table-wrap { overflow-x: auto; }
