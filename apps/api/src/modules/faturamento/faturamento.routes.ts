@@ -65,7 +65,7 @@ router.get("/summary", async (req, res) => {
         COUNT(DISTINCT COALESCE(NULLIF(placa, ''), NULLIF(CONCAT_WS('|', motorista, COALESCE(NULLIF(veiculo_modal, ''), NULLIF(tipo_frota, ''))), ''))) FILTER (WHERE categoria = 'principal')::int AS veiculos,
         COALESCE(SUM(total) FILTER (WHERE categoria = 'principal'),0)::float AS total,
         COALESCE(SUM(total) FILTER (WHERE categoria <> 'principal'),0)::float AS descontos
-      FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}' GROUP BY sigla_base, nome_base
+      FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}' GROUP BY sigla_base, nome_base HAVING COUNT(*) FILTER (WHERE categoria = 'principal') > 0
     `);
     dashboard.totalRows = number(selected.total_linhas);
     dashboard.totalRoutes = number((await prisma.$queryRawUnsafe<Array<{ count: number }>>(`SELECT COUNT(DISTINCT NULLIF(id_rota, ''))::int AS count FROM "${DB_SCHEMA}"."faturamento_pre_fatura_itens" WHERE pre_fatura_id = '${selected.id}' AND categoria = 'principal'`))[0]?.count);
