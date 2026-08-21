@@ -1054,6 +1054,8 @@ button {
   border-radius: 18px;
   background: transparent;
   color: #2b3445;
+  font-size: 0.75rem;
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
 }
