@@ -9,6 +9,11 @@ router.use(requireAuth, requireModuleAccess("dashboard"));
 const activityPreviewLimit = 5;
 const activitySearchLimit = 120;
 const operationalActivityWhere = {
+  // O painel operacional deve mostrar somente ações atribuídas a usuários.
+  // Eventos automáticos continuam preservados no banco para diagnóstico técnico.
+  usuarioId: {
+    not: null
+  },
   OR: [
     {
       entidade: {
