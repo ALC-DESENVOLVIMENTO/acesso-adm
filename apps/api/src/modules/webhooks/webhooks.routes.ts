@@ -506,14 +506,7 @@ router.post("/access-adm", (req, res) => {
             motoristaId: result.motoristaId,
             periodoPagamentoId: result.periodoPagamentoId,
             basePagamentoId: result.basePagamentoId,
-            status: { notIn: [
-              DriverPdfReceivedStatus.aguardando_envio_nota_fiscal,
-              DriverPdfReceivedStatus.nota_fiscal_recebida,
-              DriverPdfReceivedStatus.nota_fiscal_em_analise,
-              DriverPdfReceivedStatus.nota_fiscal_aprovada,
-              DriverPdfReceivedStatus.nota_fiscal_rejeitada,
-              DriverPdfReceivedStatus.processo_concluido
-            ] }
+            documentType: "espelho",
           },
           select: { id: true, atendimentoStatus: true }
         });

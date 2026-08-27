@@ -91,6 +91,16 @@ UPDATE "${DB_SCHEMA}"."driver_pdf_received"
  WHERE "document_type" = 'espelho'
    AND "atendimento_status" IS NULL;
 `);
+  const backfilledConcludedMirrors = await prisma.$executeRawUnsafe(`
+UPDATE "${DB_SCHEMA}"."driver_pdf_received" AS espelho
+   SET "atendimento_status" = 'atendimento_nao_necessario'
+ WHERE espelho."document_type" = 'espelho'
+   AND espelho."status" = 'processo_concluido'
+   AND espelho."atendimento_status" = 'atendimento_nao_iniciado';
+`);
+  if (Number(backfilledConcludedMirrors) > 0) {
+    console.info(`[financeiro] Backfill de atendimento aplicado em ${backfilledConcludedMirrors} espelho(s) concluído(s).`);
+  }
 
   await ensureTable(`
 CREATE TABLE IF NOT EXISTS "${DB_SCHEMA}"."importacoes_financeiras" (
