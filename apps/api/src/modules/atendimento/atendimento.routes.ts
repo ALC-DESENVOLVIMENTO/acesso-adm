@@ -219,6 +219,17 @@ function formatPaymentStatusLabel(value: string | null | undefined) {
   return PAYMENT_STATUS_LABELS[value] || value;
 }
 
+function formatAttendanceStatusLabel(value: string | null | undefined) {
+  const labels: Record<string, string> = {
+    atendimento_nao_iniciado: "Atendimento não iniciado",
+    atendimento_em_andamento: "Atendimento em andamento",
+    atendimento_finalizado: "Atendimento finalizado",
+    atendimento_nao_necessario: "Não foi necessário atendimento"
+  };
+
+  return labels[value || ""] || "Atendimento não iniciado";
+}
+
 async function extractTotalGeralValue(storageKey: string | null | undefined) {
   if (!storageKey) {
     return null;
@@ -497,7 +508,23 @@ async function updateDriverRegistryRow(row: DriverRegistryRawRow | null, values:
   }
 
   const params = entries.map(([, value]) => value);
-  const assignments = entries.map(([column], index) => `${quoteDriverRegistryIdentifier(column)} = $${index + 1}`);
+  const assignments = entries.map(([column], index) => {
+    const parameter = `$${index + 1}`;
+
+    if (column === "data_nascimento" || column === "validade_gr") {
+      return `${quoteDriverRegistryIdentifier(column)} = CAST(${parameter} AS DATE)`;
+    }
+
+    if (column === "source_count") {
+      return `${quoteDriverRegistryIdentifier(column)} = CAST(${parameter} AS INTEGER)`;
+    }
+
+    if (column === "active") {
+      return `${quoteDriverRegistryIdentifier(column)} = CAST(${parameter} AS BOOLEAN)`;
+    }
+
+    return `${quoteDriverRegistryIdentifier(column)} = ${parameter}`;
+  });
   params.push(rowId);
 
   await prisma.$executeRawUnsafe(
@@ -956,6 +983,7 @@ async function loadMotoristaDetail(motoristaId: string) {
       periodoPagamentoId: true,
       basePagamentoId: true,
       status: true,
+      atendimentoStatus: true,
       uploadEm: true,
       enviadoAoMotoristaEm: true,
       visualizadoEm: true,
@@ -1039,6 +1067,11 @@ async function loadMotoristaDetail(motoristaId: string) {
                 ? "pdf_enviado_ao_motorista"
                 : "pdf_aguardando_envio";
       const paid = currentStatus === "pago";
+      const atendimentoStatus =
+        mirrorReceipt?.atendimentoStatus ||
+        (noteReceipt?.status === "processo_concluido"
+          ? "atendimento_nao_necessario"
+          : "atendimento_nao_iniciado");
       const valorPagamento = await extractTotalGeralValueFromSource({
         caminhoArquivo: mirrorReceipt?.caminhoArquivo || upload.caminhoArquivo,
         content: mirrorReceipt?.content || null
@@ -1076,7 +1109,9 @@ async function loadMotoristaDetail(motoristaId: string) {
             upload.criadoEm
         ),
         pdfDownloadUrl: buildStorageObjectUrl(mirrorReceipt?.caminhoArquivo || upload.caminhoArquivo),
-        notaFiscalDownloadUrl: buildStorageObjectUrl(noteReceipt?.caminhoArquivo)
+        notaFiscalDownloadUrl: buildStorageObjectUrl(noteReceipt?.caminhoArquivo),
+        atendimentoStatus,
+        atendimentoStatusLabel: formatAttendanceStatusLabel(atendimentoStatus)
       };
     })
   );
@@ -1090,10 +1125,10 @@ async function loadMotoristaDetail(motoristaId: string) {
       cnpj: registryData?.cnpj || null,
       cnpjDigits: registryData?.cnpjDigits || null,
       rg: motorista.rg,
-      dataNascimento: motorista.dataNascimento,
+      dataNascimento: motorista.dataNascimento || registryData?.dataNascimento || null,
       telefone: motorista.telefone,
       whatsapp: motorista.whatsapp,
-      email: motorista.email,
+      email: motorista.email || registryData?.email || null,
       endereco: motorista.endereco,
       cidade: motorista.cidade,
       estado: motorista.estado,

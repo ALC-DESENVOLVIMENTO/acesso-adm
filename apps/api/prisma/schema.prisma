@@ -515,6 +515,7 @@ model DriverPdfReceived {
   uploadEm             DateTime                @default(now()) @map("upload_em")
   usuarioId            String?                 @map("usuario_id") @db.Uuid
   status               DriverPdfReceivedStatus @default(pdf_aguardando_envio)
+  atendimentoStatus    String?                 @map("atendimento_status") @db.VarChar(40)
   observacoes          String?
   visualizadoEm        DateTime?               @map("visualizado_em")
   enviadoAoMotoristaEm DateTime?               @map("enviado_ao_motorista_em")

@@ -1320,10 +1320,10 @@ export function FinanceiroScreen({
                 <Bell size={18} />
                 <select value={attendanceFilter} onChange={(event) => setAttendanceFilter(event.target.value)}>
                   <option value="todos">Situação do atendimento</option>
-                  <option value="Em atendimento">Em atendimento</option>
-                  <option value="Chamado aberto">Chamado aberto</option>
-                  <option value="Aguardando retorno">Aguardando retorno</option>
-                  <option value="Atendimento encerrado">Atendimento encerrado</option>
+                  <option value="Atendimento não iniciado">Atendimento não iniciado</option>
+                  <option value="Atendimento em andamento">Atendimento em andamento</option>
+                  <option value="Atendimento finalizado">Atendimento finalizado</option>
+                  <option value="Não foi necessário atendimento">Não foi necessário atendimento</option>
                 </select>
               </label>
             </div>

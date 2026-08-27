@@ -84,6 +84,13 @@ export async function ensureFinanceiroCompatibilitySchema() {
   await ensureColumn("driver_pdf_received", "sefaz_status_message", "TEXT");
   await ensureColumn("driver_pdf_received", "access_key", "VARCHAR(44)");
   await ensureColumn("driver_pdf_received", "invoice_validation", "VARCHAR(40)");
+  await ensureColumn("driver_pdf_received", "atendimento_status", "VARCHAR(40)");
+  await prisma.$executeRawUnsafe(`
+UPDATE "${DB_SCHEMA}"."driver_pdf_received"
+   SET "atendimento_status" = 'atendimento_nao_iniciado'
+ WHERE "document_type" = 'espelho'
+   AND "atendimento_status" IS NULL;
+`);
 
   await ensureTable(`
 CREATE TABLE IF NOT EXISTS "${DB_SCHEMA}"."importacoes_financeiras" (

@@ -251,6 +251,7 @@ type ReceivedRecord = {
   rejeitadoEm?: Date | null;
   motivoRejeicao?: string | null;
   observacoes?: string | null;
+  atendimentoStatus?: string | null;
   caminhoArquivo?: string | null;
   nomeArquivo?: string | null;
 };
@@ -404,22 +405,33 @@ const receivedNoteStatuses = new Set([
 
 function computeAttendanceStatus(ticketStatuses: string[], attendanceCount: number) {
   if (ticketStatuses.some((status) => status === "em_andamento")) {
-    return "Em atendimento";
+    return "atendimento_em_andamento";
   }
 
   if (ticketStatuses.some((status) => status === "aberto")) {
-    return attendanceCount > 0 ? "Em atendimento" : "Chamado aberto";
+    return "atendimento_em_andamento";
   }
 
   if (ticketStatuses.some((status) => status === "aguardando" || status === "aguardando_motorista")) {
-    return "Aguardando retorno";
+    return "atendimento_em_andamento";
   }
 
   if (ticketStatuses.some((status) => status === "resolvido" || status === "concluido")) {
-    return "Atendimento encerrado";
+    return "atendimento_finalizado";
   }
 
-  return attendanceCount > 0 ? "Atendimento encerrado" : "Aguardando retorno";
+  return attendanceCount > 0 ? "atendimento_finalizado" : "atendimento_nao_iniciado";
+}
+
+function formatAttendanceStatusLabel(value: string | null | undefined) {
+  const labels: Record<string, string> = {
+    atendimento_nao_iniciado: "Atendimento não iniciado",
+    atendimento_em_andamento: "Atendimento em andamento",
+    atendimento_finalizado: "Atendimento finalizado",
+    atendimento_nao_necessario: "Não foi necessário atendimento"
+  };
+
+  return labels[value || ""] || "Atendimento não iniciado";
 }
 
 function readPayloadString(payload: Record<string, unknown>, key: string) {
@@ -1348,6 +1360,7 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
         rejeitadoEm: true,
         motivoRejeicao: true,
         observacoes: true,
+        atendimentoStatus: true,
         sefazStatus: true,
         sefazActive: true,
         sefazChecked: true,
@@ -1419,6 +1432,10 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
 
       const ticketStatuses = upload.motorista.chamados.map((item) => item.status);
       const attendanceStatus = computeAttendanceStatus(ticketStatuses, upload.motorista.atendimentos.length);
+      const persistedAttendanceStatus = mirrorReceipt?.atendimentoStatus ||
+        (noteReceipt && noteReceipt.status === "processo_concluido"
+          ? "atendimento_nao_necessario"
+          : attendanceStatus);
       const currentStatus = paymentStatus
         ? paymentStatus
         : noteReceipt
@@ -1458,7 +1475,7 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
         ),
         status: currentStatus,
         statusLabel: formatStatusLabel(currentStatus),
-        situacaoAtendimento: attendanceStatus,
+        situacaoAtendimento: formatAttendanceStatusLabel(persistedAttendanceStatus),
         ultimaAtualizacao: toIso(
           upload.statusPagamentoAtualizadoEm ||
             noteReceipt?.aprovadoEm ||
@@ -1467,7 +1484,7 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
             mirrorReceipt?.visualizadoEm ||
             upload.criadoEm
         ),
-        atendimentoStatus: attendanceStatus,
+        atendimentoStatus: persistedAttendanceStatus,
         statusNotaFiscal:
           paymentStatus === "pago"
             ? "Pago"

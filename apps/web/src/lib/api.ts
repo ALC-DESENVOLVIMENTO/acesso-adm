@@ -275,6 +275,7 @@ export type FinanceiroMotoristaRow = {
   situacaoAtendimento: string;
   ultimaAtualizacao: string | null;
   atendimentoStatus: string;
+  atendimentoStatusLabel?: string;
   statusNotaFiscal: string;
   sefazStatus?: string | null;
   sefazActive?: boolean | null;
@@ -579,6 +580,8 @@ export type AtendimentoDetail = {
     atualizadoEm: string | null;
     pdfDownloadUrl: string | null;
     notaFiscalDownloadUrl: string | null;
+    atendimentoStatus?: string;
+    atendimentoStatusLabel?: string;
   }>;
   pdfs: AtendimentoPdf[];
   atendimentos: Array<{

@@ -1215,13 +1215,28 @@ router.patch("/uploads/:uploadId/review", requireAdmin, (req, res) => {
     }
 
     if (parsed.data.action === "reprovar") {
-      await prisma.uploadPdf.delete({
-        where: {
-          id: upload.id
-        }
+      const historicalReference = await prisma.driverPdfReceived.findFirst({
+        where: { uploadPdfId: upload.id },
+        select: { id: true }
       });
 
-      void deleteObject(upload.caminhoArquivo).catch(() => null);
+      // Espelhos de pagamento precisam permanecer disponíveis mesmo quando
+      // ainda não existe uma linha em driver_pdf_received. O fechamento pode
+      // ser finalizado depois da reprovação/limpeza operacional.
+      if (historicalReference || upload.documentType === "espelho") {
+        await prisma.uploadPdf.update({
+          where: { id: upload.id },
+          data: { status: UploadStatus.removido }
+        });
+      } else {
+        await prisma.uploadPdf.delete({
+          where: {
+            id: upload.id
+          }
+        });
+
+        void deleteObject(upload.caminhoArquivo).catch(() => null);
+      }
 
       await prisma.logAuditoria.create({
         data: {

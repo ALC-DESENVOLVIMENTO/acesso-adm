@@ -195,3 +195,20 @@ export async function notifyPaymentStatusToPdfOnline(payload: PaymentStatusWebho
     url: result.url
   };
 }
+
+export async function notifyAttendanceStatusToPdfOnline(payload: {
+  event_id: string;
+  motorista_id?: string | null;
+  periodo_pagamento_id?: string | null;
+  base_pagamento_id?: string | null;
+  espelho_pagamento_id?: string | null;
+  status_anterior?: string | null;
+  status_atual: string;
+  ocorrido_em: string;
+  origem: "PORTAL_ADMINISTRATIVO" | "PORTAL_MOTORISTA";
+}) {
+  return notifyPdfOnline("pagamento.atendimento_status_atualizado", payload, {
+    event_id: payload.event_id,
+    source: payload.origem
+  });
+}

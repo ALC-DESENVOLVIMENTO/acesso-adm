@@ -6,8 +6,12 @@ import { prisma } from "../../lib/prisma.js";
 import {
   markDriverPdfReceivedRejected,
   markDriverPdfReceivedViewed,
+  DRIVER_ATTENDANCE_STATUS,
+  normalizeDriverAttendanceStatus,
+  updateDriverPdfAttendanceStatus,
   upsertDriverPdfReceivedNoteStatus
 } from "../../lib/driver-pdf-received.js";
+import { notifyAttendanceStatusToPdfOnline } from "../../lib/pdfonline-bridge.js";
 
 const router = Router();
 
@@ -95,6 +99,16 @@ function parseWebhookDate(value: unknown) {
 
 function isSefazCheckedEvent(event: string) {
   return event.trim().toLowerCase() === "portal.invoice.sefaz_checked";
+}
+
+function isAttendanceStatusEvent(event: string, data: Record<string, unknown>) {
+  const normalizedEvent = event.toLowerCase();
+  const explicitStatus = readString(data.atendimentoStatus || data.atendimento_status || data.status_atendimento);
+
+  return Boolean(
+    normalizeDriverAttendanceStatus(explicitStatus || event) &&
+      (normalizedEvent.includes("atendimento") || normalizedEvent.includes("chat") || Boolean(explicitStatus))
+  );
 }
 
 function resolveSefazValidation(data: Record<string, unknown>) {
@@ -298,6 +312,99 @@ router.post("/access-adm", (req, res) => {
       });
       return;
     }
+
+    if (isAttendanceStatusEvent(event, data)) {
+      const status = normalizeDriverAttendanceStatus(
+        readString(data.atendimentoStatus || data.atendimento_status || data.status_atendimento) || event
+      );
+      const incomingEventId = readString(data.eventId || data.event_id) || null;
+      if (incomingEventId) {
+        const duplicate = await prisma.webhookEvento.findUnique({
+          where: { eventId: incomingEventId },
+          select: { id: true }
+        });
+        if (duplicate) {
+          res.json({
+            message: "Status de atendimento já processado anteriormente.",
+            duplicate: true,
+            atendimentoStatus: status
+          });
+          return;
+        }
+      }
+      const uploadId = readString(data.uploadId || data.uploadPdfId || data.upload_id || data.upload_pdf_id) || null;
+      const upload = uploadId
+        ? await prisma.uploadPdf.findUnique({
+            where: { id: uploadId },
+            select: { id: true, motoristaId: true, periodoPagamentoId: true, basePagamentoId: true }
+          })
+        : null;
+
+      if (!status) {
+        res.status(400).json({ message: "Status de atendimento inválido." });
+        return;
+      }
+
+      const motoristaId = readString(data.motoristaId || data.motorista_id) || upload?.motoristaId || null;
+      const periodId = readString(data.periodId || data.periodoPagamentoId || data.periodo_pagamento_id) || upload?.periodoPagamentoId || null;
+      const basePaymentId = readString(data.basePaymentId || data.basePagamentoId || data.base_pagamento_id) || upload?.basePagamentoId || null;
+      const occurredAt = parseWebhookDate(data.ocorridoEm || data.ocorrido_em || data.occurredAt || data.occurred_at) || new Date();
+      const updated = await updateDriverPdfAttendanceStatus({
+        uploadPdfId: upload?.id || uploadId,
+        motoristaId,
+        periodId,
+        basePaymentId,
+        status,
+        occurredAt
+      });
+
+      if (!updated) {
+        res.status(404).json({ message: "Espelho de pagamento não encontrado para atualizar o atendimento." });
+        return;
+      }
+
+      const eventId = readString(data.eventId || data.event_id) || crypto.randomUUID();
+      await prisma.webhookEvento.create({
+        data: {
+          eventId,
+          pagamentoId: upload?.id || null,
+          payload: req.body,
+          status: "enviado",
+          tentativas: 1,
+          respostaHttp: 200,
+          usuarioId: null
+        }
+      });
+      await prisma.logAuditoria.create({
+        data: {
+          usuarioId: null,
+          acao: "webhook_atendimento_status",
+          entidade: "driver_pdf_received",
+          entidadeId: updated.id,
+          ipOrigem: req.ip,
+          userAgent: req.get("user-agent") || null,
+          detalhes: { event, eventId, status, motoristaId, periodId, basePaymentId, origem: "PORTAL_MOTORISTA" }
+        }
+      });
+
+      const forwarded = await notifyAttendanceStatusToPdfOnline({
+        event_id: eventId,
+        motorista_id: motoristaId,
+        periodo_pagamento_id: periodId,
+        base_pagamento_id: basePaymentId,
+        espelho_pagamento_id: upload?.id || uploadId,
+        status_atual: status,
+        ocorrido_em: occurredAt.toISOString(),
+        origem: "PORTAL_MOTORISTA"
+      });
+
+      res.json({
+        message: "Status de atendimento atualizado com sucesso.",
+        atendimentoStatus: status,
+        forwarded: !forwarded.skipped
+      });
+      return;
+    }
     const rawStatus = normalizeWebhookStatus(
       readString(
         data.status ||
@@ -393,6 +500,44 @@ router.post("/access-adm", (req, res) => {
         createdByUserId: readString(data.createdByUserId) || null
       });
 
+      if (noteStatus === DriverPdfReceivedStatus.processo_concluido && result) {
+        const mirror = await prisma.driverPdfReceived.findFirst({
+          where: {
+            motoristaId: result.motoristaId,
+            periodoPagamentoId: result.periodoPagamentoId,
+            basePagamentoId: result.basePagamentoId,
+            status: { notIn: [
+              DriverPdfReceivedStatus.aguardando_envio_nota_fiscal,
+              DriverPdfReceivedStatus.nota_fiscal_recebida,
+              DriverPdfReceivedStatus.nota_fiscal_em_analise,
+              DriverPdfReceivedStatus.nota_fiscal_aprovada,
+              DriverPdfReceivedStatus.nota_fiscal_rejeitada,
+              DriverPdfReceivedStatus.processo_concluido
+            ] }
+          },
+          select: { id: true, atendimentoStatus: true }
+        });
+
+        if (mirror && (!mirror.atendimentoStatus || mirror.atendimentoStatus === DRIVER_ATTENDANCE_STATUS.nao_iniciado)) {
+          await prisma.driverPdfReceived.update({
+            where: { id: mirror.id },
+            data: { atendimentoStatus: DRIVER_ATTENDANCE_STATUS.nao_necessario }
+          });
+
+          const attendanceEventId = `${readString(data.eventId || data.event_id) || crypto.randomUUID()}:attendance`;
+          await notifyAttendanceStatusToPdfOnline({
+            event_id: attendanceEventId,
+            motorista_id: result.motoristaId,
+            periodo_pagamento_id: result.periodoPagamentoId,
+            base_pagamento_id: result.basePagamentoId,
+            espelho_pagamento_id: result.uploadPdfId,
+            status_atual: DRIVER_ATTENDANCE_STATUS.nao_necessario,
+            ocorrido_em: new Date().toISOString(),
+            origem: "PORTAL_ADMINISTRATIVO"
+          });
+        }
+      }
+
       await prisma.logAuditoria.create({
         data: {
           usuarioId: null,
@@ -414,7 +559,8 @@ router.post("/access-adm", (req, res) => {
 
       res.json({
         message: "Status de nota fiscal registrado com sucesso.",
-        receivedId: result?.id || null
+        receivedId: result?.id || null,
+        atendimentoForwarded: noteStatus === DriverPdfReceivedStatus.processo_concluido
       });
       return;
     }

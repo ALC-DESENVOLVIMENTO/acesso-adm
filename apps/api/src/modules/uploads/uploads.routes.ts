@@ -774,7 +774,17 @@ router.delete("/:id", (req, res) => {
       message: "PDF removido logicamente com sucesso."
     });
 
-    void deleteObject(upload.caminhoArquivo);
+    // O histórico de pagamentos continua apontando para o arquivo depois que
+    // ele sai da fila operacional. Não apague o objeto físico nesses casos,
+    // pois o motorista ainda precisa conseguir abrir o espelho do fechamento.
+    const historicalReference = await prisma.driverPdfReceived.findFirst({
+      where: { uploadPdfId: upload.id },
+      select: { id: true }
+    });
+
+    if (!historicalReference) {
+      void deleteObject(upload.caminhoArquivo);
+    }
   })().catch((error) => {
     res.status(500).json({
       message: "Falha ao remover PDF.",

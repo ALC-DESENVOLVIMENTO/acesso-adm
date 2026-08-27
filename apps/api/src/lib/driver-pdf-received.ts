@@ -27,6 +27,51 @@ function isMirrorStatus(value: string | null | undefined) {
   );
 }
 
+export const DRIVER_ATTENDANCE_STATUS = {
+  nao_iniciado: "atendimento_nao_iniciado",
+  em_andamento: "atendimento_em_andamento",
+  finalizado: "atendimento_finalizado",
+  nao_necessario: "atendimento_nao_necessario"
+} as const;
+
+export type DriverAttendanceStatus = (typeof DRIVER_ATTENDANCE_STATUS)[keyof typeof DRIVER_ATTENDANCE_STATUS];
+
+export const DRIVER_ATTENDANCE_STATUS_LABELS: Record<DriverAttendanceStatus, string> = {
+  atendimento_nao_iniciado: "Atendimento não iniciado",
+  atendimento_em_andamento: "Atendimento em andamento",
+  atendimento_finalizado: "Atendimento finalizado",
+  atendimento_nao_necessario: "Não foi necessário atendimento"
+};
+
+export function normalizeDriverAttendanceStatus(value: string | null | undefined): DriverAttendanceStatus | null {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_");
+
+  const aliases: Record<string, DriverAttendanceStatus> = {
+    atendimento_nao_iniciado: DRIVER_ATTENDANCE_STATUS.nao_iniciado,
+    nao_iniciado: DRIVER_ATTENDANCE_STATUS.nao_iniciado,
+    atendimento_em_andamento: DRIVER_ATTENDANCE_STATUS.em_andamento,
+    em_andamento: DRIVER_ATTENDANCE_STATUS.em_andamento,
+    atendimento_finalizado: DRIVER_ATTENDANCE_STATUS.finalizado,
+    atendimento_encerrado: DRIVER_ATTENDANCE_STATUS.finalizado,
+    finalizado: DRIVER_ATTENDANCE_STATUS.finalizado,
+    atendimento_nao_necessario: DRIVER_ATTENDANCE_STATUS.nao_necessario,
+    nao_necessario: DRIVER_ATTENDANCE_STATUS.nao_necessario,
+    chat_aberto: DRIVER_ATTENDANCE_STATUS.em_andamento,
+    chat_iniciado: DRIVER_ATTENDANCE_STATUS.em_andamento,
+    atendimento_iniciado: DRIVER_ATTENDANCE_STATUS.em_andamento,
+    chat_encerrado: DRIVER_ATTENDANCE_STATUS.finalizado,
+    chat_finalizado: DRIVER_ATTENDANCE_STATUS.finalizado
+  };
+
+  const eventTail = normalized.split(/[./:-]/).pop() || normalized;
+  return aliases[normalized] || aliases[eventTail] || null;
+}
+
 export type DriverPdfReceivedUploadInput = {
   uploadPdfId: string;
   motoristaId: string;
@@ -142,7 +187,8 @@ export async function upsertDriverPdfReceivedFromUpload(
       id: true,
       visualizadoEm: true,
       enviadoAoMotoristaEm: true,
-      uploadEm: true
+      uploadEm: true,
+      atendimentoStatus: true
     }
   });
 
@@ -156,6 +202,7 @@ export async function upsertDriverPdfReceivedFromUpload(
     uploadEm: existing?.uploadEm || now,
     usuarioId: input.createdByUserId ?? null,
     status,
+    atendimentoStatus: existing?.atendimentoStatus || DRIVER_ATTENDANCE_STATUS.nao_iniciado,
     observacoes: null,
     visualizadoEm: existing?.visualizadoEm ?? null,
     enviadoAoMotoristaEm:
@@ -187,6 +234,44 @@ export async function upsertDriverPdfReceivedFromUpload(
 
   await setDriverPdfDocumentType(created.id, DocumentTypeCode.espelho);
   return created;
+}
+
+export async function updateDriverPdfAttendanceStatus(input: {
+  uploadPdfId?: string | null;
+  motoristaId?: string | null;
+  periodId?: string | null;
+  basePaymentId?: string | null;
+  status: DriverAttendanceStatus;
+  occurredAt?: Date | null;
+}) {
+  const where = buildReceivedWhere({
+    uploadPdfId: input.uploadPdfId,
+    motoristaId: input.motoristaId,
+    periodId: input.periodId,
+    basePaymentId: input.basePaymentId,
+    nonNoteOnly: true
+  });
+
+  if (!where) {
+    return null;
+  }
+
+  const existing = await prisma.driverPdfReceived.findFirst({
+    where,
+    select: { id: true }
+  });
+
+  if (!existing) {
+    return null;
+  }
+
+  return prisma.driverPdfReceived.update({
+    where: { id: existing.id },
+    data: {
+      atendimentoStatus: input.status,
+      atualizadoEm: input.occurredAt || new Date()
+    }
+  });
 }
 
 export async function markDriverPdfReceivedRejected(input: DriverPdfReceivedRejectionInput) {

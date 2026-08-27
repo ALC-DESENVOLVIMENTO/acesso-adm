@@ -218,7 +218,15 @@ export async function uploadObject(params: {
 export async function deleteObject(key: string | null | undefined) {
   const normalized = normalizeStorageKey(key);
 
-  if (!client || !normalized) {
+  // Notas fiscais e espelhos de pagamento são documentos permanentes do
+  // histórico financeiro. A exclusão lógica de um upload ou de um período
+  // nunca deve apagar esses arquivos do storage.
+  if (
+    !client ||
+    !normalized ||
+    normalized.startsWith("notas-fiscais/") ||
+    normalized.startsWith("uploads/periodos/")
+  ) {
     return;
   }
 
