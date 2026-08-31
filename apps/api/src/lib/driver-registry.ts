@@ -1,6 +1,8 @@
 import { prisma } from "./prisma.js";
 
-const DRIVER_REGISTRY_TABLE = "driver_registry_entities";
+const DRIVER_REGISTRY_TABLE = process.env.ARCHI_DRIVER_SOURCE_ENABLED === "true"
+  ? "driver_registry_effective"
+  : "driver_registry_entities";
 const DRIVER_REGISTRY_SEARCH_NAME_CANDIDATES = [
   "normalized_name",
   "display_name",

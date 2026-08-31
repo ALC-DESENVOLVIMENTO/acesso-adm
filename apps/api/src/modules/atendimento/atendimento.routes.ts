@@ -19,7 +19,10 @@ const upload = multer({
   }
 });
 
-const DRIVER_REGISTRY_TABLE = "driver_registry_entities";
+const DRIVER_REGISTRY_LEGACY_TABLE = "driver_registry_entities";
+const DRIVER_REGISTRY_TABLE = process.env.ARCHI_DRIVER_SOURCE_ENABLED === "true"
+  ? "driver_registry_effective"
+  : DRIVER_REGISTRY_LEGACY_TABLE;
 const DRIVER_REGISTRY_PREFIX = "driver-registry:";
 const DRIVER_REGISTRY_SEARCH_LIMIT = 20;
 const DRIVER_REGISTRY_NAME_CANDIDATES = [
@@ -101,6 +104,7 @@ type DriverRegistryMetadata = {
 type DriverRegistryRawRow = Record<string, unknown>;
 
 let driverRegistryMetadata: DriverRegistryMetadata | null | undefined;
+let driverRegistryWriteMetadata: DriverRegistryMetadata | null | undefined;
 
 const DRIVER_STATUS_MAP = {
   ativo: "ativo",
@@ -346,6 +350,22 @@ async function getDriverRegistryMetadata() {
   return driverRegistryMetadata;
 }
 
+async function getDriverRegistryWriteMetadata() {
+  if (driverRegistryWriteMetadata !== undefined) {
+    return driverRegistryWriteMetadata;
+  }
+
+  const columns = await prisma.$queryRaw<Array<{ column_name: string }>>`
+    SELECT column_name FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = ${DRIVER_REGISTRY_LEGACY_TABLE}
+  `;
+
+  driverRegistryWriteMetadata = columns.length > 0
+    ? { schema: "public", columns: new Set(columns.map((row) => row.column_name.toLowerCase())) }
+    : null;
+  return driverRegistryWriteMetadata;
+}
+
 function quoteDriverRegistryIdentifier(value: string) {
   if (!isSafeIdentifier(value)) {
     throw new Error(`Identificador invalido da tabela driver_registry_entities: ${value}`);
@@ -460,7 +480,11 @@ async function updateDriverRegistryRow(row: DriverRegistryRawRow | null, values:
     return;
   }
 
-  const metadata = await getDriverRegistryMetadata();
+  if (getRecordValue(row, ["_source"]) === "archi") {
+    return;
+  }
+
+  const metadata = await getDriverRegistryWriteMetadata();
   if (!metadata) {
     return;
   }
@@ -528,7 +552,7 @@ async function updateDriverRegistryRow(row: DriverRegistryRawRow | null, values:
   params.push(rowId);
 
   await prisma.$executeRawUnsafe(
-    `UPDATE ${quoteDriverRegistryIdentifier(metadata.schema)}.${quoteDriverRegistryIdentifier(DRIVER_REGISTRY_TABLE)} SET ${assignments.join(", ")} WHERE ${quoteDriverRegistryIdentifier(idColumn)}::text = $${params.length}`,
+    `UPDATE ${quoteDriverRegistryIdentifier(metadata.schema)}.${quoteDriverRegistryIdentifier(DRIVER_REGISTRY_LEGACY_TABLE)} SET ${assignments.join(", ")} WHERE ${quoteDriverRegistryIdentifier(idColumn)}::text = $${params.length}`,
     ...params
   );
 }

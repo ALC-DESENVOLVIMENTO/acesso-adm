@@ -5,7 +5,7 @@ import { ensureFinanceiroCompatibilitySchema } from "./lib/financeiro-schema.js"
 import { backfillDashboardHistoryRecords } from "./lib/dashboard-history-backfill.js";
 import { backfillPaidStatusesFromExistingGroups } from "./lib/financeiro-status-backfill.js";
 import { backfillPaymentTotalsFromMirrorPdfs } from "./lib/financeiro-total-backfill.js";
-import { ensureDriverRegistryColumns } from "./lib/driver-registry-schema.js";
+import { ensureArchiDriverSourceViews, ensureDriverRegistryColumns } from "./lib/driver-registry-schema.js";
 import { ensureDatabaseCompatibilityColumns } from "./lib/database-compatibility.js";
 import { reconcileStorageReferences } from "./lib/storage-migration.js";
 import { resolveDatabaseUrlWithSchema } from "./lib/database-url.js";
@@ -65,6 +65,7 @@ export async function runBootstrap() {
     );
   }
   await ensureDriverRegistryColumns();
+  await ensureArchiDriverSourceViews();
   await reconcileStorageReferences();
   await runCommand("npm", ["run", "db:seed"], apiRoot);
 }
