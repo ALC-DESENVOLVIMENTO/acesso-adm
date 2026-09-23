@@ -441,8 +441,14 @@ async function fetchDriverRegistryById(id: string) {
     SELECT id, name AS display_name, name, cpf, cpf AS cpf_digits,
       COALESCE(NULLIF(BTRIM(extra_data->>'cnpj'), ''), NULLIF(BTRIM(extra_data->>'cnpjProprietario'), ''), NULLIF(BTRIM(extra_data->>'documentoEmpresa'), ''), NULLIF(BTRIM(extra_data->>'mei'), ''), NULLIF(BTRIM(extra_data->>'cnpjFavorecido'), '')) AS cnpj,
       COALESCE(NULLIF(BTRIM(extra_data->>'cnpj'), ''), NULLIF(BTRIM(extra_data->>'cnpjProprietario'), ''), NULLIF(BTRIM(extra_data->>'documentoEmpresa'), ''), NULLIF(BTRIM(extra_data->>'mei'), ''), NULLIF(BTRIM(extra_data->>'cnpjFavorecido'), '')) AS cnpj_digits,
-      base, status, status_cadastro, gerenciadora_risco, extra_data, updated_at
+      base, status, status_cadastro, gerenciadora_risco, extra_data, updated_at,
+      form.payload AS form_payload
     FROM public.motoristas
+    LEFT JOIN LATERAL (
+      SELECT payload FROM public.motorista_formularios
+      WHERE motorista_id = public.motoristas.id
+      LIMIT 1
+    ) form ON TRUE
     WHERE id::text = $1
     LIMIT 1
   `, id);

@@ -13,3 +13,11 @@ test("reads primary and additional bases from ARCHI compressed extra data", () =
   assert.equal(driverMatchesBase(row, "RIBEIRAO PRETO"), true);
   assert.equal(driverMatchesBase(row, "RIBEIRAO"), false);
 });
+
+test("reads additional bases from ARCHI compressed driver form payload", () => {
+  const payload = `grzjson:${gzipSync(Buffer.from(JSON.stringify({ bases: ["CRAVINHOS", "RIBEIRAO PRETO"] }))).toString("base64")}`;
+  const row = { base: "CRAVINHOS", form_payload: payload };
+
+  assert.deepEqual(getDriverBases(row), ["CRAVINHOS", "RIBEIRAO PRETO"]);
+  assert.equal(driverMatchesBase(row, "RIBEIRAO PRETO"), true);
+});

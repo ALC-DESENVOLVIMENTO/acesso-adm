@@ -94,11 +94,12 @@ export function normalizeText(value: string) {
 
 export function getDriverBases(row: DriverRegistryRow) {
   const extraData = decodeExtraData(row.extra_data);
-  const additionalBases = Array.isArray(row.bases)
-    ? row.bases
-    : Array.isArray(extraData.bases)
-      ? extraData.bases
-      : [];
+  const formPayload = decodeExtraData(row.form_payload);
+  const additionalBases = [
+    ...(Array.isArray(extraData.bases) ? extraData.bases : []),
+    ...(Array.isArray(formPayload.bases) ? formPayload.bases : []),
+    ...(Array.isArray(row.bases) ? row.bases : [])
+  ];
   const primaryBase = getRecordValue(row, DRIVER_REGISTRY_BASE_CANDIDATES);
   return Array.from(new Set([primaryBase, ...additionalBases]
     .map((base) => String(base || "").trim())
@@ -246,6 +247,7 @@ function buildTableRef(schema: string) {
 function mapRegistryRow(row: DriverRegistryRow): DriverRegistryMatch {
   const cpf = getRecordValue(row, [...DRIVER_REGISTRY_CPF_CANDIDATES, "documento", "document_number", "documento_numero"]) || "";
   const extraData = decodeExtraData(row.extra_data);
+  const formPayload = decodeExtraData(row.form_payload);
   const values = { ...extraData, ...row };
   const nomeFavorecido =
     getRecordValue(values, ["nome_favorecido", "favored_name", "nomeFavorecido", "favorecido_nome", "beneficiary_name"]) ||
@@ -265,7 +267,7 @@ function mapRegistryRow(row: DriverRegistryRow): DriverRegistryMatch {
     getRecordValue(row, DRIVER_REGISTRY_DISPLAY_NAME_CANDIDATES)
   ].filter(isUsableDriverName).map((value) => String(value).trim());
   const authoritativeName = nameCandidates.sort((left, right) => right.length - left.length)[0] || "Sem nome";
-  const bases = getDriverBases({ ...row, extra_data: extraData });
+  const bases = getDriverBases({ ...row, extra_data: extraData, form_payload: formPayload });
 
   return {
     externalId: String(getRecordValue(row, ["id", "uuid", "codigo", "driver_id", "identificador"]) || ""),
@@ -277,7 +279,7 @@ function mapRegistryRow(row: DriverRegistryRow): DriverRegistryMatch {
     statusArchi: getRecordValue(row, ["status", "status_cadastro", "statusCadastro", "situacao"]),
     base: getRecordValue(row, DRIVER_REGISTRY_BASE_CANDIDATES),
     bases,
-    raw: { ...row, extra_data: extraData, bases }
+    raw: { ...row, extra_data: extraData, form_payload: formPayload, bases }
   };
 }
 
@@ -393,8 +395,14 @@ export async function searchArchiDriverMatches(options: {
     SELECT id, name AS display_name, name, cpf, cpf AS cpf_digits,
       COALESCE(NULLIF(BTRIM(extra_data->>'cnpj'), ''), NULLIF(BTRIM(extra_data->>'cnpjProprietario'), ''), NULLIF(BTRIM(extra_data->>'documentoEmpresa'), ''), NULLIF(BTRIM(extra_data->>'mei'), ''), NULLIF(BTRIM(extra_data->>'cnpjFavorecido'), '')) AS cnpj,
       COALESCE(NULLIF(BTRIM(extra_data->>'cnpj'), ''), NULLIF(BTRIM(extra_data->>'cnpjProprietario'), ''), NULLIF(BTRIM(extra_data->>'documentoEmpresa'), ''), NULLIF(BTRIM(extra_data->>'mei'), ''), NULLIF(BTRIM(extra_data->>'cnpjFavorecido'), '')) AS cnpj_digits,
-      base, status, status_cadastro, gerenciadora_risco, extra_data, updated_at
+      base, status, status_cadastro, gerenciadora_risco, extra_data, updated_at,
+      form.payload AS form_payload
     FROM public.motoristas
+    LEFT JOIN LATERAL (
+      SELECT payload FROM public.motorista_formularios
+      WHERE motorista_id = public.motoristas.id
+      LIMIT 1
+    ) form ON TRUE
     WHERE ${whereClause}
     ORDER BY CASE
       WHEN LOWER(COALESCE(status, '')) IN ('aprovado', 'aprovado com ressalva') THEN 1
@@ -464,8 +472,14 @@ export async function searchArchiDriverMatchesBulk(options: {
     SELECT id, name AS display_name, name, cpf, cpf AS cpf_digits,
       COALESCE(NULLIF(BTRIM(extra_data->>'cnpj'), ''), NULLIF(BTRIM(extra_data->>'cnpjProprietario'), ''), NULLIF(BTRIM(extra_data->>'documentoEmpresa'), ''), NULLIF(BTRIM(extra_data->>'mei'), ''), NULLIF(BTRIM(extra_data->>'cnpjFavorecido'), '')) AS cnpj,
       COALESCE(NULLIF(BTRIM(extra_data->>'cnpj'), ''), NULLIF(BTRIM(extra_data->>'cnpjProprietario'), ''), NULLIF(BTRIM(extra_data->>'documentoEmpresa'), ''), NULLIF(BTRIM(extra_data->>'mei'), ''), NULLIF(BTRIM(extra_data->>'cnpjFavorecido'), '')) AS cnpj_digits,
-      base, status, status_cadastro, gerenciadora_risco, extra_data, updated_at
+      base, status, status_cadastro, gerenciadora_risco, extra_data, updated_at,
+      form.payload AS form_payload
     FROM public.motoristas
+    LEFT JOIN LATERAL (
+      SELECT payload FROM public.motorista_formularios
+      WHERE motorista_id = public.motoristas.id
+      LIMIT 1
+    ) form ON TRUE
     WHERE ${conditions.join(' AND ')}
     ORDER BY CASE
       WHEN LOWER(COALESCE(status, '')) IN ('aprovado', 'aprovado com ressalva') THEN 1
