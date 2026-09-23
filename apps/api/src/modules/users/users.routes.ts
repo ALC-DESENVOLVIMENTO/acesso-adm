@@ -15,6 +15,14 @@ const userPayloadSchema = z.object({
   modules: z.array(z.string()).default(["dashboard", "pdfs"])
 });
 
+function isArchiManagedIdentity() {
+  const explicitlyEnabled = String(process.env.ADMIN_PORTAL_SSO_ONLY || "").trim().toLowerCase() === "true";
+  const productionWithSsoConfigured =
+    (process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production") &&
+    Boolean(String(process.env.ARCHI_ADMIN_PORTAL_SSO_SECRET || "").trim());
+  return explicitlyEnabled || productionWithSsoConfigured;
+}
+
 router.use(requireAuth, requireModuleAccess("users"), requireAdmin);
 
 function calculateSessionDurationMinutes(session: { criadoEm: Date; expiraEm: Date; revogadaEm: Date | null }, now = new Date()) {
@@ -176,6 +184,11 @@ router.get("/", (_req, res) => {
 
 router.post("/", (req, res) => {
   void (async () => {
+    if (isArchiManagedIdentity()) {
+      res.status(403).json({ message: "Cadastros de usuários são realizados no Archi." });
+      return;
+    }
+
     const parsed = userPayloadSchema.safeParse(req.body);
 
     if (!parsed.success || !req.auth) {
@@ -274,8 +287,6 @@ router.patch("/:id", (req, res) => {
         id: req.params.id
       },
       data: {
-        nome: parsed.data.name,
-        email: parsed.data.email.toLowerCase(),
         nivelId: level.id
       }
     });
@@ -315,6 +326,11 @@ router.patch("/:id", (req, res) => {
 
 router.patch("/:id/status", (req, res) => {
   void (async () => {
+    if (isArchiManagedIdentity()) {
+      res.status(403).json({ message: "Status e bloqueio de usuários são administrados pelo Archi." });
+      return;
+    }
+
     const schema = z.object({
       active: z.boolean().optional(),
       blocked: z.boolean().optional()
@@ -364,6 +380,11 @@ router.patch("/:id/status", (req, res) => {
 
 router.delete("/:id", (req, res) => {
   void (async () => {
+    if (isArchiManagedIdentity()) {
+      res.status(403).json({ message: "Exclusão de usuários é administrada pelo Archi." });
+      return;
+    }
+
     if (!req.auth) {
       res.status(401).json({
         message: "Sessão inválida."
@@ -392,6 +413,51 @@ router.delete("/:id", (req, res) => {
     }
 
     await prisma.$transaction([
+      prisma.anexoChamado.deleteMany({
+        where: {
+          OR: [
+            { chamado: { solicitanteId: user.id } },
+            { chamado: { responsavelId: user.id } },
+            { historicoChamado: { usuarioId: user.id } }
+          ]
+        }
+      }),
+      prisma.historicoChamado.deleteMany({
+        where: {
+          OR: [
+            { usuarioId: user.id },
+            { chamado: { solicitanteId: user.id } },
+            { chamado: { responsavelId: user.id } }
+          ]
+        }
+      }),
+      prisma.chamado.deleteMany({
+        where: {
+          OR: [{ solicitanteId: user.id }, { responsavelId: user.id }]
+        }
+      }),
+      prisma.atendimento.deleteMany({ where: { atendenteId: user.id } }),
+      prisma.notaAtendimento.deleteMany({ where: { usuarioId: user.id } }),
+      prisma.logAtendimento.deleteMany({ where: { usuarioId: user.id } }),
+      prisma.driverPdfReceived.updateMany({
+        where: {
+          OR: [{ usuarioId: user.id }, { aprovadoPorId: user.id }, { rejeitadoPorId: user.id }]
+        },
+        data: { usuarioId: null, aprovadoPorId: null, rejeitadoPorId: null }
+      }),
+      prisma.webhookEvento.deleteMany({ where: { usuarioId: user.id } }),
+      prisma.historicoStatusPagamento.deleteMany({ where: { usuarioId: user.id } }),
+      prisma.importacaoFinanceiraItem.deleteMany({
+        where: { importacao: { usuarioId: user.id } }
+      }),
+      prisma.importacaoFinanceira.updateMany({
+        where: { usuarioId: user.id },
+        data: { usuarioId: req.auth.userId }
+      }),
+      prisma.periodoPagamento.updateMany({
+        where: { criadoPorId: user.id },
+        data: { criadoPorId: req.auth.userId }
+      }),
       prisma.permissaoPorUsuario.deleteMany({
         where: {
           OR: [{ usuarioId: user.id }, { concedidoPor: user.id }]
@@ -452,6 +518,11 @@ router.delete("/:id", (req, res) => {
 
 router.post("/:id/reset-password", (req, res) => {
   void (async () => {
+    if (isArchiManagedIdentity()) {
+      res.status(403).json({ message: "Senhas de usuários Administrativos são gerenciadas pelo Archi." });
+      return;
+    }
+
     if (!req.auth) {
       res.status(401).json({
         message: "Sessão inválida."

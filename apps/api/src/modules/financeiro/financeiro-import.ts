@@ -33,6 +33,80 @@ type CandidateUpload = Prisma.UploadPdfGetPayload<{
   };
 }>;
 
+const APPROVED_FINANCIAL_RECEIPT_STATUSES = [
+  "nota_fiscal_aprovada",
+  "processo_concluido"
+] as const;
+
+type FinancialReceiptEvidence = {
+  motoristaId: string | null;
+  periodoPagamentoId: string | null;
+  basePagamentoId: string | null;
+  uploadPdfId: string | null;
+  status: string;
+  documentType: string | null;
+};
+
+function hasApprovedFinancialEvidence(candidate: CandidateUpload, receipts: FinancialReceiptEvidence[]) {
+  if (!candidate.motoristaId) {
+    return false;
+  }
+
+  return receipts.some((receipt) =>
+    APPROVED_FINANCIAL_RECEIPT_STATUSES.includes(receipt.status as (typeof APPROVED_FINANCIAL_RECEIPT_STATUSES)[number]) &&
+    receipt.motoristaId === candidate.motoristaId &&
+    receipt.periodoPagamentoId === candidate.periodoPagamentoId &&
+    receipt.basePagamentoId === candidate.basePagamentoId &&
+    receipt.documentType !== "espelho"
+  );
+}
+
+async function loadApprovedFinancialEvidence(candidates: CandidateUpload[], periodId: string, baseId: string | null) {
+  const motoristaIds = [...new Set(candidates.map((candidate) => candidate.motoristaId).filter((id): id is string => Boolean(id)))];
+  if (!motoristaIds.length) {
+    return [] as FinancialReceiptEvidence[];
+  }
+
+  const receipts = await prisma.driverPdfReceived.findMany({
+    where: {
+      status: { in: [...APPROVED_FINANCIAL_RECEIPT_STATUSES] },
+      motoristaId: { in: motoristaIds },
+      documentType: { not: "espelho" }
+    },
+    select: {
+      motoristaId: true,
+      periodoPagamentoId: true,
+      basePagamentoId: true,
+      uploadPdfId: true,
+      status: true,
+      documentType: true
+    }
+  });
+
+  // Some legacy receipts were created without period/base even though the
+  // original NF upload has the complete scope. Resolve that scope here so the
+  // payment import uses the same evidence as the Financeiro preview.
+  const sourceUploads = await prisma.uploadPdf.findMany({
+    where: { id: { in: receipts.map((receipt) => receipt.uploadPdfId).filter((id): id is string => Boolean(id)) } },
+    select: { id: true, motoristaId: true, periodoPagamentoId: true, basePagamentoId: true }
+  });
+  const sourceById = new Map(sourceUploads.map((upload) => [upload.id, upload] as const));
+
+  return receipts.map((receipt) => {
+    const source = receipt.uploadPdfId ? sourceById.get(receipt.uploadPdfId) : null;
+    return {
+      ...receipt,
+      motoristaId: receipt.motoristaId || source?.motoristaId || null,
+      periodoPagamentoId: receipt.periodoPagamentoId || source?.periodoPagamentoId || null,
+      basePagamentoId: receipt.basePagamentoId || source?.basePagamentoId || null
+    };
+  }).filter((receipt) =>
+    receipt.motoristaId &&
+    receipt.periodoPagamentoId === periodId &&
+    (!baseId || receipt.basePagamentoId === baseId)
+  );
+}
+
 export type FinanceiroImportPreviewRow = {
   numeroLinha: number;
   identificador: string | null;
@@ -79,6 +153,23 @@ function normalizeCompact(value: string | null | undefined) {
   return normalizeText(value).replace(/[^A-Z0-9]+/g, "");
 }
 
+function exactDriverNameKey(value: string | null | undefined, baseName: string | null | undefined) {
+  const cleanedValue = normalizeText(value)
+    .replace(/\.pdf$/i, "")
+    .replace(/[-_]\d{4}[-/]\d{2}[-/]\d{2}(?:[-_]\d{2}[-:]\d{2}[-:]\d{2})?$/g, "")
+    .replace(/[-_]\d{2}[-/]\d{2}[-/]\d{2,4}$/g, "");
+  const nameKey = normalizeCompact(cleanedValue);
+  const baseKey = normalizeCompact(baseName);
+
+  if (!nameKey || !baseKey || nameKey === baseKey || !nameKey.endsWith(baseKey)) {
+    return nameKey;
+  }
+
+  // Some payment exports append the selected base to the canonical driver
+  // name. Remove only that exact base suffix; never use fuzzy similarity.
+  return nameKey.slice(0, -baseKey.length);
+}
+
 function normalizeHeader(header: string) {
   switch (normalizeCompact(header)) {
     case "MOTORISTA":
@@ -99,6 +190,9 @@ function normalizeHeader(header: string) {
       return "Projeto";
     case "EVIDENCIAS":
       return "Evidencias";
+    case "STATUS":
+    case "STATUSDAPLANILHA":
+      return "Status da planilha";
     case "DEPARTMENTOFUNCAO":
       return "Departamento/Função";
     default:
@@ -224,6 +318,14 @@ function parseWorkbookRows(buffer: Buffer) {
   }
 
   const rows: WorkbookRow[] = [];
+  const headerByColumn = Array.from({ length: totalColumns }, (_, offset) => {
+    const headerAddress = XLSX.utils.encode_cell({ r: 0, c: range.s.c + offset });
+    return normalizeHeader(readCellValue(sheet[headerAddress]).trim());
+  });
+  const statusColumnOffset = headerByColumn.findIndex((header) =>
+    ["STATUSDAPLANILHA", "STATUS", "SITUACAO", "SITUACAODOPAGAMENTO"].includes(normalizeCompact(header))
+  );
+  const statusColumn = statusColumnOffset >= 0 ? range.s.c + statusColumnOffset : 12;
 
   for (let rowNumber = Math.max(2, range.s.r + 1); rowNumber <= range.e.r + 1; rowNumber += 1) {
     const values: string[] = [];
@@ -232,8 +334,7 @@ function parseWorkbookRows(buffer: Buffer) {
     for (let column = range.s.c + 1; column <= range.e.c + 1; column += 1) {
       const cellAddress = XLSX.utils.encode_cell({ r: rowNumber - 1, c: column - 1 });
       const cell = sheet[cellAddress];
-      const headerAddress = XLSX.utils.encode_cell({ r: 0, c: column - 1 });
-      const header = normalizeHeader(readCellValue(sheet[headerAddress]).trim());
+      const header = headerByColumn[column - 1 - range.s.c] || "";
       const value = readCellValue(cell);
 
       values.push(value);
@@ -243,7 +344,7 @@ function parseWorkbookRows(buffer: Buffer) {
       }
     }
 
-    const statusCellAddress = XLSX.utils.encode_cell({ r: rowNumber - 1, c: 12 });
+    const statusCellAddress = XLSX.utils.encode_cell({ r: rowNumber - 1, c: statusColumn });
     const statusPlanilha = normalizePlanilhaStatus(readCellValue(sheet[statusCellAddress]));
     rowValues["Status da planilha"] = readCellValue(sheet[statusCellAddress]);
     const hasData = values.some((value) => Boolean(String(value || "").trim()));
@@ -355,7 +456,10 @@ async function loadPaymentCandidates(periodId: string, baseId: string | null) {
     where: {
       periodoPagamentoId: periodId,
       status: {
-        not: "removido"
+        notIn: ["removido", "substituido"]
+      },
+      documentType: {
+        not: "nota_fiscal"
       },
       ...(baseId
         ? {
@@ -380,37 +484,81 @@ async function loadPaymentCandidates(periodId: string, baseId: string | null) {
 }
 
 function dedupeLatestCandidates(candidates: CandidateUpload[]) {
-  const latestByMotorista = new Map<string, CandidateUpload>();
+  const latestByIdentity = new Map<string, CandidateUpload>();
 
   for (const candidate of candidates) {
-    if (!candidate.motoristaId) {
+    if (!candidate.periodoPagamentoId || !candidate.basePagamentoId) {
       continue;
     }
 
-    const key = `${candidate.motoristaId}|${candidate.periodoPagamentoId}|${candidate.basePagamentoId}`;
+    const identity = candidate.motoristaId
+      ? `motorista:${candidate.motoristaId}`
+      : `nome:${exactDriverNameKey(candidate.motoristaNomeExtraido, candidate.basePagamento?.nome)}`;
+    if (identity === "nome:") {
+      continue;
+    }
 
-    if (!latestByMotorista.has(key)) {
-      latestByMotorista.set(key, candidate);
+    const key = `${identity}|${candidate.periodoPagamentoId}|${candidate.basePagamentoId}`;
+
+    if (!latestByIdentity.has(key)) {
+      latestByIdentity.set(key, candidate);
     }
   }
 
-  return Array.from(latestByMotorista.values());
+  return Array.from(latestByIdentity.values());
 }
 
 async function resolveCandidateMatch(row: WorkbookRow, candidates: CandidateUpload[]) {
   const motorista = row.rowValues["Motorista"] || row.rowValues["Favorecido"] || "";
+  const identifiers = [row.rowValues["Motorista"], row.rowValues["Favorecido"]].filter(
+    (value): value is string => Boolean(value?.trim())
+  );
   const favorecidoDocument = getFavorecidoDocument(row);
-  const cpfDigits = normalizeDigits(favorecidoDocument);
-  const normalizedName = normalizeCompact(motorista);
+  const documentDigits = normalizeDigits(favorecidoDocument);
+  const cnpjDigits = documentDigits.length === 14 ? documentDigits : "";
+  const cpfDigits = documentDigits.length === 11 ? documentDigits : "";
   const rowAmount = parseMoneyNumber(row.rowValues["Total"]);
   const uniqueCandidates = dedupeLatestCandidates(candidates);
+
+  // The financial document identifies the payee. Never compare its CNPJ
+  // against the driver's CPF: duplicate driver names are common and that
+  // fallback can attach a payment to the wrong registration.
+  const byCnpj = cnpjDigits
+    ? uniqueCandidates.filter((candidate) => normalizeDigits(candidate.motoristaCnpjExtraido || "") === cnpjDigits)
+    : [];
+
+  if (byCnpj.length === 1) {
+    return { match: byCnpj[0], reason: "CNPJ do favorecido + período" };
+  }
+
+  if (byCnpj.length > 1) {
+    if (rowAmount !== null) {
+      const byCnpjAndValue = await Promise.all(
+        byCnpj.map(async (candidate) => ({
+          candidate,
+          valorTotal: await extractPaymentTotalValue(candidate.caminhoArquivo)
+        }))
+      );
+      const filteredByValue = byCnpjAndValue.filter((item) => moneyMatches(item.valorTotal, rowAmount)).map((item) => item.candidate);
+
+      if (filteredByValue.length === 1) {
+        return { match: filteredByValue[0], reason: "CNPJ do favorecido + período + valor" };
+      }
+
+      if (filteredByValue.length > 1) {
+        return { ambiguous: true, matches: filteredByValue, reason: "CNPJ do favorecido + período + valor" };
+      }
+    }
+
+    return { ambiguous: true, matches: byCnpj, reason: "CNPJ do favorecido + período" };
+  }
 
   const byCpf = cpfDigits
     ? uniqueCandidates.filter((candidate) => normalizeDigits(candidate.motorista?.cpf || "") === cpfDigits)
     : [];
 
   if (byCpf.length === 1) {
-    return { match: byCpf[0], reason: "CPF ou CNPJ + período" };
+    return { match: byCpf[0], reason: "CPF do motorista + período" };
   }
 
   if (byCpf.length > 1) {
@@ -424,19 +572,27 @@ async function resolveCandidateMatch(row: WorkbookRow, candidates: CandidateUplo
       const filteredByValue = byCpfAndValue.filter((item) => moneyMatches(item.valorTotal, rowAmount)).map((item) => item.candidate);
 
       if (filteredByValue.length === 1) {
-        return { match: filteredByValue[0], reason: "CPF ou CNPJ + período + valor" };
+        return { match: filteredByValue[0], reason: "CPF do motorista + período + valor" };
       }
 
       if (filteredByValue.length > 1) {
-        return { ambiguous: true, matches: filteredByValue, reason: "CPF ou CNPJ + período + valor" };
+        return { ambiguous: true, matches: filteredByValue, reason: "CPF do motorista + período + valor" };
       }
     }
 
-    return { ambiguous: true, matches: byCpf, reason: "CPF ou CNPJ + período" };
+    return { ambiguous: true, matches: byCpf, reason: "CPF do motorista + período" };
   }
 
-  const byName = normalizedName
-    ? uniqueCandidates.filter((candidate) => normalizeCompact(candidate.motorista?.nome || "") === normalizedName)
+  const byName = identifiers.length > 0
+    ? uniqueCandidates.filter((candidate) => {
+        const candidateNames = [candidate.motorista?.nome, candidate.motoristaNomeExtraido].filter(
+          (value): value is string => Boolean(value?.trim())
+        );
+        const candidateBase = candidate.basePagamento?.nome || "";
+        return identifiers.some((identifier) => candidateNames.some((candidateName) =>
+          exactDriverNameKey(identifier, candidateBase) === exactDriverNameKey(candidateName, candidateBase)
+        ));
+      })
     : [];
 
   if (byName.length === 1) {
@@ -482,6 +638,10 @@ function isDangerousRegression(current: FinanceiroStatusPagamento | null, next: 
   }
 
   return false;
+}
+
+function isReleasedPaymentBlock(current: FinanceiroStatusPagamento | null, next: FinanceiroStatusPagamento | null) {
+  return current === FinanceiroStatusPagamento.BLOQUEADO && next === FinanceiroStatusPagamento.PAGO;
 }
 
 function determineValidation(row: WorkbookRow) {
@@ -556,6 +716,7 @@ export async function createFinanceiroImportPreview(context: ImportContext) {
 
   const { sheetName, rows } = parseWorkbookRows(context.fileBuffer);
   const candidates = await loadPaymentCandidates(context.periodId, context.baseId);
+  const approvedFinancialEvidence = await loadApprovedFinancialEvidence(candidates, context.periodId, context.baseId);
   const period = await prisma.periodoPagamento.findUnique({
     where: { id: context.periodId },
     select: {
@@ -582,8 +743,11 @@ export async function createFinanceiroImportPreview(context: ImportContext) {
     const current = matchResult.match ? pickCurrentStatus(matchResult.match) : null;
     const candidateStatus = validation.statusNovo;
     const finalStatus = candidateStatus ?? null;
-    const dangerous = isDangerousRegression(current, finalStatus);
+    const dangerous = isDangerousRegression(current, finalStatus) && !isReleasedPaymentBlock(current, finalStatus);
     const sameStatus = Boolean(current && finalStatus && current === finalStatus);
+    const paymentWithoutApprovedNote = finalStatus === FinanceiroStatusPagamento.PAGO &&
+      Boolean(matchResult.match) &&
+      !hasApprovedFinancialEvidence(matchResult.match as CandidateUpload, approvedFinancialEvidence);
 
     if (matchResult.ambiguous) {
       previewRows.push({
@@ -671,15 +835,21 @@ export async function createFinanceiroImportPreview(context: ImportContext) {
       codigoObb: row.rowValues["CodOBB"] || null,
       statusPlanilha: row.statusPlanilha,
       statusAtual: current,
-      novoStatus: dangerous ? null : finalStatus,
-      regraAplicada: validation.regraAplicada || matchResult.reason,
-      situacaoValidacao: dangerous
+      novoStatus: dangerous || paymentWithoutApprovedNote ? null : finalStatus,
+      regraAplicada: paymentWithoutApprovedNote
+        ? `${validation.regraAplicada || matchResult.reason}; proteção: pagamento sem NF aprovada`
+        : validation.regraAplicada || matchResult.reason,
+      situacaoValidacao: paymentWithoutApprovedNote
+        ? FinanceiroImportacaoItemResultado.conflito_status
+        : dangerous
         ? FinanceiroImportacaoItemResultado.conflito_status
         : sameStatus
           ? FinanceiroImportacaoItemResultado.ja_atualizada
           : validation.resultado,
       mensagem:
-        dangerous
+        paymentWithoutApprovedNote
+          ? "PAGO bloqueado: não existe nota fiscal aprovada vinculada ao mesmo motorista, período e base."
+          : dangerous
           ? "Transicao perigosa detectada. A confirmacao exige revisao manual."
           : sameStatus
             ? "Linha ja possui o mesmo status."
@@ -802,22 +972,57 @@ export async function confirmFinanceiroImport(importacaoId: string, userId: stri
       }
 
       const currentStatus = pagamento.statusPagamento || FinanceiroStatusPagamento.PENDENTE;
-      const relatedUploads = await transaction.uploadPdf.findMany({
-        where: {
-          motoristaId: pagamento.motoristaId,
-          periodoPagamentoId: pagamento.periodoPagamentoId,
-          basePagamentoId: pagamento.basePagamentoId,
-          status: {
-            not: UploadStatus.removido
-          }
-        },
-        select: {
-          id: true,
-          statusPagamento: true
-        }
-      });
+      const relatedUploads = pagamento.motoristaId
+        ? await transaction.uploadPdf.findMany({
+            where: {
+              motoristaId: pagamento.motoristaId,
+              periodoPagamentoId: pagamento.periodoPagamentoId,
+              basePagamentoId: pagamento.basePagamentoId,
+              status: { not: UploadStatus.removido }
+            },
+            select: { id: true, statusPagamento: true }
+          })
+        : [{ id: pagamento.id, statusPagamento: pagamento.statusPagamento }];
 
-      if (isDangerousRegression(currentStatus, item.statusNovo)) {
+      if (item.statusNovo === FinanceiroStatusPagamento.PAGO) {
+        const approvedReceipts = pagamento.motoristaId
+          ? await transaction.driverPdfReceived.findMany({
+              where: {
+                motoristaId: pagamento.motoristaId,
+                status: { in: [...APPROVED_FINANCIAL_RECEIPT_STATUSES] },
+                documentType: { not: "espelho" }
+              },
+              select: { id: true, uploadPdfId: true, periodoPagamentoId: true, basePagamentoId: true }
+            })
+          : [];
+        const approvedSources = await transaction.uploadPdf.findMany({
+          where: { id: { in: approvedReceipts.map((receipt) => receipt.uploadPdfId).filter((id): id is string => Boolean(id)) } },
+          select: { id: true, periodoPagamentoId: true, basePagamentoId: true }
+        });
+        const approvedSourceById = new Map(approvedSources.map((source) => [source.id, source] as const));
+        const approvedEvidence = approvedReceipts.find((receipt) => {
+          const source = receipt.uploadPdfId ? approvedSourceById.get(receipt.uploadPdfId) : null;
+          return (
+            (receipt.periodoPagamentoId || source?.periodoPagamentoId) === pagamento.periodoPagamentoId &&
+            (receipt.basePagamentoId || source?.basePagamentoId) === pagamento.basePagamentoId
+          );
+        });
+
+        if (!approvedEvidence) {
+          await transaction.importacaoFinanceiraItem.update({
+            where: { id: item.id },
+            data: {
+              resultado: FinanceiroImportacaoItemResultado.conflito_status,
+              statusNovo: null,
+              mensagem: "PAGO bloqueado: não existe nota fiscal aprovada vinculada ao mesmo motorista, período e base."
+            }
+          });
+          continue;
+        }
+      }
+
+      const releasedPaymentBlock = isReleasedPaymentBlock(currentStatus, item.statusNovo);
+      if (isDangerousRegression(currentStatus, item.statusNovo) && !releasedPaymentBlock) {
         await transaction.importacaoFinanceiraItem.update({
           where: { id: item.id },
           data: {

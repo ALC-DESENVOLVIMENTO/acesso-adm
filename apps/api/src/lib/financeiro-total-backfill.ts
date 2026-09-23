@@ -12,12 +12,15 @@ export function parseMoneyNumber(value: string | number | null | undefined) {
     return Number.isFinite(value) ? value : null;
   }
 
-  const normalized = String(value)
-    .replace(/[^\d,.-]/g, "")
-    .replace(/\./g, "")
-    .replace(",", ".");
+  const normalized = String(value).replace(/[^\d,.-]/g, "");
+  const lastComma = normalized.lastIndexOf(",");
+  const lastDot = normalized.lastIndexOf(".");
+  const decimalIndex = Math.max(lastComma, lastDot);
+  const canonical = decimalIndex >= 0
+    ? `${normalized.slice(0, decimalIndex).replace(/[.,]/g, "")}.${normalized.slice(decimalIndex + 1)}`
+    : normalized;
 
-  const parsed = Number(normalized);
+  const parsed = Number(canonical);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
@@ -47,10 +50,10 @@ export async function extractTotalGeralValueFromSource(source: PdfSource | null 
   }
 
   const normalizedText = text.replace(/\u00a0/g, " ").replace(/\s+/g, " ");
+  const moneyToken = "(-?(?:\\d{1,3}(?:[.,]\\d{3})+|\\d+)(?:[.,]\\d{2})?)";
   const patterns = [
-    /Total\s*Geral\s*[:\-]?\s*(?:R?\$?\s*)?((?:\d{1,3}(?:\.\d{3})*|\d+),\d{2})/i,
-    /Total\s*Geral\s*[:\-]?\s*((?:\d{1,3}(?:\.\d{3})*|\d+),\d{2})/i,
-    /Total\s*(?:Liquido|Líquido|Final)\s*[:\-]?\s*(?:R?\$?\s*)?((?:\d{1,3}(?:\.\d{3})*|\d+),\d{2})/i
+    new RegExp(`Total\\s*Geral\\s*:?\\s*(?:R?\\$?\\s*)?${moneyToken}`, "i"),
+    new RegExp(`Total\\s*(?:Liquido|Líquido|Final)\\s*:?\\s*(?:R?\\$?\\s*)?${moneyToken}`, "i")
   ];
 
   for (const pattern of patterns) {
@@ -63,13 +66,13 @@ export async function extractTotalGeralValueFromSource(source: PdfSource | null 
   const markerIndex = normalizedText.toLowerCase().lastIndexOf("total geral");
   if (markerIndex >= 0) {
     const excerpt = normalizedText.slice(markerIndex, markerIndex + 240);
-    const excerptMatch = /((?:\d{1,3}(?:\.\d{3})*|\d+),\d{2})/.exec(excerpt);
+    const excerptMatch = /(-?(?:\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,]\d{2})?)/.exec(excerpt);
     if (excerptMatch?.[1]) {
       return parseMoneyNumber(excerptMatch[1]);
     }
   }
 
-  const allAmounts = Array.from(normalizedText.matchAll(/((?:\d{1,3}(?:\.\d{3})*|\d+),\d{2})/g));
+  const allAmounts = Array.from(normalizedText.matchAll(/((?:\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,]\d{2})?)/g));
   if (allAmounts.length > 0) {
     return parseMoneyNumber(allAmounts.at(-1)?.[1] || null);
   }
@@ -83,6 +86,7 @@ export async function backfillPaymentTotalsFromMirrorPdfs() {
       status: {
         not: "removido"
       },
+      documentType: "espelho",
       valorTotalPdf: null
     },
     select: {
@@ -142,6 +146,7 @@ async function resolveAdditionalMirrorSource(
                 motoristaId,
                 periodoPagamentoId,
                 basePagamentoId,
+                documentType: "espelho",
                 caminhoArquivo: {
                   startsWith: "uploads/"
                 }

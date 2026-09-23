@@ -53,6 +53,12 @@ const REQUIRED_UPLOAD_TABLE_COLUMNS: CompatibilityColumn[] = [
     comment: "Adicionar motivo da pendencia de cadastro em uploads_pdf"
   },
   {
+    table: "uploads_pdf",
+    column: "atualizado_em",
+    typeSql: "TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+    comment: "Adicionar timestamp de atualizacao exigido pela integracao do Portal do Motorista"
+  },
+  {
     table: "driver_pdf_received",
     column: "document_type",
     typeSql: "TEXT",

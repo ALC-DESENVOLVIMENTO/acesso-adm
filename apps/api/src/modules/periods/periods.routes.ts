@@ -9,6 +9,7 @@ import { deleteObject } from "../../lib/storage.js";
 import { upsertDriverPdfReceivedFromUpload } from "../../lib/driver-pdf-received.js";
 import { notifyPdfOnline } from "../../lib/pdfonline-bridge.js";
 import { normalizeText, resolveDriverRegistryByIdentity } from "../../lib/driver-registry.js";
+import { syncBaseToOpenPaymentPeriods } from "../../lib/period-base-sync.js";
 
 const router = Router();
 const baseReferenceUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
@@ -28,7 +29,7 @@ router.use(requireAuth, (req, res, next) => {
     return;
   }
 
-  if (!req.auth.modules.includes("periods") && !["N3", "N4"].includes(req.auth.level)) {
+  if (!["N3", "N4"].includes(req.auth.level) && !req.auth.modules.includes("periods") && !req.auth.modules.includes("bases")) {
     res.status(403).json({
       message: "Você não possui permissão para acessar este módulo."
     });
@@ -334,34 +335,20 @@ function serializePeriod(period: {
     (item) => !childReferences.has(item.id) && item.status !== "removido"
   );
   const uploadedByBase: Record<string, number> = {};
-  const uploadedByBaseMotorists = new Map<string, Set<string>>();
 
   for (const upload of visibleUploads) {
-    if (!upload.basePagamentoId || !upload.motoristaId) {
+    if (!upload.basePagamentoId) {
       continue;
     }
 
-    if (!uploadedByBaseMotorists.has(upload.basePagamentoId)) {
-      uploadedByBaseMotorists.set(upload.basePagamentoId, new Set());
-    }
-
-    uploadedByBaseMotorists.get(upload.basePagamentoId)?.add(upload.motoristaId);
+    // This is a document count, not a driver count. Pending uploads and
+    // uploads without a Portal Administrativo pre-cadastro must still be
+    // visible in the period totals. Older versions are excluded above when
+    // they are referenced by a replacement.
+    uploadedByBase[upload.basePagamentoId] = (uploadedByBase[upload.basePagamentoId] || 0) + 1;
   }
 
-  for (const [baseId, motoristaSet] of uploadedByBaseMotorists.entries()) {
-    uploadedByBase[baseId] = motoristaSet.size;
-  }
-
-  const uploadedTotal = new Set(
-    visibleUploads.map((item) => item.motoristaId).filter((value): value is string => Boolean(value))
-  ).size;
-  const expectedTotal = period.bases.length;
-  const derivedStatus =
-    period.status === "aprovado"
-      ? period.status
-      : uploadedTotal >= expectedTotal && expectedTotal > 0
-        ? "aguardando_aprovacao"
-        : period.status;
+  const uploadedTotal = visibleUploads.length;
 
   return {
     id: period.id,
@@ -369,7 +356,9 @@ function serializePeriod(period: {
     startDate: toDateOnlyString(period.dataInicio),
     endDate: toDateOnlyString(period.dataFim),
     paymentType: period.tipo,
-    status: derivedStatus,
+    // O status do período é uma decisão explícita do fluxo operacional.
+    // A quantidade de motoristas/espelhos não pode fechar novamente um período reaberto.
+    status: period.status,
     active: period.ativo,
     createdAt: period.criadoEm,
     updatedAt: period.atualizadoEm,
@@ -452,6 +441,8 @@ router.post("/bases", requireAdmin, (req, res) => {
       }
     });
 
+    await syncBaseToOpenPaymentPeriods(created.id);
+
     await prisma.logAuditoria.create({
       data: {
         usuarioId: auth.userId,
@@ -517,6 +508,8 @@ router.patch("/bases/:id", requireAdmin, (req, res) => {
         ativo: parsed.data.active
       }
     });
+
+    await syncBaseToOpenPaymentPeriods(updated.id);
 
     await prisma.logAuditoria.create({
       data: {

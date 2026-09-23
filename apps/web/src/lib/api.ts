@@ -2,11 +2,13 @@ const API_BASE_URL = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "")
 
 export class ApiError extends Error {
   status: number;
+  payload?: unknown;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, payload?: unknown) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.payload = payload;
   }
 }
 
@@ -87,7 +89,7 @@ export type UploadRow = {
   baseName?: string | null;
   motoristaId?: string | null;
   motoristaName?: string | null;
-  pendingReason?: "pre_cadastro_nao_encontrado" | "pre_cadastro_ambiguo" | "pre_cadastro_incompleto" | string | null;
+  pendingReason?: "pre_cadastro_nao_encontrado" | "pre_cadastro_ambiguo" | "pre_cadastro_incompleto" | "pre_cadastro_inconsistente" | string | null;
   replacedUploadId?: string | null;
 };
 
@@ -211,6 +213,7 @@ export type FinanceiroSummary = {
   inAttendance: number;
   concluded: number;
   amountToPay: number;
+  amountPlanned: number;
   amountPaid: number;
   periodSummaries: Array<{
     id: string;
@@ -220,8 +223,10 @@ export type FinanceiroSummary = {
     pdfsSent: number;
     notesReceived: number;
     notesPending: number;
+    concluded: number;
     paidMotoristas: number;
     amountToPay: number;
+    amountPlanned: number;
     amountPaid: number;
     bases: Array<{
       id: string;
@@ -244,6 +249,7 @@ export type FinanceiroSummary = {
     notesPending: number;
     paidMotoristas: number;
     amountToPay: number;
+    amountPlanned: number;
     amountPaid: number;
   }>;
 };
@@ -257,12 +263,19 @@ export type FinanceiroBaseCard = {
   paidMotoristas: number;
   notesReceived: number;
   notesPending: number;
+  amountPlanned: number;
+  amountToPay: number;
+  amountPaid: number;
 };
 
 export type FinanceiroMotoristaRow = {
   id: string;
-  motoristaId: string;
+  motoristaId: string | null;
+  baseId?: string | null;
+  statusArchi?: string | null;
   nome: string;
+  nomeFavorecido: string | null;
+  cnpjFavorecido: string | null;
   cpf: string;
   base: string;
   periodoPagamento: string;
@@ -277,6 +290,7 @@ export type FinanceiroMotoristaRow = {
   atendimentoStatus: string;
   atendimentoStatusLabel?: string;
   statusNotaFiscal: string;
+  cadastroProblemas?: string[];
   sefazStatus?: string | null;
   sefazActive?: boolean | null;
   sefazCheckedEm?: string | null;
@@ -408,6 +422,7 @@ export type FinanceiroAptosPagamentoRow = {
   baseMotorista: string;
   statusProcesso: string;
   statusNotaFiscal: string;
+  cadastroProblemas?: string[];
   statusPagamento: string;
   notaFiscalUrl?: string | null;
 };
@@ -417,6 +432,9 @@ export type FinanceiroAptosPagamentoExcluido = {
   motoristaId: string | null;
   nomeMotorista: string;
   motivo: string;
+  statusProcesso?: string;
+  statusNotaFiscal?: string;
+  statusPagamento?: string;
 };
 
 export type FinanceiroAptosPagamentoInconsistencia = {
@@ -655,23 +673,37 @@ export type UploadProgressState = {
 };
 
 async function request<T>(path: string, options?: Omit<RequestInit, "body"> & { body?: JsonBody }) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options?.headers || {})
-    },
-    body: options?.body ? JSON.stringify(options.body) : undefined
-  });
+  const method = String(options?.method || "GET").toUpperCase();
+  const canRetry = method === "GET" || method === "HEAD";
+  const retryableStatuses = new Set([502, 503, 504]);
+  const maxAttempts = canRetry ? 3 : 1;
 
-  const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(options?.headers || {})
+      },
+      body: options?.body ? JSON.stringify(options.body) : undefined
+    });
 
-  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+
+    if (response.ok) {
+      return payload as T;
+    }
+
+    if (attempt < maxAttempts && retryableStatuses.has(response.status)) {
+      await new Promise((resolve) => window.setTimeout(resolve, attempt * 750));
+      continue;
+    }
+
     notifySessionExpired(response.status);
     throw new ApiError(payload?.message || "Falha na comunicação com a API.", response.status);
   }
 
-  return payload as T;
+  throw new ApiError("Falha na comunicação com a API.", 503);
 }
 
 async function requestFormData<T>(path: string, options: Omit<RequestInit, "body"> & { body: FormData }) {
@@ -724,7 +756,7 @@ async function requestUpload<T>(params: {
       }
 
       notifySessionExpired(xhr.status);
-      reject(new ApiError(payload?.message || "Falha no upload.", xhr.status));
+      reject(new ApiError(payload?.message || "Falha no upload.", xhr.status, payload));
     };
 
     xhr.onerror = () => {
@@ -777,6 +809,13 @@ export function loginRequest(body: { email: string; password: string }) {
   return request<LoginResponse>("/auth/login", {
     method: "POST",
     body
+  });
+}
+
+export function exchangeArchiSsoToken(token: string) {
+  return request<LoginResponse>("/auth/sso/exchange", {
+    method: "POST",
+    body: { token }
   });
 }
 
@@ -989,8 +1028,9 @@ export function importFaturamentoPreFatura(token: string, file: File, type: stri
   return requestMultipart<{ message: string; id: string; numero: string; totalLinhas: number; totalGeral: number }>({ path: "/faturamento/pre-faturas/importar", token, body });
 }
 
-export function fetchFaturamentoPreFatura(token: string, id: string, search = "") {
-  return request<{ preFatura: any; items: any[]; total: number; page: number; pageSize: number }>(`/faturamento/pre-faturas/${id}?search=${encodeURIComponent(search)}`, { headers: { Authorization: `Bearer ${token}` } });
+export function fetchFaturamentoPreFatura(token: string, id: string, search = "", page = 1, pageSize = 50) {
+  const params = new URLSearchParams({ search, page: String(page), pageSize: String(pageSize) });
+  return request<{ preFatura: any; items: any[]; total: number; page: number; pageSize: number }>(`/faturamento/pre-faturas/${id}?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
 }
 
 export async function downloadFaturamento(token: string, id: string) {
@@ -1009,6 +1049,17 @@ export function approveFinanceiroNotaFiscal(token: string, receivedId: string) {
       }
     }
   );
+}
+
+export function uploadFinanceiroNotaFiscalManual(token: string, file: File, input: { motoristaId: string; periodId: string; baseId: string }) {
+  const body = new FormData();
+  body.append("file", file);
+  return requestUpload<{ message: string; receivedId: string; status: string }>({
+    path: "/financeiro/driver-pdfs/manual-nota",
+    token,
+    body,
+    fields: input
+  });
 }
 
 export function previewFinanceiroImport(
@@ -1283,21 +1334,26 @@ export function resetUserPassword(token: string, userId: string) {
 export function uploadPdfs(
   token: string,
   files: File[],
-  fields?: { periodId?: string; basePaymentId?: string },
+  fields?: { periodId?: string; basePaymentId?: string; allowNegativeTotal?: boolean },
   onProgress?: (progress: UploadProgressState) => void
 ) {
   const formData = new FormData();
   files.forEach((file) => formData.append("files", file));
+  const { allowNegativeTotal, ...uploadFields } = fields || {};
 
   return requestUpload<{
     message: string;
     uploaded?: number;
-    failed?: Array<{ fileName: string; message: string }>;
+    failed?: Array<{ fileName: string; message: string; code?: string }>;
+    pending?: Array<{ fileName: string; message: string; code?: string }>;
   }>({
     path: "/uploads",
     token,
     body: formData,
-    fields,
+    fields: {
+      ...uploadFields,
+      ...(allowNegativeTotal ? { allowNegativeTotal: "true" } : {})
+    },
     onProgress
   });
 }

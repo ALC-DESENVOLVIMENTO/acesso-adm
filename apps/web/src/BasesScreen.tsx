@@ -1,6 +1,7 @@
 import { Database, FileArrowUp, MagnifyingGlass, PencilSimple, ToggleLeft, ToggleRight } from "@phosphor-icons/react";
-import { ChangeEvent, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { importPaymentBases, type PaymentBase } from "./lib/api";
+import { clampPage, paginateItems, Pagination } from "./Pagination";
 
 type Props = {
   token: string;
@@ -11,24 +12,72 @@ type Props = {
   onToggleActive: (base: PaymentBase) => Promise<boolean> | boolean;
 };
 
+const PAGE_SIZE = 15;
+
 export function BasesScreen({ token, bases, isLoading = false, onRefresh, onOpenEditor, onToggleActive }: Props) {
   const [search, setSearch] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const filtered = bases.filter((base) => `${base.name} ${(base.acronyms || (base.acronym ? [base.acronym] : [])).join(" ")}`.toLowerCase().includes(search.toLowerCase()));
+  const [page, setPage] = useState(1);
+
+  const filtered = useMemo(
+    () => bases.filter((base) =>
+      `${base.name} ${(base.acronyms || (base.acronym ? [base.acronym] : [])).join(" ")}`
+        .toLowerCase()
+        .includes(search.toLowerCase())
+    ),
+    [bases, search]
+  );
+  const visibleBases = useMemo(() => paginateItems(filtered, page, PAGE_SIZE), [filtered, page]);
+
+  useEffect(() => setPage(1), [search]);
+  useEffect(() => setPage((current) => clampPage(current, filtered.length, PAGE_SIZE)), [filtered.length]);
+
   const handleImport = async () => {
     if (!file) return;
-    setLoading(true); setMessage(""); setError("");
-    try { const result = await importPaymentBases(token, file); setMessage(result.message); setFile(null); await onRefresh(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao importar bases."); }
-    finally { setLoading(false); }
+    setLoading(true);
+    setMessage("");
+    setError("");
+    try {
+      const result = await importPaymentBases(token, file);
+      setMessage(result.message);
+      setFile(null);
+      await onRefresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Falha ao importar bases.");
+    } finally {
+      setLoading(false);
+    }
   };
+
   const handleFile = (event: ChangeEvent<HTMLInputElement>) => setFile(event.target.files?.[0] || null);
-  return <main className="content-page bases-screen"><header className="bases-hero"><div><p className="eyebrow">CADASTROS · REFERÊNCIA OPERACIONAL</p><h1>Cadastros de Bases</h1><p>Centralize nomes e todas as siglas oficiais usadas em períodos, espelhos, financeiro e faturamento.</p></div><button className="primary-button primary-button--inline cta-motion bases-hero__action" type="button" onClick={() => onOpenEditor(null)}><Database size={18} /> Nova base</button></header>
-    <section className="bases-toolbar"><label className="bases-search"><MagnifyingGlass size={18} /><span className="sr-only">Pesquisar por nome ou sigla</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Pesquisar por nome ou sigla" /></label><label className="bases-import"><FileArrowUp size={18} /><span>{file ? file.name : "Atualizar referências"}<input type="file" accept=".xlsx,.xls" onChange={handleFile} /></span></label><button className="secondary-button" type="button" disabled={!file || loading} onClick={() => void handleImport()}>Atualizar cadastro</button></section>
-    {message ? <div className="inline-alert inline-alert--success">{message}</div> : null}{error ? <div className="inline-alert inline-alert--error">{error}</div> : null}
-    <section className="panel bases-panel"><div className="panel-heading"><div><p className="eyebrow">BASES OFICIAIS</p><h2>{isLoading ? "Carregando bases..." : `${filtered.length} bases cadastradas`}</h2><p className="panel-subtitle">Uma base pode ter várias siglas reconhecidas pelo sistema.</p></div><span className="bases-source">Fonte única do portal</span></div>{isLoading ? <div className="bases-loading" role="status">Consultando o cadastro oficial...</div> : <div className="bases-table-wrap"><table><thead><tr><th>Nome da base</th><th>Siglas oficiais</th><th>Tipo padrão</th><th>Status</th><th>Ações</th></tr></thead><tbody>{filtered.map((base) => { const acronyms = base.acronyms || (base.acronym ? [base.acronym] : []); return <tr key={base.id}><td><strong>{base.name}</strong></td><td><div className="base-acronyms">{acronyms.length ? acronyms.map((acronym) => <span className="base-acronym" key={acronym}>{acronym}</span>) : <span className="base-acronym base-acronym--empty">Não cadastrada</span>}</div></td><td><span className="base-type">{base.paymentType}</span></td><td><span className={`status-pill ${base.active ? "status-pill--active" : "status-pill--inactive"}`}>{base.active ? "Ativa" : "Inativa"}</span></td><td><div className="bases-actions"><button className="ghost-button ghost-button--small" type="button" onClick={() => onOpenEditor(base)}><PencilSimple size={16} /> Editar</button><button className="ghost-button ghost-button--small" type="button" onClick={() => void onToggleActive(base)}>{base.active ? <ToggleLeft size={16} /> : <ToggleRight size={16} />} {base.active ? "Desativar" : "Ativar"}</button></div></td></tr>; })}</tbody></table></div>}</section>
-  </main>;
+
+  return (
+    <main className="content-page bases-screen" aria-busy={isLoading || loading}>
+      <header className="bases-hero">
+        <div><p className="eyebrow">CADASTROS · REFERÊNCIA OPERACIONAL</p><h1>Cadastros de Bases</h1><p>Centralize nomes e todas as siglas oficiais usadas em períodos, espelhos, financeiro e faturamento.</p></div>
+        <button className="primary-button primary-button--inline cta-motion bases-hero__action" type="button" onClick={() => onOpenEditor(null)}><Database size={18} /> Nova base</button>
+      </header>
+      <section className="bases-toolbar">
+        <label className="bases-search"><MagnifyingGlass size={18} /><span className="sr-only">Pesquisar por nome ou sigla</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Pesquisar por nome ou sigla" /></label>
+        <label className="bases-import"><FileArrowUp size={18} /><span>{file ? file.name : "Atualizar referências"}<input type="file" accept=".xlsx,.xls" onChange={handleFile} /></span></label>
+        <button className="secondary-button" type="button" disabled={!file || loading} onClick={() => void handleImport()}>Atualizar cadastro</button>
+      </section>
+      {message ? <div className="inline-alert inline-alert--success">{message}</div> : null}
+      {error ? <div className="inline-alert inline-alert--error">{error}</div> : null}
+      <section className="panel bases-panel">
+        <div className="panel-heading"><div><p className="eyebrow">BASES OFICIAIS</p><h2>{isLoading ? "Bases cadastradas" : `${filtered.length} bases cadastradas`}</h2><p className="panel-subtitle">Uma base pode ter várias siglas reconhecidas pelo sistema.</p></div><span className="bases-source">Fonte única do portal</span></div>
+        {isLoading && bases.length === 0 ? (
+          <div className="content-skeleton" role="status" aria-label="Carregando bases"><div className="content-skeleton__line" /><div className="content-skeleton__card" /><div className="content-skeleton__card" /></div>
+        ) : (
+          <>
+            <div className="bases-table-wrap"><table><thead><tr><th>Nome da base</th><th>Siglas oficiais</th><th>Tipo padrão</th><th>Status</th><th>Ações</th></tr></thead><tbody>{visibleBases.map((base) => { const acronyms = base.acronyms || (base.acronym ? [base.acronym] : []); return <tr key={base.id}><td><strong>{base.name}</strong></td><td><div className="base-acronyms">{acronyms.length ? acronyms.map((acronym) => <span className="base-acronym" key={acronym}>{acronym}</span>) : <span className="base-acronym base-acronym--empty">Não cadastrada</span>}</div></td><td><span className="base-type">{base.paymentType}</span></td><td><span className={`status-pill ${base.active ? "status-pill--active" : "status-pill--inactive"}`}>{base.active ? "Ativa" : "Inativa"}</span></td><td><div className="bases-actions"><button className="ghost-button ghost-button--small" type="button" onClick={() => onOpenEditor(base)}><PencilSimple size={16} /> Editar</button><button className="ghost-button ghost-button--small" type="button" onClick={() => void onToggleActive(base)}>{base.active ? <ToggleLeft size={16} /> : <ToggleRight size={16} />} {base.active ? "Desativar" : "Ativar"}</button></div></td></tr>; })}</tbody></table></div>
+            <Pagination page={page} pageSize={PAGE_SIZE} totalItems={filtered.length} onPageChange={setPage} itemLabel="bases" />
+          </>
+        )}
+      </section>
+    </main>
+  );
 }

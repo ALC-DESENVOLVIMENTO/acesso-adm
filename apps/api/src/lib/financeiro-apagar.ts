@@ -20,6 +20,15 @@ const APPROVED_NOTE_STATUSES: Set<DriverPdfReceivedStatus> = new Set([
   DriverPdfReceivedStatus.processo_concluido
 ]);
 
+export function formatCnpj(value: string | null | undefined) {
+  const digits = digitsOnly(value);
+  if (digits.length !== 14) {
+    return value || "";
+  }
+
+  return digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+}
+
 type AptoPagamentoUpload = Prisma.UploadPdfGetPayload<{
   select: {
     id: true;
@@ -114,6 +123,9 @@ export type AptosPagamentoExcluido = {
   motoristaId: string | null;
   nomeMotorista: string;
   motivo: string;
+  statusProcesso?: string;
+  statusNotaFiscal?: string;
+  statusPagamento?: string;
 };
 
 export type AptosPagamentoInconsistencia = {
@@ -160,18 +172,66 @@ function normalizeCpfOrCnpj(value: string | null | undefined) {
   return digitsOnly(value || "");
 }
 
+const BENEFICIARY_NAME_FIELDS = [
+  "nome_favorecido",
+  "favorecido_nome",
+  "favorecido",
+  "beneficiario",
+  "beneficiary_name",
+  "nomeFavorecido",
+  "favorecidoNome"
+];
+
+const BENEFICIARY_CNPJ_FIELDS = [
+  "cnpj_favorecido",
+  "cnpj_do_favorecido",
+  "favorecido_cnpj",
+  "beneficiary_cnpj",
+  "mei",
+  "cnpjFavorecido",
+  "cnpj_digits",
+  "cnpj"
+];
+
+function getRegistryValue(registryMatch: DriverRegistryMatch | null, fields: string[]) {
+  if (!registryMatch) {
+    return "";
+  }
+
+  for (const field of fields) {
+    const directValue = registryMatch.raw[field];
+    if (typeof directValue === "string" && directValue.trim()) {
+      return directValue.trim();
+    }
+  }
+
+  const extraData = registryMatch.raw.extra_data;
+  if (extraData && typeof extraData === "object" && !Array.isArray(extraData)) {
+    const values = extraData as Record<string, unknown>;
+    for (const field of fields) {
+      const nestedValue = values[field];
+      if (typeof nestedValue === "string" && nestedValue.trim()) {
+        return nestedValue.trim();
+      }
+    }
+  }
+
+  return "";
+}
+
+export function resolveBeneficiaryName(registryMatch: DriverRegistryMatch | null) {
+  return getRegistryValue(registryMatch, BENEFICIARY_NAME_FIELDS) || registryMatch?.nome?.trim() || "";
+}
+
 export function resolveBeneficiaryCnpj(registryMatch: DriverRegistryMatch | null) {
+  // `raw.cnpj_digits` is ARCHI's principal/company CNPJ and may be present
+  // alongside the payee CNPJ inside extra_data. Prefer the explicit payee
+  // fields before falling back to the normalized principal CNPJ.
+  const explicitBeneficiaryFields = BENEFICIARY_CNPJ_FIELDS.filter(
+    (field) => field !== "cnpj_digits" && field !== "cnpj"
+  );
   return normalizeCpfOrCnpj(
-    String(
-      registryMatch?.raw.cnpj_favorecido ||
-        registryMatch?.raw.cnpj_do_favorecido ||
-        registryMatch?.raw.favorecido_cnpj ||
-        registryMatch?.raw.beneficiary_cnpj ||
-        registryMatch?.raw.cnpj_digits ||
-        registryMatch?.raw.cnpj ||
-        registryMatch?.cnpj ||
-        ""
-    )
+    getRegistryValue(registryMatch, explicitBeneficiaryFields) || registryMatch?.cnpj || ""
   );
 }
 
@@ -214,7 +274,9 @@ function sanitizeFileSegment(value: string) {
 function isApprovedMirror(receipt: AptoPagamentoReceipt | null) {
   return Boolean(
     receipt &&
-      (receipt.status === DriverPdfReceivedStatus.motorista_visualizou ||
+      (receipt.status === DriverPdfReceivedStatus.pdf_enviado_ao_motorista ||
+        receipt.status === DriverPdfReceivedStatus.motorista_visualizou ||
+        receipt.status === DriverPdfReceivedStatus.aguardando_envio_nota_fiscal ||
         receipt.status === DriverPdfReceivedStatus.processo_concluido ||
         Boolean(receipt.visualizadoEm))
   );
@@ -222,6 +284,10 @@ function isApprovedMirror(receipt: AptoPagamentoReceipt | null) {
 
 function isCompletedProcess(noteReceipt: AptoPagamentoReceipt | null) {
   return noteReceipt?.status === DriverPdfReceivedStatus.processo_concluido;
+}
+
+function hasCompletedProcess(receipt: AptoPagamentoReceipt | null) {
+  return receipt?.status === DriverPdfReceivedStatus.processo_concluido;
 }
 
 function isApprovedNoteStatus(status: string | null | undefined) {
@@ -280,12 +346,12 @@ function deriveMirrorReceipt(
   uploadById: Map<string, AptoPagamentoUpload>
 ) {
   return (
-    receipts.find((receipt) => receipt.uploadPdfId && receipt.uploadPdfId === upload.id && !isApprovedNoteStatus(receipt.status)) ||
+    receipts.find((receipt) => receipt.uploadPdfId && receipt.uploadPdfId === upload.id && (!isApprovedNoteStatus(receipt.status) || hasCompletedProcess(receipt))) ||
     receipts.find((receipt) => {
       const source = receipt.uploadPdfId ? uploadById.get(receipt.uploadPdfId) || null : null;
 
       return (
-        !isApprovedNoteStatus(receipt.status) &&
+        (!isApprovedNoteStatus(receipt.status) || hasCompletedProcess(receipt)) &&
         (receipt.motoristaId === upload.motoristaId || source?.motoristaId === upload.motoristaId) &&
         (receipt.periodoPagamentoId === upload.periodoPagamentoId || source?.periodoPagamentoId === upload.periodoPagamentoId) &&
         (receipt.basePagamentoId === upload.basePagamentoId || source?.basePagamentoId === upload.basePagamentoId)
@@ -398,7 +464,9 @@ export function evaluateAptidao(params: {
   // In the current workflow, PDF Online can consolidate the final state in
   // one receipt. A completed process already proves that the mirror was
   // approved, even when there is no separate mirror receipt anymore.
-  if (!isApprovedMirror(mirrorReceipt) && !isCompletedProcess(noteReceipt)) {
+  const completedProcess = hasCompletedProcess(mirrorReceipt) || isCompletedProcess(noteReceipt);
+
+  if (!isApprovedMirror(mirrorReceipt) && !completedProcess) {
     return {
       apto: false,
       statusProcesso: mirrorReceipt ? "Espelho pendente" : "Sem espelho",
@@ -408,7 +476,7 @@ export function evaluateAptidao(params: {
     };
   }
 
-  if (!noteReceipt) {
+  if (!noteReceipt && !completedProcess) {
     return {
       apto: false,
       statusProcesso: "Aguardando nota fiscal",
@@ -418,7 +486,17 @@ export function evaluateAptidao(params: {
     };
   }
 
-  if (isBlockedNoteStatus(noteReceipt.status)) {
+  if (completedProcess) {
+    return {
+      apto: true,
+      statusProcesso: "Aguardando pagamento",
+      statusNotaFiscal: "Nota fiscal aprovada",
+      statusPagamento: paymentStatus || FinanceiroStatusPagamento.PENDENTE,
+      motivoExclusao: null
+    };
+  }
+
+  if (isBlockedNoteStatus(noteReceipt!.status)) {
     return {
       apto: false,
       statusProcesso: "Nota fiscal rejeitada",
@@ -428,11 +506,11 @@ export function evaluateAptidao(params: {
     };
   }
 
-  if (!isApprovedNoteStatus(noteReceipt.status)) {
+  if (!isApprovedNoteStatus(noteReceipt!.status)) {
     return {
       apto: false,
       statusProcesso: "Nota fiscal em validação",
-      statusNotaFiscal: noteReceipt.status || "Sem status",
+      statusNotaFiscal: noteReceipt!.status || "Sem status",
       statusPagamento: paymentStatus || FinanceiroStatusPagamento.PENDENTE,
       motivoExclusao: "Nota fiscal pendente de validação"
     };
@@ -461,19 +539,15 @@ async function buildAptosPreviewRows(rows: CandidateRow[]) {
         processoId: upload.id,
         motoristaId: upload.motoristaId,
         nomeMotorista: upload.motorista?.nome || "Não informado",
-        motivo: evaluation.motivoExclusao || "Não apto para exportação"
+        motivo: evaluation.motivoExclusao || "Não apto para exportação",
+        statusProcesso: evaluation.statusProcesso,
+        statusNotaFiscal: evaluation.statusNotaFiscal,
+        statusPagamento: evaluation.statusPagamento
       });
       continue;
     }
 
-    const nomeFavorecido = String(
-      registryMatch?.raw.nome_favorecido ||
-        registryMatch?.raw.favorecido_nome ||
-        registryMatch?.raw.favorecido ||
-        registryMatch?.raw.beneficiario ||
-        registryMatch?.nome ||
-        ""
-    ).trim();
+    const nomeFavorecido = resolveBeneficiaryName(registryMatch);
     const cnpjFavorecido = resolveBeneficiaryCnpj(registryMatch);
     const baseMotorista = upload.basePagamento?.nome?.trim() || registryMatch?.base?.trim() || "";
 
@@ -772,7 +846,7 @@ export function buildWorkbook(
   const dataRows = preview.aptos.map((row) => ({
     "Nome Motorista": row.nomeMotorista,
     "Nome Favorecido": row.nomeFavorecido,
-    "CNPJ do Favorecido": row.cnpjFavorecido,
+    "CNPJ do Favorecido": formatCnpj(row.cnpjFavorecido),
     "Valor Total do PDF": row.valorTotalPdf ?? "",
     "Base do Motorista": row.baseMotorista,
     ...(includeFileUrl

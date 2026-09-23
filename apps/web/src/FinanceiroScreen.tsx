@@ -28,6 +28,7 @@ import {
   fetchFinanceiroHistorico,
   fetchFinanceiroNotaFiscalContent,
   approveFinanceiroNotaFiscal,
+  uploadFinanceiroNotaFiscalManual,
   fetchFinanceiroMotoristas,
   fetchFinanceiroSummary,
   exportFinanceiroNotasFiscais,
@@ -48,6 +49,7 @@ import {
   updatePaymentPeriod,
   updatePaymentPeriodStatus
 } from "./lib/api";
+import { clampPage, paginateItems, Pagination } from "./Pagination";
 
 type SessionUser = LoginResponse["user"];
 
@@ -69,6 +71,16 @@ type PeriodFormState = {
 
 type FinanceTab = "exportacao" | "apagar" | "importacao";
 type PreviewFilter = "todos" | "validos" | "erros";
+
+function isPaidExclusion(item: { statusPagamento?: string | null; motivo: string }) {
+  const paymentStatus = item.statusPagamento?.trim().toUpperCase();
+  const reason = item.motivo
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  return paymentStatus === "PAGO" || reason.includes("pagamento ja realizado");
+}
 
 const MOTORISTA_STATUS_FILTER_ORDER = [
   "pdf_enviado_ao_motorista",
@@ -98,6 +110,7 @@ const initialSummary: FinanceiroSummary = {
   inAttendance: 0,
   concluded: 0,
   amountToPay: 0,
+  amountPlanned: 0,
   amountPaid: 0,
   periodSummaries: [],
   baseSummaries: []
@@ -117,6 +130,14 @@ function formatFinanceCurrency(value: number | null | undefined) {
     style: "currency",
     currency: "BRL"
   }).format(Number(value || 0));
+}
+
+function formatCnpj(value: string | null | undefined) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return "CNPJ não informado";
+  if (digits.length !== 14) return value || "CNPJ não informado";
+
+  return digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
 }
 
 const initialPeriodForm: PeriodFormState = {
@@ -292,6 +313,7 @@ export function FinanceiroScreen({
   const [searchTerm, setSearchTerm] = useState("");
   const [cpfTerm, setCpfTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
+  const [pendenciaFilter, setPendenciaFilter] = useState("todos");
   const [attendanceFilter, setAttendanceFilter] = useState("todos");
   const [busyMessage, setBusyMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -302,12 +324,19 @@ export function FinanceiroScreen({
   const [apagarBusy, setApagarBusy] = useState("");
   const [apagarError, setApagarError] = useState("");
   const [approvingNotaFiscalId, setApprovingNotaFiscalId] = useState<string | null>(null);
+  const [manualNotaRowId, setManualNotaRowId] = useState<string | null>(null);
   const [periodModalOpen, setPeriodModalOpen] = useState(false);
   const [editingPeriod, setEditingPeriod] = useState<PaymentPeriod | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PaymentPeriod | null>(null);
   const [periodForm, setPeriodForm] = useState<PeriodFormState>(initialPeriodForm);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [basePage, setBasePage] = useState(1);
+  const [motoristaPage, setMotoristaPage] = useState(1);
+  const [apagarPage, setApagarPage] = useState(1);
+  const [previewPage, setPreviewPage] = useState(1);
   const exportMenuRef = useRef<HTMLDivElement | null>(null);
+  const baseRequestId = useRef(0);
+  const motoristaRequestId = useRef(0);
 
   useEffect(() => {
     if (!exportMenuOpen) {
@@ -349,6 +378,29 @@ export function FinanceiroScreen({
     return periods.filter((period) => period.status === "aprovado" && period.active !== false);
   }, [periods]);
 
+  const selectedPeriodSummary = useMemo(
+    () => summary.periodSummaries.find((period) => period.id === selectedPeriodId) || null,
+    [selectedPeriodId, summary.periodSummaries]
+  );
+  const operationalBaseSummaries = useMemo(
+    () => summary.baseSummaries.filter((base) => base.periodId === selectedPeriodId),
+    [selectedPeriodId, summary.baseSummaries]
+  );
+  const operationalSummary = selectedPeriodSummary
+    ? {
+        ...summary,
+        activePeriods: 1,
+        motoristas: selectedPeriodSummary.pdfsSent,
+        pdfsSent: selectedPeriodSummary.pdfsSent,
+        notesReceived: selectedPeriodSummary.notesReceived,
+        notesPending: selectedPeriodSummary.notesPending,
+        concluded: selectedPeriodSummary.concluded,
+        amountPlanned: selectedPeriodSummary.amountPlanned,
+        amountToPay: selectedPeriodSummary.amountToPay,
+        amountPaid: selectedPeriodSummary.amountPaid
+      }
+    : summary;
+
   const allowedBases = useMemo(() => {
     if (!selectedPeriod) {
       return [];
@@ -376,6 +428,7 @@ export function FinanceiroScreen({
 
     return baseCards.filter((base) => normalizeFilterText(base.name).includes(normalizedSearch));
   }, [baseCards, baseSearchTerm]);
+  const paginatedBaseCards = useMemo(() => paginateItems(visibleBaseCards, basePage, 12), [basePage, visibleBaseCards]);
 
   const statusOptions = useMemo(() => {
     const labels = new Map<string, string>();
@@ -431,6 +484,10 @@ export function FinanceiroScreen({
         return false;
       }
 
+      if (pendenciaFilter === "pendencias" && !(row.cadastroProblemas || []).length) {
+        return false;
+      }
+
       if (normalizedSearch && !normalizeFilterText(row.nome).includes(normalizedSearch)) {
         return false;
       }
@@ -441,7 +498,22 @@ export function FinanceiroScreen({
 
       return true;
     });
-  }, [attendanceFilter, cpfTerm, motoristas, searchTerm, statusFilter]);
+  }, [attendanceFilter, cpfTerm, motoristas, pendenciaFilter, searchTerm, statusFilter]);
+  const paginatedMotoristas = useMemo(() => paginateItems(visibleMotoristas, motoristaPage, 25), [motoristaPage, visibleMotoristas]);
+  const aptosRows = apagarPreview?.aptos || [];
+  const paginatedAptosRows = useMemo(() => paginateItems(aptosRows, apagarPage, 25), [apagarPage, aptosRows]);
+  const filteredPreviewRows = useMemo(
+    () => previewRows.filter((row) => previewFilter === "todos" ? true : previewFilter === "validos" ? row.situacaoValidacao === "valido" : row.situacaoValidacao !== "valido"),
+    [previewFilter, previewRows]
+  );
+  const paginatedPreviewRows = useMemo(() => paginateItems(filteredPreviewRows, previewPage, 40), [filteredPreviewRows, previewPage]);
+
+  useEffect(() => setBasePage(1), [baseSearchTerm, selectedPeriodId]);
+  useEffect(() => setMotoristaPage(1), [attendanceFilter, cpfTerm, motoristas, pendenciaFilter, searchTerm, selectedBaseId, selectedPeriodId, statusFilter]);
+  useEffect(() => setApagarPage(1), [apagarPreview, selectedBaseId, selectedPeriodId]);
+  useEffect(() => setPreviewPage(1), [previewFilter, previewRows]);
+  useEffect(() => setBasePage((current) => clampPage(current, visibleBaseCards.length, 12)), [visibleBaseCards.length]);
+  useEffect(() => setMotoristaPage((current) => clampPage(current, visibleMotoristas.length, 25)), [visibleMotoristas.length]);
 
   const loadSummary = async () => {
     if (!token) {
@@ -458,8 +530,11 @@ export function FinanceiroScreen({
       return;
     }
 
+    const requestId = ++baseRequestId.current;
     const data = await fetchFinanceiroBases(token, periodId);
-    setBaseCards(Array.isArray(data) ? data : []);
+    if (requestId === baseRequestId.current) {
+      setBaseCards(Array.isArray(data) ? data : []);
+    }
   };
 
   const loadMotoristas = async (periodId: string, baseId: string) => {
@@ -468,9 +543,11 @@ export function FinanceiroScreen({
       return;
     }
 
+    const requestId = ++motoristaRequestId.current;
     const data = await fetchFinanceiroMotoristas(token, periodId, baseId);
-
-    setMotoristas(Array.isArray(data) ? data : []);
+    if (requestId === motoristaRequestId.current) {
+      setMotoristas(Array.isArray(data) ? data : []);
+    }
   };
 
   const loadImportacaoDetalhe = async (importacaoId: string) => {
@@ -493,7 +570,9 @@ export function FinanceiroScreen({
   }, [selectedPeriodId, visiblePeriods]);
 
   useEffect(() => {
-    if (!selectedPeriodId) {
+    const periodIsVisible = visiblePeriods.some((period) => period.id === selectedPeriodId);
+
+    if (!selectedPeriodId || !periodIsVisible) {
       setBaseCards([]);
       setSelectedBaseId("all");
       setBaseSearchTerm("");
@@ -507,14 +586,13 @@ export function FinanceiroScreen({
         setErrorMessage("");
         setBusyMessage("Carregando bases do período...");
         await loadBaseCards(selectedPeriodId);
-        setPeriodViewTab("bases");
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "Falha ao carregar bases.");
       } finally {
         setBusyMessage("");
       }
     })();
-  }, [selectedPeriodId, token]);
+  }, [selectedPeriodId, token, visiblePeriods]);
 
   useEffect(() => {
     if (!allowedBases.length) {
@@ -533,7 +611,9 @@ export function FinanceiroScreen({
   }, [selectedBaseId, selectedPeriodId]);
 
   useEffect(() => {
-    if (!selectedPeriodId || !selectedBaseId) {
+    const periodIsVisible = visiblePeriods.some((period) => period.id === selectedPeriodId);
+
+    if (!selectedPeriodId || !periodIsVisible || !selectedBaseId) {
       setMotoristas([]);
       return;
     }
@@ -549,7 +629,7 @@ export function FinanceiroScreen({
         setBusyMessage("");
       }
     })();
-  }, [selectedBaseId, selectedPeriodId, token]);
+  }, [selectedBaseId, selectedPeriodId, token, visiblePeriods]);
 
   useEffect(() => {
     if (!token) {
@@ -780,6 +860,24 @@ export function FinanceiroScreen({
     }
   };
 
+  const handleManualNotaFiscal = async (file: File | undefined, row: FinanceiroMotoristaRow) => {
+    const baseId = row.baseId || (selectedBaseId === "all" ? "" : selectedBaseId);
+    if (!file || !row.motoristaId || !selectedPeriodId || !baseId) {
+      setErrorMessage("Não foi possível determinar a base exata deste motorista para anexar a NF.");
+      return;
+    }
+    try {
+      setManualNotaRowId(row.id);
+      setErrorMessage("");
+      await uploadFinanceiroNotaFiscalManual(token, file, { motoristaId: row.motoristaId, periodId: selectedPeriodId, baseId });
+      await loadMotoristas(selectedPeriodId, selectedBaseId);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Falha ao anexar NF manualmente.");
+    } finally {
+      setManualNotaRowId(null);
+    }
+  };
+
   const handlePreviewFinanceiroImport = async () => {
     if (!selectedImportFile || !selectedPeriodId) {
       setImportError("Selecione um arquivo e um período antes da pré-visualização.");
@@ -905,9 +1003,9 @@ export function FinanceiroScreen({
           </p>
         </div>
         <div className="quick-meta">
-          <span className="quick-meta__chip quick-meta__chip--active">{summary.activePeriods} períodos ativos</span>
-          <span className="quick-meta__chip">{summary.notesPending} pendentes</span>
-          <span className="quick-meta__chip">{summary.inAnalysis} em análise</span>
+          <span className="quick-meta__chip quick-meta__chip--active">{operationalSummary.activePeriods} período selecionado</span>
+          <span className="quick-meta__chip">{operationalSummary.notesPending} pendentes</span>
+          <span className="quick-meta__chip">{operationalSummary.inAnalysis} em análise</span>
         </div>
       </section>
 
@@ -919,11 +1017,18 @@ export function FinanceiroScreen({
               <h3>Movimentação por base</h3>
               <p>Dados reais dos períodos ativos, atualizados a partir dos espelhos e notas registradas.</p>
             </div>
-            <ChartLineUp size={30} aria-hidden="true" />
+            <label className="filter-select finance-chart-period-select">
+              <CalendarBlank size={18} />
+              <select value={selectedPeriodId} onChange={(event) => setSelectedPeriodId(event.target.value)}>
+                {visiblePeriods.map((period) => (
+                  <option key={period.id} value={period.id}>{period.name}</option>
+                ))}
+              </select>
+            </label>
           </div>
-          {summary.baseSummaries.length > 0 ? (
+          {operationalBaseSummaries.length > 0 ? (
             <div className="finance-chart-list">
-              {summary.baseSummaries.map((base) => {
+              {operationalBaseSummaries.map((base) => {
                 const maximum = Math.max(base.pdfsSent, base.notesReceived, base.paidMotoristas, 1);
                 return (
                   <div className="finance-chart-row" key={`${base.periodId}-${base.id}`}>
@@ -965,7 +1070,7 @@ export function FinanceiroScreen({
             <CalendarBlank size={30} />
           </div>
           <div>
-            <strong>{summary.activePeriods}</strong>
+            <strong>{operationalSummary.activePeriods}</strong>
             <span>Períodos ativos</span>
             <small>Disponíveis para acompanhamento</small>
           </div>
@@ -975,7 +1080,7 @@ export function FinanceiroScreen({
             <UsersThree size={30} />
           </div>
           <div>
-            <strong>{summary.motoristas}</strong>
+            <strong>{operationalSummary.motoristas}</strong>
             <span>Motoristas</span>
             <small>Carregados no fluxo financeiro</small>
           </div>
@@ -985,7 +1090,7 @@ export function FinanceiroScreen({
             <FilePdf size={30} />
           </div>
           <div>
-            <strong>{summary.pdfsSent}</strong>
+            <strong>{operationalSummary.pdfsSent}</strong>
             <span>PDFs enviados</span>
             <small>Registros de envio do período</small>
           </div>
@@ -995,7 +1100,7 @@ export function FinanceiroScreen({
             <Bell size={30} />
           </div>
           <div>
-            <strong>{summary.notesReceived}</strong>
+            <strong>{operationalSummary.notesReceived}</strong>
             <span>Notas fiscais recebidas</span>
             <small>Arquivos registrados no banco</small>
           </div>
@@ -1005,7 +1110,7 @@ export function FinanceiroScreen({
             <ClockCounterClockwise size={30} />
           </div>
           <div>
-            <strong>{summary.notesPending}</strong>
+            <strong>{operationalSummary.notesPending}</strong>
             <span>Pendentes</span>
             <small>Aguardando movimentação</small>
           </div>
@@ -1015,7 +1120,7 @@ export function FinanceiroScreen({
             <ChartLineUp size={30} />
           </div>
           <div>
-            <strong>{summary.concluded}</strong>
+            <strong>{operationalSummary.concluded}</strong>
             <span>Concluídos</span>
             <small>Processos finalizados</small>
           </div>
@@ -1023,15 +1128,23 @@ export function FinanceiroScreen({
         <article className="stat-card stat-card--money">
           <div className="stat-card__icon"><Coins size={30} /></div>
           <div>
-            <strong>{formatFinanceCurrency(summary.amountToPay)}</strong>
+            <strong>{formatFinanceCurrency(operationalSummary.amountPlanned)}</strong>
+            <span>Valor planejado</span>
+            <small>Soma dos espelhos enviados no período</small>
+          </div>
+        </article>
+        <article className="stat-card stat-card--money">
+          <div className="stat-card__icon"><Coins size={30} /></div>
+          <div>
+            <strong>{formatFinanceCurrency(operationalSummary.amountToPay)}</strong>
             <span>Valor a pagar</span>
             <small>Processos aptos aguardando pagamento</small>
           </div>
         </article>
-        <article className="stat-card stat-card--money">
+        <article className="stat-card stat-card--money stat-card--money-wide">
           <div className="stat-card__icon"><CheckCircle size={30} /></div>
           <div>
-            <strong>{formatFinanceCurrency(summary.amountPaid)}</strong>
+            <strong>{formatFinanceCurrency(operationalSummary.amountPaid)}</strong>
             <span>Valor já pago</span>
             <small>Pagamentos confirmados na operação</small>
           </div>
@@ -1054,11 +1167,7 @@ export function FinanceiroScreen({
         ))}
       </section>
 
-      {busyMessage ? (
-        <section className="panel panel--compact">
-          <p className="loading-note">{busyMessage}</p>
-        </section>
-      ) : null}
+      {busyMessage ? <span className="sr-only" role="status" aria-live="polite">{busyMessage}</span> : null}
 
       {errorMessage ? (
         <section className="panel panel--compact finance-alert finance-alert--error">
@@ -1227,7 +1336,7 @@ export function FinanceiroScreen({
             ) : null}
 
             <div className="finance-base-grid">
-              {visibleBaseCards.map((base) => (
+              {paginatedBaseCards.map((base) => (
                 <article className="finance-base-card" key={base.id}>
                   <div className="finance-base-card__top">
                     <div>
@@ -1241,6 +1350,8 @@ export function FinanceiroScreen({
                     <span>{base.paidMotoristas} motoristas pagos</span>
                     <span>{base.notesReceived} NFs recebidas</span>
                     <span>{base.notesPending} NFs pendentes</span>
+                    <span>Pago: <strong>{formatFinanceCurrency(base.amountPaid)}</strong></span>
+                    <span>Falta pagar: <strong>{formatFinanceCurrency(base.amountToPay)}</strong></span>
                   </div>
                   <button
                     className="ghost-button ghost-button--small"
@@ -1261,6 +1372,7 @@ export function FinanceiroScreen({
                 </div>
               ) : null}
             </div>
+            <Pagination page={basePage} pageSize={12} totalItems={visibleBaseCards.length} onPageChange={setBasePage} itemLabel="bases" />
           </article>
 
             <article
@@ -1317,6 +1429,13 @@ export function FinanceiroScreen({
                 </select>
               </label>
               <label className="filter-select">
+                <FunnelSimple size={18} />
+                <select value={pendenciaFilter} onChange={(event) => setPendenciaFilter(event.target.value)}>
+                  <option value="todos">Pendências: todos</option>
+                  <option value="pendencias">Somente com pendências</option>
+                </select>
+              </label>
+              <label className="filter-select">
                 <Bell size={18} />
                 <select value={attendanceFilter} onChange={(event) => setAttendanceFilter(event.target.value)}>
                   <option value="todos">Situação do atendimento</option>
@@ -1345,11 +1464,17 @@ export function FinanceiroScreen({
                 </thead>
                 <tbody>
                   {visibleMotoristas.length > 0 ? (
-                    visibleMotoristas.map((row) => (
+                    paginatedMotoristas.map((row) => (
                       <tr key={row.id}>
                         <td>
                           <strong>{row.nome}</strong>
-                          <span className="table-cell-subtle">{row.cpf}</span>
+                          <span className="table-cell-subtle">Favorecido: {row.nomeFavorecido || "Não informado"}</span>
+                          {(row.cadastroProblemas || []).map((problem) => (
+                            <span className="table-cell-subtle table-cell-subtle--warning" key={problem}>
+                              ⚠ {problem}
+                            </span>
+                          ))}
+                          <span className="table-cell-subtle">{formatCnpj(row.cnpjFavorecido)}</span>
                         </td>
                         <td>{row.base}</td>
                         <td>{row.periodoPagamento}</td>
@@ -1360,7 +1485,8 @@ export function FinanceiroScreen({
                           <button
                             className={financeStatusClass(row.status)}
                             type="button"
-                            onClick={() => onOpenMotorista(row.motoristaId)}
+                            onClick={() => row.motoristaId && onOpenMotorista(row.motoristaId)}
+                            disabled={!row.motoristaId}
                           >
                             {row.statusLabel}
                           </button>
@@ -1370,9 +1496,28 @@ export function FinanceiroScreen({
                         </td>
                         <td>
                           <div className="table-actions">
-                            <button className="ghost-button ghost-button--small" type="button" onClick={() => onOpenMotorista(row.motoristaId)}>
+                            <button className="ghost-button ghost-button--small" type="button" onClick={() => row.motoristaId && onOpenMotorista(row.motoristaId)} disabled={!row.motoristaId}>
                               Abrir
                               <Eye size={16} />
+                            </button>
+                            <input
+                              id={`manual-nota-${row.id}`}
+                              type="file"
+                              accept="application/pdf,.pdf"
+                              hidden
+                              onChange={(event) => {
+                                void handleManualNotaFiscal(event.target.files?.[0], row);
+                                event.currentTarget.value = "";
+                              }}
+                            />
+                            <button
+                              className="ghost-button ghost-button--small"
+                              type="button"
+                              onClick={() => document.getElementById(`manual-nota-${row.id}`)?.click()}
+                              disabled={!row.motoristaId || manualNotaRowId === row.id}
+                            >
+                              {manualNotaRowId === row.id ? "Anexando..." : "Anexar NF"}
+                              <FileArrowUp size={16} />
                             </button>
                             <button
                               className="ghost-button ghost-button--small"
@@ -1419,6 +1564,7 @@ export function FinanceiroScreen({
                 </tbody>
               </table>
             </div>
+            <Pagination page={motoristaPage} pageSize={25} totalItems={visibleMotoristas.length} onPageChange={setMotoristaPage} itemLabel="motoristas" />
             </article>
           </div>
         </section>
@@ -1443,8 +1589,22 @@ export function FinanceiroScreen({
                 </p>
               </div>
               <div className="finance-period-hero__meta">
-                <span>{selectedBase ? selectedBase.name : "Todas as bases"}</span>
-                <small>Filtro seguro por período/base</small>
+                <label className="finance-period-base-select">
+                  <span>Base da consulta</span>
+                  <select
+                    value={selectedBaseId}
+                    onChange={(event) => setSelectedBaseId(event.target.value)}
+                    aria-label="Selecionar base para consulta"
+                  >
+                    <option value="all">Todas as bases</option>
+                    {baseCards.map((base) => (
+                      <option key={base.id} value={base.id}>
+                        {base.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <small>Filtro aplicado ao consultar e exportar</small>
               </div>
             </div>
 
@@ -1485,7 +1645,6 @@ export function FinanceiroScreen({
               </button>
             </div>
 
-            {apagarBusy ? <p className="loading-note">{apagarBusy}</p> : null}
             {apagarError ? <p className="finance-alert finance-alert--error">{apagarError}</p> : null}
 
             <div className="finance-import-summary">
@@ -1523,11 +1682,11 @@ export function FinanceiroScreen({
                 </thead>
                 <tbody>
                   {(apagarPreview?.aptos || []).length > 0 ? (
-                    apagarPreview!.aptos.map((row) => (
+                    paginatedAptosRows.map((row) => (
                       <tr key={row.processoId}>
                         <td>{row.nomeMotorista}</td>
                         <td>{row.nomeFavorecido}</td>
-                        <td>{row.cnpjFavorecido}</td>
+                        <td>{formatCnpj(row.cnpjFavorecido)}</td>
                         <td>{row.valorTotalPdfFormatado}</td>
                         <td>{row.baseMotorista}</td>
                         <td>{row.statusProcesso}</td>
@@ -1548,16 +1707,19 @@ export function FinanceiroScreen({
                 </tbody>
               </table>
             </div>
+            <Pagination page={apagarPage} pageSize={25} totalItems={aptosRows.length} onPageChange={setApagarPage} itemLabel="motoristas aptos" />
 
             <div className="finance-import-summary">
               <article className="finance-import-card finance-import-card--history">
-                <strong>Motoristas excluidos</strong>
-                {(apagarPreview?.excluidos || []).length > 0 ? (
-                  <div className="finance-import-history__list">
-                    {apagarPreview!.excluidos.slice(0, 5).map((item) => (
-                      <p key={`${item.processoId}-${item.motoristaId || "sem"}`}>
-                        {item.nomeMotorista}: {item.motivo}
-                      </p>
+                <strong>Motoristas excluídos</strong>
+                {apagarPreview?.excluidos?.filter((item) => !isPaidExclusion(item)).length ? (
+                  <div className="finance-issue-list">
+                    {apagarPreview!.excluidos.filter((item) => !isPaidExclusion(item)).map((item) => (
+                      <div className="finance-issue-item" key={`${item.processoId}-${item.motoristaId || "sem"}`}>
+                        <strong>{item.nomeMotorista}</strong>
+                        <span>{item.motivo}</span>
+                        <small>Processo: {item.statusProcesso || "Não informado"} · NF: {item.statusNotaFiscal || "Não informado"} · Pagamento: {item.statusPagamento || "Não informado"}</small>
+                      </div>
                     ))}
                   </div>
                 ) : (
@@ -1567,11 +1729,13 @@ export function FinanceiroScreen({
               <article className="finance-import-card finance-import-card--history">
                 <strong>Inconsistências</strong>
                 {(apagarPreview?.inconsistencias || []).length > 0 ? (
-                  <div className="finance-import-history__list">
-                    {apagarPreview!.inconsistencias.slice(0, 5).map((item) => (
-                      <p key={`${item.processoId}-${item.campo}`}>
-                        {item.nomeMotorista}: {item.motivo}
-                      </p>
+                  <div className="finance-issue-list">
+                    {apagarPreview!.inconsistencias.map((item) => (
+                      <div className="finance-issue-item finance-issue-item--warning" key={`${item.processoId}-${item.campo}`}>
+                        <strong>{item.nomeMotorista}</strong>
+                        <span>{item.motivo}</span>
+                        <small>Campos que precisam de correção: {item.campo}</small>
+                      </div>
                     ))}
                   </div>
                 ) : (
@@ -1587,7 +1751,7 @@ export function FinanceiroScreen({
             <div className="panel__header">
               <div>
                 <h3>Atualizar Pagamentos</h3>
-                <p>Envie somente a aba Resumido, confira o status da coluna M e confirme o status calculado.</p>
+                <p>Envie somente a aba Resumido, confira a coluna de status e confirme o status calculado.</p>
               </div>
             </div>
 
@@ -1641,7 +1805,6 @@ export function FinanceiroScreen({
               </button>
             </div>
 
-            {importBusy ? <p className="loading-note">{importBusy}</p> : null}
             {importError ? <p className="finance-alert finance-alert--error">{importError}</p> : null}
             {importMessage ? <p className="finance-alert finance-alert--success">{importMessage}</p> : null}
 
@@ -1664,9 +1827,7 @@ export function FinanceiroScreen({
                   </tr>
                 </thead>
                 <tbody>
-                  {previewRows
-                    .filter((row) => (previewFilter === "todos" ? true : previewFilter === "validos" ? row.situacaoValidacao === "valido" : row.situacaoValidacao !== "valido"))
-                    .map((row) => (
+                  {paginatedPreviewRows.map((row) => (
                       <tr key={`${row.numeroLinha}-${row.identificador || row.codigoObb || "linha"}`}>
                         <td>{row.numeroLinha}</td>
                         <td>{row.identificador || "Não informado"}</td>
@@ -1700,6 +1861,7 @@ export function FinanceiroScreen({
                 </tbody>
               </table>
             </div>
+            <Pagination page={previewPage} pageSize={40} totalItems={filteredPreviewRows.length} onPageChange={setPreviewPage} itemLabel="linhas da pré-visualização" />
 
             <div className="finance-import-history">
               <h4>Importacoes recentes</h4>

@@ -9,6 +9,8 @@ import { ensureArchiDriverSourceViews, ensureDriverRegistryColumns } from "./lib
 import { ensureDatabaseCompatibilityColumns } from "./lib/database-compatibility.js";
 import { reconcileStorageReferences } from "./lib/storage-migration.js";
 import { resolveDatabaseUrlWithSchema } from "./lib/database-url.js";
+import { syncAllOpenPaymentPeriodBases } from "./lib/period-base-sync.js";
+import { refreshMotoristaNamesFromAuthoritativeRegistry } from "./lib/driver-registry.js";
 
 function runCommand(command: string, args: string[], cwd: string) {
   return new Promise<void>((resolve, reject) => {
@@ -66,8 +68,20 @@ export async function runBootstrap() {
   }
   await ensureDriverRegistryColumns();
   await ensureArchiDriverSourceViews();
+  const refreshedMotoristaNames = await refreshMotoristaNamesFromAuthoritativeRegistry();
+  if (refreshedMotoristaNames > 0) {
+    console.log(`[archi] ${refreshedMotoristaNames} nome(s) local(is) atualizado(s) pela fonte oficial.`);
+  }
   await reconcileStorageReferences();
-  await runCommand("npm", ["run", "db:seed"], apiRoot);
+  if (process.env.RUN_DB_SEED === "true") {
+    await runCommand("npm", ["run", "db:seed"], apiRoot);
+  } else {
+    console.log("[bootstrap] Seed automático desativado; defina RUN_DB_SEED=true somente em ambientes controlados.");
+  }
+  const synchronizedPeriodBases = await syncAllOpenPaymentPeriodBases();
+  if (synchronizedPeriodBases > 0) {
+    console.log(`[periodos] ${synchronizedPeriodBases} vínculo(s) de base adicionados a períodos abertos.`);
+  }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

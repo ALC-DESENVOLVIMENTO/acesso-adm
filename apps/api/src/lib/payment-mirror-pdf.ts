@@ -5,6 +5,16 @@ export type PaymentMirrorIdentity = {
   name: string;
 };
 
+export type PaymentMirrorPeriodRange = {
+  startDate: string;
+  endDate: string;
+};
+
+export type PaymentMirrorMetadata = {
+  identity: PaymentMirrorIdentity | null;
+  periodRange: PaymentMirrorPeriodRange | null;
+};
+
 const CNPJ_PATTERN = String.raw`(\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2})`;
 const IDENTITY_END_PATTERN = String.raw`(?=\s+\d{2}\/\d{2}\/\d{4}\b|\s+Total\s+Geral\b|$)`;
 
@@ -33,7 +43,38 @@ export function parsePaymentMirrorIdentity(text: string | null | undefined): Pay
   return { cnpj, name };
 }
 
-export async function extractPaymentMirrorIdentity(buffer: Buffer) {
+function parseBrazilianDate(value: string) {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value.trim());
+  if (!match) {
+    return null;
+  }
+
+  const [, day, month, year] = match;
+  return `${year}-${month}-${day}`;
+}
+
+export function parsePaymentMirrorPeriodRange(text: string | null | undefined): PaymentMirrorPeriodRange | null {
+  if (!text) {
+    return null;
+  }
+
+  const match = /\bDe\s*:\s*(\d{2}\/\d{2}\/\d{4})\s+At[eé]\s*:\s*(\d{2}\/\d{2}\/\d{4})\b/iu.exec(
+    text.replace(/\u00a0/g, " ").replace(/\s+/g, " ")
+  );
+  const startDate = match?.[1] ? parseBrazilianDate(match[1]) : null;
+  const endDate = match?.[2] ? parseBrazilianDate(match[2]) : null;
+
+  return startDate && endDate ? { startDate, endDate } : null;
+}
+
+export async function extractPaymentMirrorMetadata(buffer: Buffer): Promise<PaymentMirrorMetadata> {
   const text = await extractPdfText(buffer);
-  return parsePaymentMirrorIdentity(text);
+  return {
+    identity: parsePaymentMirrorIdentity(text),
+    periodRange: parsePaymentMirrorPeriodRange(text)
+  };
+}
+
+export async function extractPaymentMirrorIdentity(buffer: Buffer) {
+  return (await extractPaymentMirrorMetadata(buffer)).identity;
 }

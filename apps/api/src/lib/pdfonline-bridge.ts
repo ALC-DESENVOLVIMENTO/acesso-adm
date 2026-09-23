@@ -171,6 +171,12 @@ export async function notifyPdfOnline(event: string, data: unknown = {}, meta: R
 
   const status = await postJson(webhookUrl, JSON.stringify(payload));
 
+  if (!status.ok) {
+    throw new Error(
+      `PDF Online webhook retornou ${status.status}${status.text ? `: ${status.text}` : ""}`
+    );
+  }
+
   return {
     skipped: false,
     status

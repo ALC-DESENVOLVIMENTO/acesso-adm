@@ -8,6 +8,7 @@ import {
   resolvePaymentProcessStatus
 } from "../../lib/financeiro-payment-status.js";
 import { buildStorageObjectUrl, createStorageKey, fetchObjectBuffer, uploadObject } from "../../lib/storage.js";
+import { searchArchiDriverMatches } from "../../lib/driver-registry.js";
 
 const router = Router();
 
@@ -375,6 +376,13 @@ function quoteDriverRegistryIdentifier(value: string) {
 }
 
 async function fetchDriverRegistryRows(query: string) {
+  // ARCHI is the single source of truth. Search every workflow status here;
+  // payment eligibility applies the approved-only rule separately.
+  const authoritativeMatches = await searchArchiDriverMatches({ name: normalizeText(query), approvedOnly: false });
+  if (authoritativeMatches.length > 0) {
+    return authoritativeMatches.map((match) => match.raw);
+  }
+
   const metadata = await getDriverRegistryMetadata();
   if (!metadata) {
     return [];
@@ -429,6 +437,19 @@ async function fetchDriverRegistryRows(query: string) {
 }
 
 async function fetchDriverRegistryById(id: string) {
+  const authoritativeRows = await prisma.$queryRawUnsafe<DriverRegistryRawRow[]>(`
+    SELECT id, name AS display_name, name, cpf, cpf AS cpf_digits,
+      COALESCE(NULLIF(BTRIM(extra_data->>'cnpj'), ''), NULLIF(BTRIM(extra_data->>'cnpjProprietario'), ''), NULLIF(BTRIM(extra_data->>'documentoEmpresa'), ''), NULLIF(BTRIM(extra_data->>'mei'), ''), NULLIF(BTRIM(extra_data->>'cnpjFavorecido'), '')) AS cnpj,
+      COALESCE(NULLIF(BTRIM(extra_data->>'cnpj'), ''), NULLIF(BTRIM(extra_data->>'cnpjProprietario'), ''), NULLIF(BTRIM(extra_data->>'documentoEmpresa'), ''), NULLIF(BTRIM(extra_data->>'mei'), ''), NULLIF(BTRIM(extra_data->>'cnpjFavorecido'), '')) AS cnpj_digits,
+      base, status, status_cadastro, gerenciadora_risco, extra_data, updated_at
+    FROM public.motoristas
+    WHERE id::text = $1
+    LIMIT 1
+  `, id);
+  if (authoritativeRows[0]) {
+    return authoritativeRows[0];
+  }
+
   const metadata = await getDriverRegistryMetadata();
   if (!metadata) {
     return null;
@@ -452,6 +473,14 @@ async function fetchDriverRegistryByCpfDigits(cpfDigits: string) {
   const normalizedCpf = digitsOnly(cpfDigits);
   if (!normalizedCpf) {
     return null;
+  }
+
+  const authoritativeMatches = await searchArchiDriverMatches({
+    cpfDigits: normalizedCpf,
+    approvedOnly: false
+  });
+  if (authoritativeMatches[0]) {
+    return authoritativeMatches[0].raw;
   }
 
   const metadata = await getDriverRegistryMetadata();
@@ -694,14 +723,17 @@ async function resolveMotoristaId(rawId: string) {
     ? rawId.slice(DRIVER_REGISTRY_PREFIX.length)
     : rawId;
 
-  const direct = await prisma.motorista.findUnique({
-    where: {
-      id: inputId
-    },
-    select: {
-      id: true
-    }
-  });
+  const isLocalUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(inputId);
+  const direct = isLocalUuid
+    ? await prisma.motorista.findUnique({
+        where: {
+          id: inputId
+        },
+        select: {
+          id: true
+        }
+      })
+    : null;
 
   if (direct?.id) {
     return direct.id;
@@ -1406,7 +1438,7 @@ router.get("/motoristas/search", (_req, res) => {
         id: matchedLocal?.id || `${DRIVER_REGISTRY_PREFIX}${driver.externalId}`,
         name: driver.nome,
         cpf: driver.cpfFormatado || driver.cpf || "",
-        status: matchedLocal?.statusCadastro || driver.statusCadastro,
+        status: driver.statusCadastro,
         city: driver.cidade || matchedLocal?.cidade || null,
         state: driver.estado || matchedLocal?.estado || null,
         company: driver.empresaVinculada || matchedLocal?.empresaVinculada || null,
@@ -1953,7 +1985,11 @@ router.post("/motoristas/:id/chamados", upload.array("attachments", 10), (req, r
     const categoria = String(body.categoria || "").trim();
     const prioridade = String(body.prioridade || "media").trim();
     const descricao = String(body.descricao || "").trim();
-    const responsavelId = String(body.responsavelId || req.auth.userId).trim() || req.auth.userId;
+    const requestedResponsavelId = String(body.responsavelId || "").trim();
+    const responsavelId =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedResponsavelId)
+        ? requestedResponsavelId
+        : req.auth.userId;
     const files = (req.files as Express.Multer.File[]) || [];
 
     if (!assunto || !categoria || !descricao) {

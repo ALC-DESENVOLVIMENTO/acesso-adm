@@ -37,20 +37,29 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   const token = authorization.slice("Bearer ".length).trim();
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
-  const session = await prisma.sessao.findFirst({
-    where: {
-      tokenHash,
-      revogadaEm: null,
-      expiraEm: {
-        gt: new Date()
+  let session;
+  try {
+    session = await prisma.sessao.findFirst({
+      where: {
+        tokenHash,
+        revogadaEm: null,
+        expiraEm: {
+          gt: new Date()
+        }
+      },
+      include: {
+        usuario: {
+          include: getUserAccessInclude()
+        }
       }
-    },
-    include: {
-      usuario: {
-        include: getUserAccessInclude()
-      }
-    }
-  });
+    });
+  } catch (error) {
+    console.error("Falha ao validar sessão:", error);
+    res.status(503).json({
+      message: "Serviço temporariamente indisponível. Tente novamente em instantes."
+    });
+    return;
+  }
 
   if (!session || !session.usuario.ativo || session.usuario.bloqueado) {
     res.status(401).json({
@@ -89,7 +98,7 @@ export function requirePermission(permissionCode: string) {
       return;
     }
 
-    if (!req.auth.permissions.includes(permissionCode)) {
+    if (!["N3", "N4"].includes(req.auth.level) && !req.auth.permissions.includes(permissionCode)) {
       res.status(403).json({
         message: "Você não possui permissão para executar esta ação."
       });
@@ -116,7 +125,7 @@ export function requireModuleAccess(moduleCode: string) {
       return;
     }
 
-    if (!req.auth.modules.includes(moduleCode)) {
+    if (!["N3", "N4"].includes(req.auth.level) && !req.auth.modules.includes(moduleCode)) {
       res.status(403).json({
         message: "Você não possui permissão para acessar este módulo."
       });
@@ -135,12 +144,8 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
     return;
   }
 
-  if (!["N3", "N4"].includes(req.auth.level)) {
-    res.status(403).json({
-      message: "Acesso restrito a administradores."
-    });
-    return;
-  }
-
+  // The module middleware that precedes this guard is the source of truth for
+  // access. A user-level grant must be able to authorize the module even when
+  // the account remains N1/N2.
   next();
 }

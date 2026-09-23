@@ -118,7 +118,6 @@ const paymentBases = [
 
 const users = [
   { nome: "Dev. Adrian", email: "adrian.ribeiro@alcepereirafilho.com.br", nivel: AccessLevelCode.N4 },
-  { nome: "Dev. Wesley", email: "wesleyalc.oliveira@gmail.com", nivel: AccessLevelCode.N4 },
   { nome: "Bruno Andre", email: "bruno.andre@alcepereirafilho.com.br", nivel: AccessLevelCode.N3 },
   { nome: "Vinicius Paes", email: "vinicius.paes@alcepereirafilho.com.br", nivel: AccessLevelCode.N3 },
   { nome: "Amanda Francisco", email: "amanda.francisco@alcepereirafilho.com.br", nivel: AccessLevelCode.N2 },

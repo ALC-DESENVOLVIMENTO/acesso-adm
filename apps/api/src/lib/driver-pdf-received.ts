@@ -123,6 +123,7 @@ export type DriverPdfReceivedNoteStatusInput = {
   rejectedAt?: Date | null;
   observacoes?: string | null;
   createdByUserId?: string | null;
+  content?: Buffer | Uint8Array | null;
 };
 
 function buildReceivedWhere(input: {
@@ -171,18 +172,11 @@ export async function upsertDriverPdfReceivedFromUpload(
   status: DriverPdfReceivedStatus = DriverPdfReceivedStatus.pdf_enviado_ao_motorista
 ) {
   const now = new Date();
-  const existing = await prisma.driverPdfReceived.findFirst({
+  let existing = await prisma.driverPdfReceived.findFirst({
     where: buildReceivedWhere({
       uploadPdfId: input.uploadPdfId,
-      motoristaId: input.motoristaId,
-      periodId: input.periodId,
-      basePaymentId: input.basePaymentId,
       nonNoteOnly: true
-    }) || {
-      motoristaId: input.motoristaId,
-      periodoPagamentoId: input.periodId,
-      basePagamentoId: input.basePaymentId
-    },
+    })!,
     select: {
       id: true,
       visualizadoEm: true,
@@ -191,6 +185,28 @@ export async function upsertDriverPdfReceivedFromUpload(
       atendimentoStatus: true
     }
   });
+
+  // A replacement has a new upload id, but it is still the same payment
+  // mirror for driver + period + base. Reuse that row instead of creating a
+  // second portal entry and leaving the old file visible to the driver.
+  if (!existing) {
+    existing = await prisma.driverPdfReceived.findFirst({
+      where: {
+      motoristaId: input.motoristaId,
+      periodoPagamentoId: input.periodId,
+        basePagamentoId: input.basePaymentId,
+        status: { notIn: noteStatuses }
+      },
+      orderBy: { atualizadoEm: "desc" },
+      select: {
+        id: true,
+        visualizadoEm: true,
+        enviadoAoMotoristaEm: true,
+        uploadEm: true,
+        atendimentoStatus: true
+      }
+    });
+  }
 
   const data = {
     motoristaId: input.motoristaId,
@@ -466,7 +482,8 @@ export async function upsertDriverPdfReceivedNoteStatus(input: DriverPdfReceived
     rejeitadoEm: input.status === DriverPdfReceivedStatus.nota_fiscal_rejeitada ? input.rejectedAt || now : existing?.rejeitadoEm ?? null,
     rejeitadoPorId: null,
     motivoRejeicao: null,
-    uploadPdfId: input.uploadPdfId ?? null
+    uploadPdfId: input.uploadPdfId ?? null,
+    content: input.content ? Buffer.from(input.content) : undefined
   } as const;
 
   if (existing?.id) {

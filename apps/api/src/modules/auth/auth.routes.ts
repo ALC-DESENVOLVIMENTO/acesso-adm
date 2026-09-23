@@ -1,6 +1,7 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
 import multer from "multer";
 import { z } from "zod";
+import crypto from "node:crypto";
 import { comparePassword, generateSessionToken, hashPassword } from "../../lib/auth.js";
 import {
   getUserAccessInclude,
@@ -65,8 +66,115 @@ function serializeSessionUser(
   };
 }
 
+type SsoPayload = {
+  iss: "archi";
+  aud: "portal-administrativo";
+  sub: string;
+  name: string;
+  email: string;
+  role: string;
+  base?: string;
+  bases?: string[];
+  iat: number;
+  exp: number;
+  jti: string;
+};
+
+const usedSsoTokens = new Map<string, number>();
+
+function getSsoSecret() {
+  return String(process.env.ARCHI_ADMIN_PORTAL_SSO_SECRET || "").trim();
+}
+
+function isSsoOnlyEnabled() {
+  const explicitlyEnabled = String(process.env.ADMIN_PORTAL_SSO_ONLY || "").trim().toLowerCase() === "true";
+  const productionWithSsoConfigured =
+    (process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production") &&
+    Boolean(getSsoSecret());
+  return explicitlyEnabled || productionWithSsoConfigured;
+}
+
+function verifySsoToken(token: string): SsoPayload | null {
+  const secret = getSsoSecret();
+  const [encodedPayload, encodedSignature] = token.split(".");
+  if (!secret || !encodedPayload || !encodedSignature) return null;
+
+  const expectedSignature = crypto
+    .createHmac("sha256", secret)
+    .update(encodedPayload)
+    .digest("base64url");
+  const providedBuffer = Buffer.from(encodedSignature);
+  const expectedBuffer = Buffer.from(expectedSignature);
+  if (providedBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(providedBuffer, expectedBuffer)) {
+    return null;
+  }
+
+  try {
+    const payload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8")) as Partial<SsoPayload>;
+    const now = Math.floor(Date.now() / 1000);
+    if (
+      payload.iss !== "archi" ||
+      payload.aud !== "portal-administrativo" ||
+      !payload.sub ||
+      !payload.email ||
+      !["Administrativo", "Administrador", "Fiscal & Financeiro"].includes(payload.role || "") ||
+      !payload.jti ||
+      !Number.isFinite(payload.iat) ||
+      !Number.isFinite(payload.exp) ||
+      Number(payload.exp) <= now ||
+      Number(payload.iat) > now + 15
+    ) {
+      return null;
+    }
+
+    for (const [jti, expiresAt] of usedSsoTokens) {
+      if (expiresAt <= now) usedSsoTokens.delete(jti);
+    }
+    if (usedSsoTokens.has(payload.jti)) return null;
+    usedSsoTokens.set(payload.jti, Number(payload.exp));
+    return payload as SsoPayload;
+  } catch {
+    return null;
+  }
+}
+
+type PortalAccount = Parameters<typeof serializeSessionUser>[0];
+
+async function issueSessionForAccount(req: Request, account: PortalAccount) {
+  const modules = resolveEffectiveModules(account);
+  const { token, tokenHash } = generateSessionToken();
+
+  await prisma.sessao.create({
+    data: {
+      usuarioId: account.id,
+      tokenHash,
+      expiraEm: new Date(Date.now() + 1000 * 60 * 60 * 8)
+    }
+  });
+
+  await prisma.usuario.update({
+    where: { id: account.id },
+    data: { ultimoLoginEm: new Date() }
+  });
+
+  return {
+    token,
+    firstAccess: account.primeiroAcesso,
+    user: serializeSessionUser(account, modules),
+    ipOrigem: req.ip,
+    userAgent: req.get("user-agent") || null
+  };
+}
+
 router.post("/login", (req, res) => {
   void (async () => {
+    if (isSsoOnlyEnabled()) {
+      res.status(403).json({
+        message: "Acesse o Portal Administrativo pelo menu Administrativo do Archi."
+      });
+      return;
+    }
+
     const schema = z.object({
       email: z.string().email(),
       password: z.string().min(1)
@@ -177,8 +285,91 @@ router.post("/login", (req, res) => {
   });
 });
 
+router.post("/sso/exchange", (req, res) => {
+  void (async () => {
+    const parsed = z.object({ token: z.string().min(1).max(4096) }).safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ message: "Código de acesso inválido." });
+      return;
+    }
+
+    const payload = verifySsoToken(parsed.data.token);
+    if (!payload) {
+      res.status(401).json({ message: "A autorização do Archi é inválida, expirada ou já foi utilizada." });
+      return;
+    }
+
+    let account = await prisma.usuario.findUnique({
+      where: { email: payload.email.toLowerCase() },
+      include: getUserAccessInclude()
+    });
+
+    if (account && (account.bloqueado || !account.ativo)) {
+      res.status(403).json({ message: "Usuário bloqueado ou inativo no Portal Administrativo." });
+      return;
+    }
+
+    if (!account) {
+      const level = await prisma.nivel.findUnique({ where: { codigo: "N1" } });
+      if (!level) {
+        res.status(503).json({ message: "Níveis de acesso do Portal Administrativo ainda não foram configurados." });
+        return;
+      }
+
+      const passwordHash = await hashPassword(crypto.randomBytes(32).toString("hex"));
+      account = await prisma.usuario.create({
+        data: {
+          nome: payload.name.trim().slice(0, 150) || payload.email,
+          email: payload.email.toLowerCase(),
+          senhaHash: passwordHash,
+          nivelId: level.id,
+          primeiroAcesso: false
+        },
+        include: getUserAccessInclude()
+      });
+    } else if (payload.name.trim() && account.nome !== payload.name.trim().slice(0, 150)) {
+      account = await prisma.usuario.update({
+        where: { id: account.id },
+        data: { nome: payload.name.trim().slice(0, 150) },
+        include: getUserAccessInclude()
+      });
+    }
+
+    const session = await issueSessionForAccount(req, account);
+    await prisma.logAuditoria.create({
+      data: {
+        usuarioId: account.id,
+        acao: "login_sso_archi",
+        entidade: "usuarios",
+        entidadeId: account.id,
+        ipOrigem: session.ipOrigem,
+        userAgent: session.userAgent,
+        detalhes: {
+          archiUserId: payload.sub,
+          archiRole: payload.role,
+          archiBases: payload.bases || []
+        }
+      }
+    });
+
+    res.json({
+      token: session.token,
+      firstAccess: session.firstAccess,
+      user: session.user
+    });
+  })().catch((error) => {
+    console.error("Falha ao trocar autorização SSO do Archi:", error);
+    res.status(500).json({ message: "Falha ao autenticar pelo Archi." });
+  });
+});
+
 router.post("/first-access/change-password", (req, res) => {
   void (async () => {
+    if (isSsoOnlyEnabled()) {
+      res.status(403).json({ message: "A senha é gerenciada pelo Archi." });
+      return;
+    }
+
     const schema = z.object({
       email: z.string().email(),
       currentPassword: z.string().min(1),
@@ -331,6 +522,11 @@ router.post("/logout", requireAuth, (req, res) => {
 
 router.patch("/me/profile", requireAuth, profilePhotoUpload.single("photo"), (req, res) => {
   void (async () => {
+    if (isSsoOnlyEnabled()) {
+      res.status(403).json({ message: "Dados de perfil são administrados pelo Archi." });
+      return;
+    }
+
     if (!req.auth) {
       res.status(401).json({
         message: "Sessão inválida."

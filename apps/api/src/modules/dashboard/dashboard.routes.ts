@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth, requireModuleAccess } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
+import { isPaymentMirrorStorageKey } from "../../lib/storage.js";
 
 const router = Router();
 
@@ -257,12 +258,19 @@ router.get("/summary", (_req, res) => {
       activities
     ] = await Promise.all([
       prisma.uploadPdf.findMany({
-        where: { status: { not: "removido" } },
+        where: {
+          status: { not: "removido" },
+          periodoPagamento: { ativo: true }
+        },
         select: {
           id: true,
           status: true,
           documentType: true,
           substituiUploadId: true,
+          motoristaId: true,
+          periodoPagamentoId: true,
+          basePagamentoId: true,
+          caminhoArquivo: true,
           criadoEm: true
         },
         orderBy: { criadoEm: "desc" }
@@ -283,6 +291,7 @@ router.get("/summary", (_req, res) => {
       prisma.chamado.count({ where: { status: "concluido" } }),
       prisma.usuario.count(),
       prisma.periodoPagamento.findMany({
+        where: { ativo: true },
         orderBy: {
           atualizadoEm: "desc"
         },
@@ -298,16 +307,23 @@ router.get("/summary", (_req, res) => {
       fetchOperationalActivities()
     ]);
 
-    const currentMirrorRows = uploadRows.filter((upload) => upload.documentType !== "nota_fiscal");
+    const currentMirrorRows = uploadRows.filter(
+      (upload) => upload.documentType !== "nota_fiscal" && isPaymentMirrorStorageKey(upload.caminhoArquivo)
+    );
     const replacedMirrorIds = new Set(
       currentMirrorRows
         .map((upload) => upload.substituiUploadId)
         .filter((value): value is string => Boolean(value))
     );
     const currentMirrorUploads = currentMirrorRows.filter((upload) => !replacedMirrorIds.has(upload.id));
-    const uploads = currentMirrorUploads.length;
-    const processedPdfs = currentMirrorUploads.filter((upload) => upload.status === "processado").length;
-    const pendingPdfs = currentMirrorUploads.filter((upload) => upload.status === "pendente").length;
+    // Contagens de documentos devem incluir pendentes e sem pré-cadastro.
+    // Substituições já foram removidas de currentMirrorUploads, portanto cada
+    // PDF vigente conta exatamente uma vez.
+    const currentPeriodMirrorUploads = currentMirrorUploads.filter(
+      (upload) => upload.periodoPagamentoId && upload.basePagamentoId
+    );
+    const uploads = currentPeriodMirrorUploads.length;
+    const processedPdfs = currentPeriodMirrorUploads.filter((upload) => upload.status === "processado").length;
 
     const periodIds = recentPeriods.map((period) => period.id);
     const directPeriodReceipts = await prisma.driverPdfReceived.findMany({
@@ -339,6 +355,8 @@ router.get("/summary", (_req, res) => {
         motoristaId: true,
         basePagamentoId: true,
         substituiUploadId: true,
+        status: true,
+        caminhoArquivo: true,
         statusPagamento: true,
         documentType: true
       }
@@ -400,12 +418,16 @@ router.get("/summary", (_req, res) => {
         paidDriversByPeriodId.set(periodId, currentPaid);
       }
 
-      if (childUploadIds.has(upload.id) || upload.documentType === "nota_fiscal") {
+      if (
+        childUploadIds.has(upload.id) ||
+        upload.documentType === "nota_fiscal" ||
+        !isPaymentMirrorStorageKey(upload.caminhoArquivo)
+      ) {
         continue;
       }
 
       const current = latestUploadsByPeriod.get(periodId) || new Map<string, (typeof periodUploads)[number]>();
-      current.set(uploadScope, upload);
+      current.set(upload.id, upload);
       latestUploadsByPeriod.set(periodId, current);
     }
 
@@ -434,10 +456,7 @@ router.get("/summary", (_req, res) => {
 
     const periodSummaries = recentPeriods.map((period) => {
       const periodUploadMap = latestUploadsByPeriod.get(period.id) || new Map<string, (typeof periodUploads)[number]>();
-      const mirrorScopes = new Set<string>([
-        ...Array.from(periodUploadMap.keys()),
-        ...Array.from(mirrorReceiptsByPeriodId.get(period.id) || [])
-      ]);
+      const mirrorScopes = new Set<string>(Array.from(periodUploadMap.keys()));
       const pdfsSent = mirrorScopes.size;
       const notesReceived = notesByPeriodId.get(period.id)?.size || 0;
       const paidDrivers = paidDriversByPeriodId.get(period.id)?.size || 0;
@@ -454,6 +473,10 @@ router.get("/summary", (_req, res) => {
         paidDrivers
       };
     });
+
+    // Pendência operacional = espelho processado sem nota fiscal recebida.
+    // O status técnico do upload não representa essa etapa do fluxo.
+    const pendingPdfs = periodSummaries.reduce((total, period) => total + period.notesPending, 0);
 
     res.json({
       pdfsSent: uploads,

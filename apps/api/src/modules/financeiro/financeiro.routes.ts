@@ -6,12 +6,13 @@ import multer from "multer";
 import { z } from "zod";
 import { requireAuth, requireModuleAccess, requirePermission } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
-import { buildStorageObjectUrl, fetchObjectBuffer, isPaymentMirrorStorageKey } from "../../lib/storage.js";
+import { buildStorageObjectUrl, createStorageKey, fetchObjectBuffer, isPaymentMirrorStorageKey, uploadObject } from "../../lib/storage.js";
 import { loadDriverPdfReceivedContent } from "../../lib/driver-pdf-received-content.js";
 import {
   isDriverPdfMirrorStatus,
   isDriverPdfNoteStatus,
-  upsertDriverPdfReceivedFromUpload
+  upsertDriverPdfReceivedFromUpload,
+  upsertDriverPdfReceivedNoteStatus
 } from "../../lib/driver-pdf-received.js";
 import {
   confirmFinanceiroImport,
@@ -22,8 +23,12 @@ import {
 import {
   buildAptosPagamentoPreview,
   buildAptosPagamentoWorkbook,
-  buildNotasFiscaisExcelWorkbook
+  buildNotasFiscaisExcelWorkbook,
+  resolveBeneficiaryCnpj,
+  resolveBeneficiaryName
 } from "../../lib/financeiro-apagar.js";
+import { digitsOnly, normalizeText, resolveDriverRegistryByIdentity, searchArchiDriverMatchesBulk } from "../../lib/driver-registry.js";
+import { extractPdfText } from "../../lib/pdf-text.js";
 import { notifyPaymentStatusToPdfOnline } from "../../lib/pdfonline-bridge.js";
 import {
   PAYMENT_PROCESS_STATUS_LABELS,
@@ -58,6 +63,14 @@ const financeImportUpload = multer({
       file.mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
       file.mimetype === "application/vnd.ms-excel";
     callback(null, isExcel);
+  }
+});
+
+const manualNotaFiscalUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, callback) => {
+    callback(null, file.mimetype === "application/pdf" || file.originalname.toLowerCase().endsWith(".pdf"));
   }
 });
 
@@ -122,6 +135,36 @@ function toDateOnlyString(value: Date) {
 
 function countUnique(values: Array<string | null | undefined>) {
   return new Set(values.filter((item): item is string => Boolean(item))).size;
+}
+
+function normalizeDriverIdentity(value: string | null | undefined) {
+  const withoutExtensionAndDate = String(value || "")
+    .replace(/\.[a-z0-9]{2,5}$/i, "")
+    .replace(/[-_]\d{2}[-/]\d{2}[-/]\d{2,4}$/g, "");
+  return normalizeText(withoutExtensionAndDate).replace(/[^a-z0-9]+/g, "");
+}
+
+function formatArchiWorkflowStatus(value: string | null | undefined) {
+  const normalized = normalizeText(value || "");
+  if (normalized === "reprovado" || normalized === "rejeitado") return "REPROVADO GR";
+  if (normalized === "em analise" || normalized === "pre selecao" || normalized === "em andamento") return "EM ANDAMENTO";
+  if (normalized === "aprovado com ressalva") return "APROVADO COM RESSALVA";
+  if (normalized === "aprovado") return "APROVADO";
+  return value ? String(value).toUpperCase() : null;
+}
+
+function countUniquePaymentScopes(
+  scopes: Array<{
+    motoristaId: string | null | undefined;
+    periodoPagamentoId: string | null | undefined;
+    basePagamentoId: string | null | undefined;
+  }>
+) {
+  return new Set(
+    scopes
+      .filter((scope) => scope.motoristaId && scope.periodoPagamentoId && scope.basePagamentoId)
+      .map((scope) => `${scope.motoristaId}|${scope.periodoPagamentoId}|${scope.basePagamentoId}`)
+  ).size;
 }
 
 function isNoteStatus(status: string | null | undefined) {
@@ -276,13 +319,20 @@ function resolveReceivedScope(
   };
 }
 
-function filterVisibleUploads<T extends { id: string; caminhoArquivo: string | null; substituiUploadId: string | null; status?: string }>(uploads: T[]) {
-  const mirrorUploads = uploads.filter((item) => isPaymentMirrorStorageKey(item.caminhoArquivo));
+function filterVisibleUploads<T extends { id: string; caminhoArquivo: string | null; substituiUploadId: string | null; documentType?: string | null; status?: string }>(uploads: T[]) {
+  const mirrorUploads = uploads.filter(
+    (item) => isPaymentMirrorStorageKey(item.caminhoArquivo) && item.documentType !== "nota_fiscal"
+  );
   const childReferences = new Set(
     mirrorUploads.map((item) => item.substituiUploadId).filter((value): value is string => Boolean(value))
   );
 
-  return mirrorUploads.filter((item) => !childReferences.has(item.id) && item.status !== "removido");
+  // A substituted version is historical data, even when it is not referenced
+  // by the newest child (replacement chains can branch). It must never count
+  // as an active PDF, payment or note scope.
+  return mirrorUploads.filter(
+    (item) => !childReferences.has(item.id) && item.status !== "removido" && item.status !== "substituido"
+  );
 }
 
 function pickLatestReceived(
@@ -909,14 +959,34 @@ router.get("/summary", (_req, res) => {
           isNoteStatus(item.status)
       );
     });
-    const sentMotoristas = countUnique(espelhoUploads.map((item) => item.motoristaId));
-    const completedMotoristas = countUnique(
-      filteredReceivedRows.filter((item) => receivedNoteStatuses.has(item.status)).map((item) => item.motoristaId)
+    const sentPaymentScopes = espelhoUploads.filter(
+      (upload) => upload.periodoPagamentoId && upload.basePagamentoId
+    ).length;
+    const completedPaymentScopes = countUniquePaymentScopes(
+      filteredReceivedRows
+        .filter((item) => receivedNoteStatuses.has(item.status))
+        .map((item) => resolveReceivedScope(item, uploadById))
     );
     const analysisStatuses = new Set(["nota_fiscal_em_analise"]);
     const rejectedStatuses = new Set(["nota_fiscal_rejeitada"]);
     const attendanceStatuses = new Set(["em_atendimento", "chamado_aberto"]);
     const concludedStatuses = new Set(["processo_concluido", "pago"]);
+    const concludedMotoristasByPeriod = new Map<string, Set<string>>();
+
+    for (const receipt of filteredReceivedRows) {
+      if (!concludedStatuses.has(receipt.status) || !receipt.motoristaId) {
+        continue;
+      }
+
+      const scope = resolveReceivedScope(receipt, uploadById);
+      if (!scope.periodoPagamentoId) {
+        continue;
+      }
+
+      const motoristas = concludedMotoristasByPeriod.get(scope.periodoPagamentoId) || new Set<string>();
+      motoristas.add(receipt.motoristaId);
+      concludedMotoristasByPeriod.set(scope.periodoPagamentoId, motoristas);
+    }
 
     type SummaryMetric = {
       pdfsSent: number;
@@ -924,6 +994,7 @@ router.get("/summary", (_req, res) => {
       notesPending: number;
       paidMotoristas: number;
       amountToPay: number;
+      amountPlanned: number;
       amountPaid: number;
     };
 
@@ -933,6 +1004,7 @@ router.get("/summary", (_req, res) => {
       notesPending: 0,
       paidMotoristas: 0,
       amountToPay: 0,
+      amountPlanned: 0,
       amountPaid: 0
     });
     const periodMetrics = new Map<string, SummaryMetric>();
@@ -952,15 +1024,18 @@ router.get("/summary", (_req, res) => {
     }
 
     for (const upload of visibleUploads) {
-      if (!upload.periodoPagamentoId || !upload.basePagamentoId || !upload.motoristaId) {
+      if (!upload.periodoPagamentoId || !upload.basePagamentoId) {
         continue;
       }
 
-      const scopeKey = `${upload.motoristaId}|${upload.periodoPagamentoId}|${upload.basePagamentoId}`;
-      if (uploadScopes.has(scopeKey)) {
+      const countKey = upload.id;
+      if (uploadScopes.has(countKey)) {
         continue;
       }
-      uploadScopes.add(scopeKey);
+      uploadScopes.add(countKey);
+      const scopeKey = upload.motoristaId
+        ? `${upload.motoristaId}|${upload.periodoPagamentoId}|${upload.basePagamentoId}`
+        : null;
 
       const periodMetric = periodMetrics.get(upload.periodoPagamentoId) || emptyMetric();
       const baseInfo = periods
@@ -975,7 +1050,7 @@ router.get("/summary", (_req, res) => {
         ...emptyMetric()
       };
       const amount = upload.valorTotalPdf ? Number(upload.valorTotalPdf.toString()) : 0;
-      const noteStatus = noteByScope.get(scopeKey);
+      const noteStatus = scopeKey ? noteByScope.get(scopeKey) : null;
       const noteReceived = Boolean(noteStatus && receivedNoteStatuses.has(noteStatus));
       const noteApproved = noteStatus === "nota_fiscal_aprovada" || noteStatus === "processo_concluido";
       const isPaid = upload.statusPagamento === FinanceiroStatusPagamento.PAGO;
@@ -984,6 +1059,8 @@ router.get("/summary", (_req, res) => {
 
       periodMetric.pdfsSent += 1;
       baseMetric.pdfsSent += 1;
+      periodMetric.amountPlanned += amount;
+      baseMetric.amountPlanned += amount;
       if (noteReceived) {
         periodMetric.notesReceived += 1;
         baseMetric.notesReceived += 1;
@@ -1010,7 +1087,8 @@ router.get("/summary", (_req, res) => {
         startDate: toIso(period.dataInicio),
         endDate: toIso(period.dataFim),
         ...metric,
-        notesPending: Math.max(metric.pdfsSent - metric.notesReceived, 0),
+        concluded: concludedMotoristasByPeriod.get(period.id)?.size || 0,
+      notesPending: Math.max(metric.pdfsSent - metric.notesReceived, 0),
         bases: Array.from(baseMetrics.values())
           .filter((base) => base.periodId === period.id)
           .map((base) => ({
@@ -1027,10 +1105,11 @@ router.get("/summary", (_req, res) => {
       activePeriods: periods.length,
       bases,
       motoristas: countUnique([...visibleUploads.map((item) => item.motoristaId), ...filteredReceivedRows.map((item) => item.motoristaId)]),
-      pdfsSent: sentMotoristas,
-      notesReceived: completedMotoristas,
-      notesPending: Math.max(sentMotoristas - completedMotoristas, 0),
+      pdfsSent: sentPaymentScopes,
+      notesReceived: completedPaymentScopes,
+      notesPending: Math.max(sentPaymentScopes - completedPaymentScopes, 0),
       amountToPay: totalAmountToPay,
+      amountPlanned: periodSummaries.reduce((sum, period) => sum + period.amountPlanned, 0),
       amountPaid: totalAmountPaid,
       periodSummaries,
       baseSummaries: Array.from(baseMetrics.values()).map((base) => ({
@@ -1043,6 +1122,7 @@ router.get("/summary", (_req, res) => {
         notesPending: Math.max(base.pdfsSent - base.notesReceived, 0),
         paidMotoristas: base.paidMotoristas,
         amountToPay: base.amountToPay,
+        amountPlanned: base.amountPlanned,
         amountPaid: base.amountPaid
       })),
       inAnalysis: countUnique(filteredReceivedRows.filter((item) => analysisStatuses.has(item.status)).map((item) => item.motoristaId)),
@@ -1083,6 +1163,7 @@ router.get("/periods/:periodId/bases", (req, res) => {
             criadoEm: true,
             status: true,
             statusPagamento: true,
+            valorTotalPdf: true,
             substituiUploadId: true
           }
         },
@@ -1158,7 +1239,7 @@ router.get("/periods/:periodId/bases", (req, res) => {
         ...baseUploads.map((item) => item.motoristaId),
         ...baseRecebidos.map((item) => resolveReceivedScope(item, uploadById).motoristaId)
       ]);
-      const pdfsSent = countUnique(baseUploads.map((item) => item.motoristaId));
+      const pdfsSent = baseUploads.length;
       const paidMotoristas = countUnique(
         baseUploads
           .filter((item) => item.statusPagamento === FinanceiroStatusPagamento.PAGO)
@@ -1167,6 +1248,33 @@ router.get("/periods/:periodId/bases", (req, res) => {
       const notesReceived = countUnique(
         completedBaseRecebidos.map((item) => resolveReceivedScope(item, uploadById).motoristaId)
       );
+      const noteStatusByMotorista = new Map<string, string>();
+      for (const receipt of baseRecebidos) {
+        const motoristaId = resolveReceivedScope(receipt, uploadById).motoristaId;
+        if (motoristaId && (!noteStatusByMotorista.has(motoristaId) || receipt.status === "processo_concluido")) {
+          noteStatusByMotorista.set(motoristaId, receipt.status);
+        }
+      }
+      const amountPlanned = baseUploads.reduce(
+        (sum, item) => sum + (item.valorTotalPdf ? Number(item.valorTotalPdf.toString()) : 0),
+        0
+      );
+      const amountPaid = baseUploads.reduce(
+        (sum, item) => item.statusPagamento === FinanceiroStatusPagamento.PAGO
+          ? sum + (item.valorTotalPdf ? Number(item.valorTotalPdf.toString()) : 0)
+          : sum,
+        0
+      );
+      const amountToPay = baseUploads.reduce((sum, item) => {
+        const noteStatus = item.motoristaId ? noteStatusByMotorista.get(item.motoristaId) : null;
+        const approved = noteStatus === "nota_fiscal_aprovada" || noteStatus === "processo_concluido";
+        const payable = approved &&
+          item.statusPagamento !== FinanceiroStatusPagamento.PAGO &&
+          item.statusPagamento !== FinanceiroStatusPagamento.BLOQUEADO;
+        return payable
+          ? sum + (item.valorTotalPdf ? Number(item.valorTotalPdf.toString()) : 0)
+          : sum;
+      }, 0);
 
       return {
         id: baseId,
@@ -1176,7 +1284,10 @@ router.get("/periods/:periodId/bases", (req, res) => {
         pdfsSent,
         paidMotoristas,
         notesReceived,
-        notesPending: Math.max(pdfsSent - notesReceived, 0)
+        notesPending: Math.max(pdfsSent - notesReceived, 0),
+        amountPlanned,
+        amountToPay,
+        amountPaid
       };
     });
 
@@ -1241,7 +1352,7 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
       where: {
         periodoPagamentoId: periodId,
         status: {
-          not: UploadStatus.removido
+          notIn: [UploadStatus.removido, UploadStatus.substituido]
         },
         ...(scopeBaseId
           ? {
@@ -1267,6 +1378,14 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
                         cpf: {
                           contains: normalizedSearch.replace(/\D/g, "")
                         }
+                      }
+                    }
+                  : undefined,
+                normalizedSearch
+                  ? {
+                      motoristaNomeExtraido: {
+                        contains: normalizedSearch,
+                        mode: "insensitive"
                       }
                     }
                   : undefined,
@@ -1372,25 +1491,130 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
         nomeArquivo: true
       }
     });
+
+    const motoristaCnpjs = Array.from(
+      new Set(uploads.map((upload) => upload.motoristaCnpjExtraido?.replace(/\D/g, "") || "").filter(Boolean))
+    );
+    // ARCHI may keep the CNPJ/favorecido inside a compressed grzjson payload.
+    // Include every exact driver name as a second lookup key so a valid ARCHI
+    // record is not discarded just because its CNPJ is not exposed in JSON.
+    const driverNames = Array.from(new Set(
+      uploads
+        .map((upload) => String(upload.motorista?.nome || upload.motoristaNomeExtraido || "")
+          .replace(/\.[a-z0-9]{2,5}$/i, "")
+          .replace(/[-_]\d{2}[-/]\d{2}[-/]\d{2,4}$/g, ""))
+        .map((name) => normalizeText(name))
+        .filter(Boolean)
+    ));
+    const authoritativeMatches = await searchArchiDriverMatchesBulk({
+      cnpjDigitsList: motoristaCnpjs,
+      names: driverNames,
+      approvedOnly: false
+    });
+    const favorecidoByCnpj = new Map<string, string | null>();
+    const cnpjFavorecidoByCnpj = new Map<string, string | null>();
+    const archiStatusByCnpj = new Map<string, string | null>();
+    const archiStatusByName = new Map<string, string | null>();
+    const favorecidoByName = new Map<string, string | null>();
+    const cnpjFavorecidoByName = new Map<string, string | null>();
+    const cnpjPrincipalByName = new Map<string, string | null>();
+    const favorecidoByNameBase = new Map<string, string | null>();
+    const cnpjFavorecidoByNameBase = new Map<string, string | null>();
+    const cnpjPrincipalByNameBase = new Map<string, string | null>();
+    const archiStatusByNameBase = new Map<string, string | null>();
+
+    // ARCHI returns records ordered by business priority. Keep the first one
+    // so a duplicate with lower priority cannot replace an approved record.
+    for (const match of authoritativeMatches) {
+      const cnpjKey = match.cnpj?.replace(/\D/g, "") || "";
+      const beneficiaryCnpjKey = resolveBeneficiaryCnpj(match).replace(/\D/g, "");
+      const nameKey = normalizeDriverIdentity(match.nome);
+      const beneficiaryName = resolveBeneficiaryName(match) || null;
+      const beneficiaryCnpj = resolveBeneficiaryCnpj(match) || null;
+      const workflowStatus = formatArchiWorkflowStatus(match.statusArchi);
+      const matchBaseKey = normalizeDriverIdentity(match.base);
+
+      for (const identityCnpjKey of new Set([cnpjKey, beneficiaryCnpjKey].filter(Boolean))) {
+        if (!favorecidoByCnpj.has(identityCnpjKey)) {
+          favorecidoByCnpj.set(identityCnpjKey, beneficiaryName);
+          cnpjFavorecidoByCnpj.set(identityCnpjKey, beneficiaryCnpj);
+          archiStatusByCnpj.set(identityCnpjKey, workflowStatus);
+        }
+      }
+      const nameKeys = [nameKey, normalizeDriverIdentity(match.nomeFavorecido || "")].filter(Boolean);
+      for (const candidateNameKey of nameKeys) {
+        const nameBaseKey = `${candidateNameKey}|${matchBaseKey}`;
+        if (candidateNameKey && matchBaseKey && !favorecidoByNameBase.has(nameBaseKey)) {
+          favorecidoByNameBase.set(nameBaseKey, beneficiaryName);
+          cnpjFavorecidoByNameBase.set(nameBaseKey, beneficiaryCnpj);
+          cnpjPrincipalByNameBase.set(nameBaseKey, cnpjKey || null);
+          archiStatusByNameBase.set(nameBaseKey, workflowStatus);
+        }
+        if (candidateNameKey && !favorecidoByName.has(candidateNameKey)) {
+          favorecidoByName.set(candidateNameKey, beneficiaryName);
+          cnpjFavorecidoByName.set(candidateNameKey, beneficiaryCnpj);
+          cnpjPrincipalByName.set(candidateNameKey, cnpjKey || null);
+          archiStatusByName.set(candidateNameKey, workflowStatus);
+        }
+      }
+    }
     const uploadById = new Map(uploads.map((upload) => [upload.id, upload] as const));
     const latestUploads = new Map<string, (typeof uploads)[number]>();
 
-    const mirrorUploads = uploads.filter((upload) => isPaymentMirrorStorageKey(upload.caminhoArquivo));
+    const mirrorUploads = uploads.filter(
+      (upload) => isPaymentMirrorStorageKey(upload.caminhoArquivo) && upload.documentType !== "nota_fiscal"
+    );
 
-    for (const upload of mirrorUploads.sort((left, right) => right.criadoEm.getTime() - left.criadoEm.getTime())) {
-      if (!upload.motoristaId || !upload.basePagamentoId) {
+    // A single mirror can have both an upload row and a receipt row. When the
+    // upload was not linked to a driver, the old fallback used the upload id
+    // as the key and rendered a second driver. Resolve that orphan by exact
+    // name + period + base only when there is one linked driver identity.
+    const linkedDriverByNameScope = new Map<string, string | null>();
+    for (const upload of mirrorUploads) {
+      if (!upload.motoristaId || !upload.periodoPagamentoId || !upload.basePagamentoId) {
         continue;
       }
 
-      const key = `${upload.motoristaId}|${upload.basePagamentoId}`;
+      const nameKey = normalizeDriverIdentity(upload.motorista?.nome || upload.motoristaNomeExtraido);
+      if (!nameKey) {
+        continue;
+      }
 
-      if (!latestUploads.has(key)) {
+      const scopeKey = `${upload.periodoPagamentoId}|${upload.basePagamentoId}|${nameKey}`;
+      const previous = linkedDriverByNameScope.get(scopeKey);
+      if (previous && previous !== upload.motoristaId) {
+        linkedDriverByNameScope.set(scopeKey, null);
+      } else if (!linkedDriverByNameScope.has(scopeKey)) {
+        linkedDriverByNameScope.set(scopeKey, upload.motoristaId);
+      }
+    }
+
+    for (const upload of mirrorUploads.sort((left, right) => right.criadoEm.getTime() - left.criadoEm.getTime())) {
+      if (!upload.basePagamentoId) {
+        continue;
+      }
+
+      const scopeKey = `${upload.periodoPagamentoId || "sem-periodo"}|${upload.basePagamentoId}`;
+      const nameKey = normalizeDriverIdentity(upload.motorista?.nome || upload.motoristaNomeExtraido);
+      const linkedDriverId = nameKey
+        ? linkedDriverByNameScope.get(`${scopeKey}|${nameKey}`)
+        : undefined;
+      const effectiveDriverId = upload.motoristaId || linkedDriverId || null;
+      const key = effectiveDriverId
+        ? `${effectiveDriverId}|${upload.basePagamentoId}`
+        : `nome:${scopeKey}|${nameKey || upload.id}`;
+
+      const current = latestUploads.get(key);
+      // Prefer the concretely linked upload over an orphan duplicate even if
+      // the orphan was created later. This keeps the real file, dates and
+      // status visible while preserving unresolved-name cases separately.
+      if (!current || (!current.motoristaId && Boolean(upload.motoristaId))) {
         latestUploads.set(key, upload);
       }
     }
 
     const mapped = Array.from(latestUploads.values()).flatMap((upload) => {
-      if (!upload.motorista || !upload.basePagamento || !upload.periodoPagamento) {
+      if (!upload.basePagamento || !upload.periodoPagamento) {
         return [];
       }
 
@@ -1430,8 +1654,8 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
         upload.statusPagamentoOrigem
       );
 
-      const ticketStatuses = upload.motorista.chamados.map((item) => item.status);
-      const attendanceStatus = computeAttendanceStatus(ticketStatuses, upload.motorista.atendimentos.length);
+      const ticketStatuses = upload.motorista?.chamados.map((item) => item.status) || [];
+      const attendanceStatus = computeAttendanceStatus(ticketStatuses, upload.motorista?.atendimentos.length || 0);
       const persistedAttendanceStatus = mirrorReceipt?.atendimentoStatus ||
         (noteReceipt && noteReceipt.status === "processo_concluido"
           ? "atendimento_nao_necessario"
@@ -1456,12 +1680,48 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
       const noteSentAt = noteReceipt?.uploadEm || null;
       const mirrorDownloadUrl = buildStorageObjectUrl(mirrorReceipt?.caminhoArquivo || upload.caminhoArquivo);
       const noteDownloadUrl = buildStorageObjectUrl(noteReceipt?.caminhoArquivo);
+      const uploadCnpj = upload.motoristaCnpjExtraido?.replace(/\D/g, "") || "";
+      const uploadName = normalizeDriverIdentity(upload.motorista?.nome || upload.motoristaNomeExtraido || "");
+      const uploadBase = normalizeDriverIdentity(upload.basePagamento.nome);
+      const uploadNameBaseKey = `${uploadName}|${uploadBase}`;
+      // The PDF name and base are the primary identity. CNPJ validates that identity;
+      // it must not silently redirect the row to a similar registration.
+      const matchedByExactName = Boolean(
+        uploadName && uploadBase && favorecidoByNameBase.has(uploadNameBaseKey)
+      );
+      const nomeFavorecido = matchedByExactName
+        ? favorecidoByNameBase.get(uploadNameBaseKey) || null
+        : favorecidoByCnpj.get(uploadCnpj) || null;
+      const cnpjFavorecido = matchedByExactName
+        ? cnpjFavorecidoByNameBase.get(uploadNameBaseKey) || cnpjPrincipalByNameBase.get(uploadNameBaseKey) || null
+        : cnpjFavorecidoByCnpj.get(uploadCnpj) || null;
+      const statusArchi = matchedByExactName
+        ? archiStatusByNameBase.get(uploadNameBaseKey) || null
+        : archiStatusByCnpj.get(uploadCnpj) || null;
+      const cnpjDivergente = Boolean(
+        matchedByExactName && uploadCnpj && cnpjFavorecido &&
+        uploadCnpj !== cnpjFavorecido.replace(/\D/g, "")
+      );
+      const statusArchiLabel = statusArchi || "CADASTRO SEM GR";
+      const statusGrVisivel = ["REPROVADO GR", "EM ANDAMENTO", "CADASTRO SEM GR"].includes(statusArchiLabel)
+        ? statusArchiLabel
+        : null;
+      const cadastroProblemas = [
+        ...(statusGrVisivel ? [statusGrVisivel] : []),
+        ...(!cnpjFavorecido ? ["CNPJ NÃO INFORMADO"] : []),
+        ...(cnpjDivergente ? ["CNPJ DIVERGENTE DO ARCHI"] : []),
+        ...(paymentStatus === "pago" && !noteReceipt ? ["NOTA FISCAL NÃO VINCULADA"] : [])
+      ];
 
       return {
         id: noteReceipt?.id || mirrorReceipt?.id || upload.id,
         motoristaId: upload.motoristaId,
-        nome: upload.motorista.nome,
-        cpf: upload.motorista.cpf,
+        statusArchi: statusGrVisivel,
+        nome: upload.motorista?.nome || upload.motoristaNomeExtraido || "Motorista não identificado",
+        nomeFavorecido,
+        cnpjFavorecido,
+        cpf: upload.motorista?.cpf || "",
+        baseId: upload.basePagamentoId,
         base: upload.basePagamento.nome,
         periodoPagamento: upload.periodoPagamento.nome,
         pdfEnviadoEm: toIso(pdfSentAt),
@@ -1486,11 +1746,9 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
         ),
         atendimentoStatus: persistedAttendanceStatus,
         statusNotaFiscal:
-          paymentStatus === "pago"
-            ? "Pago"
-            : noteReceipt?.status === "nota_fiscal_rejeitada"
+          noteReceipt?.status === "nota_fiscal_rejeitada"
             ? "Recusada"
-            : noteReceipt?.status === "nota_fiscal_aprovada"
+            : noteReceipt?.status === "nota_fiscal_aprovada" || noteReceipt?.status === "processo_concluido"
               ? "Aprovada"
               : noteReceipt?.status === "nota_fiscal_em_analise"
                 ? "Em análise"
@@ -1498,7 +1756,8 @@ router.get("/periods/:periodId/bases/:baseId/motoristas", (req, res) => {
                   ? "Recebida"
                   : currentStatus === "pdf_enviado_ao_motorista"
                     ? "Pendente"
-                    : "Pendente",
+              : "Pendente",
+        cadastroProblemas,
         sefazStatus: noteReceipt?.sefazStatus || null,
         sefazActive: noteReceipt?.sefazActive ?? null,
         sefazCheckedEm: toIso(noteReceipt?.sefazChecked || null),
@@ -1587,6 +1846,109 @@ router.get("/driver-pdfs/:receivedId/content", (req, res) => {
       message: "Falha ao carregar nota fiscal.",
       detail: error instanceof Error ? error.message : "Erro desconhecido"
     });
+  });
+});
+
+router.post("/driver-pdfs/manual-nota", requirePermission("financeiro.nota.approve"), manualNotaFiscalUpload.single("file"), (req, res) => {
+  void (async () => {
+    if (!req.auth) {
+      res.status(401).json({ message: "Sessão inválida." });
+      return;
+    }
+
+    const file = req.file;
+    const motoristaId = String(req.body.motoristaId || "").trim();
+    const periodId = String(req.body.periodId || "").trim();
+    const baseId = String(req.body.baseId || "").trim();
+
+    if (!file || !motoristaId || !periodId || !baseId) {
+      res.status(400).json({ message: "Selecione uma NF e informe o motorista, período e base." });
+      return;
+    }
+
+    const [motorista, period, base] = await Promise.all([
+      prisma.motorista.findUnique({ where: { id: motoristaId }, select: { id: true, nome: true, cpf: true } }),
+      prisma.periodoPagamento.findUnique({ where: { id: periodId }, select: { id: true, nome: true, dataInicio: true, dataFim: true, ativo: true, status: true, bases: { select: { basePagamentoId: true } } } }),
+      prisma.basePagamento.findUnique({ where: { id: baseId }, select: { id: true, nome: true } })
+    ]);
+
+    if (!motorista || !period || !base) {
+      res.status(404).json({ message: "Motorista, período ou base não encontrado." });
+      return;
+    }
+    if (!period.ativo || period.status !== "aprovado") {
+      res.status(409).json({ message: "O período selecionado não está ativo e aprovado para receber NF." });
+      return;
+    }
+    if (!period.bases.some((item) => item.basePagamentoId === base.id)) {
+      res.status(422).json({ message: "A base selecionada não pertence ao período informado." });
+      return;
+    }
+
+    const existing = await prisma.driverPdfReceived.findFirst({
+      where: { motoristaId: motorista.id, periodoPagamentoId: period.id, basePagamentoId: base.id, status: { in: ["nota_fiscal_recebida", "nota_fiscal_em_analise", "nota_fiscal_aprovada", "processo_concluido"] } },
+      select: { id: true, status: true, nomeArquivo: true }
+    });
+    if (existing) {
+      res.status(409).json({ message: `Já existe uma NF vinculada a este motorista, período e base (${existing.nomeArquivo || existing.status}).` });
+      return;
+    }
+
+    const text = await extractPdfText(file.buffer);
+    const normalizedPdfText = normalizeText(text || "");
+    const normalizedDriverName = normalizeText(motorista.nome);
+    if (!text || !normalizedPdfText.includes(normalizedDriverName)) {
+      res.status(422).json({ message: "NF bloqueada: o nome exato do motorista não foi encontrado no conteúdo do PDF." });
+      return;
+    }
+
+    const providerCnpjMatch = text.match(/\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/);
+    const providerCnpj = digitsOnly(providerCnpjMatch?.[0] || "");
+    const registry = await resolveDriverRegistryByIdentity({ name: motorista.nome, cpf: motorista.cpf });
+    const beneficiaryCnpj = registry && !("ambiguous" in registry) ? digitsOnly(resolveBeneficiaryCnpj(registry)) : "";
+    if (beneficiaryCnpj && providerCnpj && beneficiaryCnpj !== providerCnpj) {
+      res.status(422).json({ message: `NF bloqueada: CNPJ divergente do favorecido (${providerCnpj} no PDF; ${beneficiaryCnpj} no cadastro).`, code: "cnpj_favorecido_divergente" });
+      return;
+    }
+
+    const storageKey = createStorageKey(`notas-fiscais/periodos/${period.id}/bases/${base.id}/motoristas/${motorista.id}`, file.originalname);
+    await uploadObject({ key: storageKey, body: file.buffer, contentType: "application/pdf" });
+    const linkedMirror = await prisma.uploadPdf.findFirst({
+      where: { motoristaId: motorista.id, periodoPagamentoId: period.id, basePagamentoId: base.id, documentType: { not: "nota_fiscal" }, status: { not: "removido" } },
+      orderBy: { criadoEm: "desc" },
+      select: { id: true }
+    });
+    const received = await upsertDriverPdfReceivedNoteStatus({
+      uploadPdfId: linkedMirror?.id || null,
+      motoristaId: motorista.id,
+      periodId: period.id,
+      basePaymentId: base.id,
+      fileName: file.originalname,
+      storageKey,
+      mimeType: "application/pdf",
+      status: "nota_fiscal_recebida",
+      receivedAt: new Date(),
+      createdByUserId: req.auth.userId,
+      content: file.buffer
+    });
+    if (!received) {
+      res.status(500).json({ message: "NF salva no bucket, mas não foi possível criar o vínculo financeiro." });
+      return;
+    }
+    await prisma.logAuditoria.create({
+      data: {
+        usuarioId: req.auth.userId,
+        acao: "anexar_nota_fiscal_manual",
+        entidade: "driver_pdf_received",
+        entidadeId: received.id,
+        ipOrigem: req.ip,
+        userAgent: req.get("user-agent") || null,
+        detalhes: { fileName: file.originalname, motoristaId: motorista.id, motoristaNome: motorista.nome, periodId: period.id, periodName: period.nome, baseId: base.id, baseName: base.nome, providerCnpj: providerCnpj || null, beneficiaryCnpj: beneficiaryCnpj || null, linkedMirrorId: linkedMirror?.id || null, status: "nota_fiscal_recebida" }
+      }
+    });
+    res.status(201).json({ message: "NF anexada ao período selecionado e enviada para conferência.", receivedId: received.id, status: received.status });
+  })().catch((error) => {
+    res.status(500).json({ message: "Falha ao anexar NF manualmente.", detail: error instanceof Error ? error.message : "Erro desconhecido" });
   });
 });
 
@@ -2008,6 +2370,14 @@ router.get(
       }
 
       const preview = await buildAptosPagamentoPreview(parsed.data.periodId, parsed.data.baseId || null);
+      const excluidosVisiveis = preview.excluidos.filter((item) => {
+        const motivo = item.motivo
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase();
+
+        return item.statusPagamento !== FinanceiroStatusPagamento.PAGO && !motivo.includes("pagamento ja realizado");
+      });
 
       res.json({
         periodo_id: preview.periodoId,
@@ -2016,7 +2386,7 @@ router.get(
         total_inaptos: preview.totalInaptos,
         total_inconsistencias: preview.totalInconsistencias,
         aptos: preview.aptos,
-        excluidos: preview.excluidos,
+        excluidos: excluidosVisiveis,
         inconsistencias: preview.inconsistencias
       });
     })().catch((error) => {

@@ -9,6 +9,7 @@ process.env.DATABASE_URL ||= "postgresql://user:password@localhost:5432/test";
 const {
   buildWorkbook,
   evaluateAptidao,
+  resolveBeneficiaryName,
   resolveBeneficiaryCnpj
 } = await import("./financeiro-apagar.js");
 
@@ -73,6 +74,40 @@ test("evaluateAptidao accepts a consolidated completed process", () => {
   assert.equal(evaluation.statusNotaFiscal, "Nota fiscal aprovada");
 });
 
+test("evaluateAptidao accepts a completed process stored on the mirror receipt", () => {
+  const upload = makeUpload();
+  const evaluation = evaluateAptidao({
+    upload: upload as never,
+    mirrorReceipt: {
+      status: DriverPdfReceivedStatus.processo_concluido,
+      documentType: "espelho"
+    } as never,
+    noteReceipt: null,
+    paymentStatus: FinanceiroStatusPagamento.PENDENTE
+  });
+
+  assert.equal(evaluation.apto, true);
+  assert.equal(evaluation.statusProcesso, "Aguardando pagamento");
+});
+
+test("evaluateAptidao accepts a mirror already sent to the driver", () => {
+  const upload = makeUpload();
+  const evaluation = evaluateAptidao({
+    upload: upload as never,
+    mirrorReceipt: {
+      status: DriverPdfReceivedStatus.pdf_enviado_ao_motorista,
+      enviadoAoMotoristaEm: new Date()
+    } as never,
+    noteReceipt: {
+      status: DriverPdfReceivedStatus.nota_fiscal_aprovada
+    } as never,
+    paymentStatus: FinanceiroStatusPagamento.PENDENTE
+  });
+
+  assert.equal(evaluation.apto, true);
+  assert.equal(evaluation.statusProcesso, "Aguardando pagamento");
+});
+
 test("evaluateAptidao blocks already paid items", () => {
   const upload = makeUpload();
   const evaluation = evaluateAptidao({
@@ -109,6 +144,40 @@ test("resolveBeneficiaryCnpj uses the registry CNPJ and never falls back to CPF"
   assert.equal(
     resolveBeneficiaryCnpj({ ...registryMatch, cnpj: null, raw: { cpf_favorecido: "98765432100" } }),
     ""
+  );
+});
+
+test("resolveBeneficiaryCnpj accepts ARCHI's cnpjFavorecido field", () => {
+  assert.equal(
+    resolveBeneficiaryCnpj({
+      externalId: "registry-2",
+      nome: "Vinicius da Silva Santana",
+      cpf: "86372257564",
+      cpfDigits: "86372257564",
+      cnpj: null,
+      base: "BARUERI",
+      raw: { cnpjFavorecido: "53.745.736/0001-55" }
+    }),
+    "53745736000155"
+  );
+});
+
+test("resolveBeneficiaryName reads the favorecido from ARCHI extra_data", () => {
+  assert.equal(
+    resolveBeneficiaryName({
+      externalId: "registry-3",
+      nome: "Lucas Faria de Souza",
+      cpf: "12345678901",
+      cpfDigits: "12345678901",
+      cnpj: null,
+      base: "POUSO ALEGRE",
+      raw: {
+        extra_data: {
+          favorecidoNome: "Maria de Souza"
+        }
+      }
+    }),
+    "Maria de Souza"
   );
 });
 
@@ -159,7 +228,7 @@ test("buildWorkbook creates the expected sheets and headers", () => {
   const sheet = workbook.Sheets["Aptos para Pagamento"];
   assert.equal(sheet.A1?.v, "Nome Motorista");
   assert.equal(sheet.C1?.v, "CNPJ do Favorecido");
-  assert.equal(sheet.C2?.v, "00123456000199");
+  assert.equal(sheet.C2?.v, "00.123.456/0001-99");
   assert.equal(sheet.C2?.t, "s");
   assert.equal(sheet.E1?.v, "Base do Motorista");
   assert.equal(sheet.D2?.v, 1500.5);

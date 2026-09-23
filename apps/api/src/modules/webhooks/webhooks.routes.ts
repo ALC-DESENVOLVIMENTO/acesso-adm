@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { DriverPdfReceivedStatus } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
@@ -12,6 +12,9 @@ import {
   upsertDriverPdfReceivedNoteStatus
 } from "../../lib/driver-pdf-received.js";
 import { notifyAttendanceStatusToPdfOnline } from "../../lib/pdfonline-bridge.js";
+import { notifyArchi } from "../../lib/archi-bridge.js";
+import { syncDriverRegistryFromWebhook, type DriverRegistryWebhookPayload } from "../../lib/driver-registry.js";
+import { reconcilePendingUploadsFromRegistry } from "../uploads/uploads.routes.js";
 
 const router = Router();
 
@@ -48,7 +51,8 @@ function isAuthorized(req: Request) {
   const expectedToken = resolveExpectedToken();
 
   if (!expectedToken) {
-    return true;
+    // Never leave a production webhook publicly writable.
+    return process.env.NODE_ENV !== "production" && process.env.RAILWAY_ENVIRONMENT_NAME !== "production";
   }
 
   return readWebhookToken(req) === expectedToken;
@@ -74,8 +78,102 @@ function isValidWebhookSignature(req: Request) {
   return timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
 }
 
+function isArchiDriverEvent(event: string) {
+  const normalized = event.toLowerCase();
+  return normalized.includes("motorista") || normalized.includes("driver") || normalized.includes("pre_cadastro") || normalized.includes("pre-cadastro");
+}
+
+router.post("/archi/drivers", (req, res) => {
+  void (async () => {
+    if (!isAuthorized(req) || !isValidWebhookSignature(req)) {
+      res.status(401).json({ message: "Webhook do ARCHI nao autorizado." });
+      return;
+    }
+
+    const parsed = webhookEnvelopeSchema.safeParse(req.body);
+    if (!parsed.success || !isArchiDriverEvent(parsed.data.event)) {
+      res.status(400).json({ message: "Evento de motorista invalido para sincronizacao." });
+      return;
+    }
+
+    const body = req.body as Record<string, unknown>;
+    const data = {
+      ...body,
+      ...(parsed.data.data || {})
+    } as Record<string, unknown>;
+    const eventId = readWebhookIdentifier(
+      data.eventId,
+      data.event_id,
+      body.eventId,
+      body.event_id,
+      data.archiMotoristaId,
+      data.externalId,
+      data.id
+    ) || `${parsed.data.event}:${createHash("sha256").update(JSON.stringify(data)).digest("hex").slice(0, 24)}`;
+    const storedEventId = `archi:${eventId}`;
+    const duplicate = await prisma.webhookEvento.findUnique({ where: { eventId: storedEventId }, select: { id: true } });
+    if (duplicate) {
+      res.json({ message: "Atualizacao do ARCHI ja processada anteriormente.", duplicate: true });
+      return;
+    }
+
+    const result = await syncDriverRegistryFromWebhook(data as DriverRegistryWebhookPayload);
+    await prisma.webhookEvento.create({
+      data: {
+        eventId: storedEventId,
+        payload: req.body,
+        status: "enviado",
+        tentativas: 1,
+        respostaHttp: 200,
+        usuarioId: null
+      }
+    });
+    await prisma.logAuditoria.create({
+      data: {
+        usuarioId: null,
+        acao: "webhook_archi_motorista_sincronizado",
+        entidade: "driver_registry_entities",
+        entidadeId: result.motoristaId,
+        ipOrigem: req.ip,
+        userAgent: req.get("user-agent") || null,
+        detalhes: { event: parsed.data.event, eventId, nome: result.nome, cpfDigits: result.cpfDigits, cnpjDigits: result.cnpjDigits, active: result.active }
+      }
+    });
+
+    // Webhook is the fast path; the existing reconciliation remains a safe
+    // fallback for uploads that arrived before the driver event.
+    await reconcilePendingUploadsFromRegistry();
+    const confirmation = await notifyArchi("acesso_adm.motorista_sincronizado", {
+      externalId: readString(data.externalId || data.id) || null,
+      motoristaId: result.motoristaId,
+      nome: result.nome,
+      active: result.active,
+      eventId
+    });
+
+    res.json({ message: "Motorista sincronizado em tempo real.", duplicate: false, result, confirmation });
+  })().catch((error) => {
+    res.status(500).json({ message: "Falha ao sincronizar motorista do ARCHI." });
+    console.error("Falha no webhook de motorista do ARCHI:", error instanceof Error ? error.message : error);
+  });
+});
+
 function readString(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
+  return typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
+}
+
+function readWebhookIdentifier(...values: unknown[]) {
+  for (const value of values) {
+    const direct = readString(value);
+    if (direct) return direct;
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    const record = value as Record<string, unknown>;
+    for (const key of ["id", "eventId", "event_id", "externalId", "external_id", "uuid"]) {
+      const nested = readString(record[key]);
+      if (nested) return nested;
+    }
+  }
+  return "";
 }
 
 function normalizeWebhookStatus(value: string) {

@@ -54,6 +54,7 @@ import {
   searchAtendimentoMotoristas,
   fetchUsers,
   loginRequest,
+  exchangeArchiSsoToken,
   logoutRequest,
   updateCurrentUserProfile,
   updateMotoristaClassificacoes,
@@ -89,6 +90,7 @@ import {
   type UserSummary
 } from "./lib/api";
 import { ApiError } from "./lib/api";
+import { clampPage, paginateItems, Pagination } from "./Pagination";
 
 const FinanceiroScreen = lazy(() =>
   import("./FinanceiroScreen").then((module) => ({ default: module.FinanceiroScreen }))
@@ -108,9 +110,35 @@ type QuickActionRoute = Exclude<RouteView, "dashboard">;
 
 type SessionUser = LoginResponse["user"];
 
+function PageSkeleton({ label = "Carregando conteúdo" }: { label?: string }) {
+  return (
+    <section className="panel" aria-busy="true" role="status" aria-label={label}>
+      <div className="content-skeleton">
+        <div className="content-skeleton__line" />
+        <div className="content-skeleton__line content-skeleton__line--short" />
+        <div className="content-skeleton__card" />
+        <div className="content-skeleton__card" />
+      </div>
+    </section>
+  );
+}
+
 type FlashMessage = {
   type: "success" | "error";
   text: string;
+};
+
+type NegativePdfFailure = {
+  fileName: string;
+  message: string;
+  file: File;
+  fields: { periodId?: string; basePaymentId?: string };
+};
+
+type UploadIssue = {
+  fileName: string;
+  message: string;
+  code?: string;
 };
 
 type AppNotification = {
@@ -419,6 +447,7 @@ function App() {
   const [activitiesSearch, setActivitiesSearch] = useState("");
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activitiesResult, setActivitiesResult] = useState<DashboardActivity[]>([]);
+  const [activitiesPage, setActivitiesPage] = useState(1);
   const [profileModalMode, setProfileModalMode] = useState<ProfileModalMode>(null);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => readStoredTheme());
   const [profileActionError, setProfileActionError] = useState("");
@@ -435,6 +464,11 @@ function App() {
   const [paymentPeriods, setPaymentPeriods] = useState<PaymentPeriod[]>([]);
   const [paymentBases, setPaymentBases] = useState<PaymentBase[]>([]);
   const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null);
+  const [negativePdfFailures, setNegativePdfFailures] = useState<NegativePdfFailure[]>([]);
+  const [selectedNegativePdfNames, setSelectedNegativePdfNames] = useState<string[]>([]);
+  const [negativePdfModalOpen, setNegativePdfModalOpen] = useState(false);
+  const [uploadIssues, setUploadIssues] = useState<UploadIssue[]>([]);
+  const [uploadIssuesModalOpen, setUploadIssuesModalOpen] = useState(false);
   const [uploadHistory, setUploadHistory] = useState<UploadHistoryState>(null);
   const [baseEditorOpen, setBaseEditorOpen] = useState(false);
   const [editingBase, setEditingBase] = useState<PaymentBase | null>(null);
@@ -645,9 +679,19 @@ function App() {
   const canSeePdfData = useMemo(() => currentUser?.modules.includes("pdfs") ?? false, [currentUser]);
   const canSeeUsersData = useMemo(() => currentUser?.modules.includes("users") ?? false, [currentUser]);
   const canSeePeriodData = useMemo(
-    () => canSeePdfData || currentUser?.modules.includes("financeiro") || currentUser?.level === "N3" || currentUser?.level === "N4",
+    () =>
+      canSeePdfData ||
+      currentUser?.modules.includes("financeiro") ||
+      currentUser?.modules.includes("periods") ||
+      currentUser?.modules.includes("bases") ||
+      currentUser?.level === "N3" ||
+      currentUser?.level === "N4",
     [canSeePdfData, currentUser]
   );
+  const visibleActivities = useMemo(() => paginateItems(activitiesResult, activitiesPage, 20), [activitiesPage, activitiesResult]);
+
+  useEffect(() => setActivitiesPage(1), [activitiesSearch]);
+  useEffect(() => setActivitiesPage((current) => clampPage(current, activitiesResult.length, 20)), [activitiesResult.length]);
 
   const clearLoadedState = () => {
     setDashboardLoaded(false);
@@ -794,6 +838,38 @@ function App() {
 
   useEffect(() => {
     const storedSession = localStorage.getItem("portal-admin-session");
+    const ssoToken = new URLSearchParams(window.location.search).get("token");
+
+    if (window.location.pathname === "/auth/sso" && ssoToken) {
+      void (async () => {
+        try {
+          const session = await exchangeArchiSsoToken(ssoToken);
+          setToken(session.token);
+          setCurrentUser(session.user);
+          setProfilePhotoBroken(false);
+          localStorage.setItem(
+            "portal-admin-session",
+            JSON.stringify({ token: session.token, user: session.user })
+          );
+
+          if (session.firstAccess) {
+            setView("first-access");
+            window.history.replaceState({}, "", "/first-access");
+            return;
+          }
+
+          const nextRoute = getDefaultRoute(session.user);
+          setActiveView(nextRoute);
+          setView(nextRoute);
+          window.history.replaceState({}, "", getRoutePath(nextRoute));
+        } catch (error) {
+          clearSessionAndGoLogin(error instanceof Error ? error.message : "Não foi possível autenticar pelo Archi.");
+        } finally {
+          setSessionResolving(false);
+        }
+      })();
+      return;
+    }
 
     if (!storedSession) {
       if (window.location.pathname !== "/login" && window.location.pathname !== "/first-access") {
@@ -855,6 +931,57 @@ function App() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    let cancelled = false;
+    let refreshing = false;
+
+    const refreshAccess = async () => {
+      if (refreshing || cancelled) {
+        return;
+      }
+
+      refreshing = true;
+      try {
+        const session = await fetchSession(token);
+        if (cancelled) {
+          return;
+        }
+
+        setCurrentUser(session.user);
+        localStorage.setItem(
+          "portal-admin-session",
+          JSON.stringify({ token: session.token, user: session.user })
+        );
+      } catch {
+        // A expiração de sessão já é tratada globalmente pelo cliente da API.
+      } finally {
+        refreshing = false;
+      }
+    };
+
+    const handleFocus = () => void refreshAccess();
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void refreshAccess();
+      }
+    };
+    const timer = window.setInterval(() => void refreshAccess(), 30_000);
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [token]);
 
   useEffect(() => {
     if (!flashMessage) {
@@ -946,8 +1073,6 @@ function App() {
 
     let cancelled = false;
     const loadData = async () => {
-      setLoadingMessage("Carregando dados do portal...");
-
       try {
         if (activeView === "dashboard") {
           await loadDashboardSummary();
@@ -1004,7 +1129,6 @@ function App() {
         setLoginError(error instanceof Error ? error.message : "Falha ao carregar os dados do portal.");
       } finally {
         if (!cancelled) {
-          setLoadingMessage("");
           restoreRouteScrollPosition(activeView);
         }
       }
@@ -1057,7 +1181,7 @@ function App() {
 
     const intervalId = window.setInterval(() => {
       void refreshDashboard();
-    }, 30000);
+    }, 10000);
 
     return () => {
       cancelled = true;
@@ -1507,9 +1631,38 @@ function App() {
     }
   };
 
+  const rememberNegativePdfs = (
+    failures: Array<{ fileName: string; message: string; code?: string }>,
+    candidates: File[],
+    fields?: { periodId?: string; basePaymentId?: string }
+  ) => {
+    const negativeNames = new Set(
+      failures.filter((failure) => failure.code === "total_geral_negativo").map((failure) => failure.fileName)
+    );
+    const blocked = candidates
+      .filter((file) => negativeNames.has(file.name))
+      .map((file) => ({
+        file,
+        fileName: file.name,
+        message: failures.find((failure) => failure.fileName === file.name)?.message || "Total Geral negativo.",
+        fields: { periodId: fields?.periodId, basePaymentId: fields?.basePaymentId }
+      }));
+
+    if (blocked.length === 0) {
+      return;
+    }
+
+    setNegativePdfFailures((current) => [
+      ...current.filter((item) => !blocked.some((next) => item.fileName === next.fileName && item.fields.periodId === next.fields.periodId && item.fields.basePaymentId === next.fields.basePaymentId)),
+      ...blocked
+    ]);
+    setSelectedNegativePdfNames([]);
+  };
+
   const handleUploadFiles = async (
     files: File[],
-    fields?: { periodId?: string; basePaymentId?: string }
+    fields?: { periodId?: string; basePaymentId?: string },
+    allowNegativeTotal = false
   ) => {
     if (!token || files.length === 0) {
       return;
@@ -1531,36 +1684,81 @@ function App() {
       }
 
       let uploadedTotal = 0;
-      const failedFiles: Array<{ fileName: string; message: string }> = [];
+      const failedFiles: UploadIssue[] = [];
 
       for (let index = 0; index < fileBatches.length; index += 1) {
         const batch = fileBatches[index];
-        const response = await uploadPdfs(token, batch, fields, (progress) => {
-          setUploadProgress({
-            ...progress,
-            label: `Enviando lote ${index + 1}/${fileBatches.length}...`
+        try {
+          const response = await uploadPdfs(token, batch, { ...fields, allowNegativeTotal }, (progress) => {
+            setUploadProgress({
+              ...progress,
+              label: `Enviando lote ${index + 1}/${fileBatches.length}...`
+            });
           });
-        });
 
-        uploadedTotal += response.uploaded ?? batch.length;
-        if (response.failed?.length) {
-          failedFiles.push(...response.failed);
+          uploadedTotal += response.uploaded ?? 0;
+          if (response.failed?.length) {
+            failedFiles.push(...response.failed);
+          }
+          if (response.pending?.length) {
+            failedFiles.push(...response.pending);
+          }
+        } catch (error) {
+          if (error instanceof ApiError && error.status !== 401) {
+            const payload = error.payload && typeof error.payload === "object"
+              ? error.payload as { failed?: UploadIssue[]; pending?: UploadIssue[] }
+              : null;
+
+            if (payload?.failed?.length) {
+              failedFiles.push(...payload.failed);
+            }
+            if (payload?.pending?.length) {
+              failedFiles.push(...payload.pending);
+            }
+            if (!payload?.failed?.length && !payload?.pending?.length) {
+              failedFiles.push(...batch.map((file) => ({
+                fileName: file.name,
+                message: error.message || "Falha ao enviar este espelho de pagamento."
+              })));
+            }
+            continue;
+          }
+
+          throw error;
         }
+      }
+
+      const actualFailures = failedFiles.filter((failure) => failure.code === "total_geral_negativo");
+      rememberNegativePdfs(actualFailures, files, fields);
+
+      if (failedFiles.length > 0) {
+        setUploadIssues(failedFiles);
+        setUploadIssuesModalOpen(true);
       }
 
       setFlashMessage({
         type: uploadedTotal > 0 ? "success" : "error",
         text:
           failedFiles.length > 0
-            ? `${uploadedTotal} PDF(s) enviado(s). ${failedFiles.length} arquivo(s) precisam de revisao. ${failedFiles
-                .slice(0, 3)
-                .map((file) => `${file.fileName}: ${file.message}`)
-                .join(" | ")}`
+          ? `${uploadedTotal} PDF(s) armazenado(s). ${failedFiles.length} arquivo(s) precisam de revisão ou vínculo.`
             : `${uploadedTotal} PDF(s) enviado(s) com sucesso.`
       });
       await Promise.all([loadUploadsData(), loadDashboardSummary()]);
       navigateToRoute("pdfs");
     } catch (error) {
+      const payload = error instanceof ApiError && error.payload && typeof error.payload === "object"
+        ? error.payload as { failed?: UploadIssue[]; pending?: UploadIssue[] }
+        : null;
+      const reportedIssues = [...(payload?.failed || []), ...(payload?.pending || [])];
+      rememberNegativePdfs(reportedIssues.filter((failure) => failure.code === "total_geral_negativo"), files, fields);
+      const failedFiles = reportedIssues.length > 0
+        ? reportedIssues
+        : files.map((file) => ({
+            fileName: file.name,
+            message: error instanceof Error ? error.message : "Falha ao enviar este espelho de pagamento."
+          }));
+      setUploadIssues(failedFiles);
+      setUploadIssuesModalOpen(true);
       setFlashMessage({
         type: "error",
         text: error instanceof Error ? error.message : "Falha ao enviar PDFs."
@@ -1569,6 +1767,30 @@ function App() {
       setLoadingMessage("");
       setUploadProgress(null);
     }
+  };
+
+  const handleSendNegativePdfs = async () => {
+    const selected = negativePdfFailures.filter((item) => selectedNegativePdfNames.includes(item.fileName));
+    if (selected.length === 0) return;
+
+    const groups = new Map<string, NegativePdfFailure[]>();
+    selected.forEach((item) => {
+      const key = `${item.fields.periodId || ""}|${item.fields.basePaymentId || ""}`;
+      groups.set(key, [...(groups.get(key) || []), item]);
+    });
+
+    for (const group of groups.values()) {
+      await handleUploadFiles(group.map((item) => item.file), group[0]?.fields, true);
+    }
+
+    const selectedKeys = new Set(
+      selected.map((item) => `${item.fileName}|${item.fields.periodId || ""}|${item.fields.basePaymentId || ""}`)
+    );
+    setNegativePdfFailures((current) =>
+      current.filter((item) => !selectedKeys.has(`${item.fileName}|${item.fields.periodId || ""}|${item.fields.basePaymentId || ""}`))
+    );
+    setSelectedNegativePdfNames([]);
+    setNegativePdfModalOpen(false);
   };
 
   const handleReplaceUpload = async (uploadId: string, file: File) => {
@@ -1602,6 +1824,14 @@ function App() {
         });
       }
     } catch (error) {
+      if (error instanceof ApiError && error.payload && typeof error.payload === "object") {
+        const payload = error.payload as { code?: string; fileName?: string; message?: string };
+        if (payload.code === "total_geral_negativo" && payload.fileName) {
+          setNegativePdfFailures([{ fileName: payload.fileName, message: payload.message || error.message, file, fields: {} }]);
+          setSelectedNegativePdfNames([]);
+          setNegativePdfModalOpen(true);
+        }
+      }
       setFlashMessage({
         type: "error",
         text: error instanceof Error ? error.message : "Falha ao substituir PDF."
@@ -1896,9 +2126,9 @@ function App() {
 
   if (sessionResolving) {
     return (
-      <main className="session-loading" aria-live="polite">
+      <main className="session-loading" aria-busy="true" role="status" aria-label="Validando sessão">
         <img src={logoSrc} alt="ALC Pereira Filho Transportes" />
-        <span>Carregando sessão...</span>
+        <span className="sr-only">Validando sessão</span>
       </main>
     );
   }
@@ -2348,12 +2578,6 @@ function App() {
           </div>
         </header>
 
-        {loadingMessage ? (
-          <div className="panel">
-            <p className="loading-note">{loadingMessage}</p>
-          </div>
-        ) : null}
-
         {loginError ? (
           <div className="panel">
             <p className="form-error">{loginError}</p>
@@ -2363,6 +2587,133 @@ function App() {
         {flashMessage ? (
           <div className={`toast-message toast-message--${flashMessage.type}`}>
             <span>{flashMessage.text}</span>
+          </div>
+        ) : null}
+
+        {uploadIssuesModalOpen && uploadIssues.length > 0 ? (
+          <div className="modal-overlay" onClick={() => setUploadIssuesModalOpen(false)}>
+            <div
+              className="modal-card modal-card--confirm upload-issues-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="upload-issues-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="modal-card__header">
+                <div>
+                  <p className="eyebrow">Resultado do envio</p>
+                  <h3 id="upload-issues-title">Arquivos com envio ou vínculo pendente</h3>
+                  <p>{uploadIssues.length} arquivo(s) precisam de atenção. Confira se falhou o envio ou se o arquivo foi armazenado sem vínculo com o motorista:</p>
+                </div>
+                <button className="ghost-button ghost-button--small" type="button" onClick={() => setUploadIssuesModalOpen(false)}>
+                  Fechar
+                </button>
+              </div>
+              <div className="modal-card__body upload-issues-list">
+                {uploadIssues.map((issue, index) => (
+                  <div className="upload-issue-item" key={`${issue.fileName}-${index}`}>
+                    <strong>{issue.fileName}</strong>
+                    <small>{issue.message}</small>
+                  </div>
+                ))}
+              </div>
+              <div className="modal-card__actions">
+                <button className="ghost-button ghost-button--small" type="button" onClick={() => setUploadIssuesModalOpen(false)}>
+                  Entendi
+                </button>
+                {negativePdfFailures.length > 0 ? (
+                  <button
+                    className="primary-button primary-button--inline"
+                    type="button"
+                    onClick={() => {
+                      setUploadIssuesModalOpen(false);
+                      setNegativePdfModalOpen(true);
+                    }}
+                  >
+                    Revisar valores negativos
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {negativePdfModalOpen && negativePdfFailures.length > 0 ? (
+          <div className="modal-overlay" onClick={() => setNegativePdfModalOpen(false)}>
+            <div
+              className="modal-card modal-card--confirm"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="negative-pdf-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="modal-card__header">
+                <div>
+                  <p className="eyebrow">Envio bloqueado</p>
+                  <h3 id="negative-pdf-title">Espelho de pagamento com valor negativo</h3>
+                  <p>Os espelhos abaixo não foram enviados porque o Total Geral está negativo.</p>
+                </div>
+                <button className="ghost-button ghost-button--small" type="button" onClick={() => setNegativePdfModalOpen(false)}>
+                  Fechar
+                </button>
+              </div>
+              <div className="modal-card__body">
+                <label className="upload-select-control">
+                  <input
+                    type="checkbox"
+                    checked={selectedNegativePdfNames.length === negativePdfFailures.length}
+                    onChange={() =>
+                      setSelectedNegativePdfNames(
+                        selectedNegativePdfNames.length === negativePdfFailures.length
+                          ? []
+                          : negativePdfFailures.map((file) => file.fileName)
+                      )
+                    }
+                  />
+                  <strong>Selecionar todos os espelhos bloqueados</strong>
+                </label>
+                {negativePdfFailures.map((file) => (
+                  <label className="upload-select-control negative-pdf-option" key={file.fileName}>
+                    <input
+                      type="checkbox"
+                      checked={selectedNegativePdfNames.includes(file.fileName)}
+                      onChange={() =>
+                        setSelectedNegativePdfNames((current) =>
+                          current.includes(file.fileName)
+                            ? current.filter((name) => name !== file.fileName)
+                            : [...current, file.fileName]
+                        )
+                      }
+                    />
+                    <span>
+                      <strong>{file.fileName}</strong>
+                      <small>{file.message}</small>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <div className="modal-card__actions">
+                <button
+                  className="ghost-button ghost-button--small"
+                  type="button"
+                  onClick={() => {
+                    setNegativePdfFailures([]);
+                    setSelectedNegativePdfNames([]);
+                    setNegativePdfModalOpen(false);
+                  }}
+                >
+                  Entendi
+                </button>
+                <button
+                  className="primary-button primary-button--inline"
+                  type="button"
+                  disabled={selectedNegativePdfNames.length === 0}
+                  onClick={() => void handleSendNegativePdfs()}
+                >
+                  Enviar selecionados mesmo assim
+                </button>
+              </div>
+            </div>
           </div>
         ) : null}
 
@@ -2409,10 +2760,10 @@ function App() {
                 />
               </label>
 
-              <div className="activity-list activity-list--modal">
-                {activitiesLoading ? <p className="loading-note">Carregando atividades...</p> : null}
-                {!activitiesLoading && activitiesResult.length > 0 ? (
-                  activitiesResult.map((item) => {
+              <div className="activity-list activity-list--modal" aria-busy={activitiesLoading}>
+                {activitiesLoading && activitiesResult.length === 0 ? <div className="content-skeleton" role="status" aria-label="Carregando atividades"><div className="content-skeleton__line" /><div className="content-skeleton__card" /><div className="content-skeleton__card" /></div> : null}
+                {activitiesResult.length > 0 ? (
+                  visibleActivities.map((item) => {
                     const occurredAt = formatDateTimeParts(item.occurredAt);
 
                     return (
@@ -2441,6 +2792,7 @@ function App() {
                   </div>
                 ) : null}
               </div>
+              <Pagination page={activitiesPage} pageSize={20} totalItems={activitiesResult.length} onPageChange={setActivitiesPage} itemLabel="atividades" />
             </div>
           </div>
         ) : null}
@@ -2452,7 +2804,8 @@ function App() {
           />
         ) : null}
 
-        {!accessDenied && activeView === "dashboard" ? (
+        {!accessDenied && activeView === "dashboard" && !dashboardLoaded ? <PageSkeleton label="Carregando dashboard" /> : null}
+        {!accessDenied && activeView === "dashboard" && dashboardLoaded ? (
           <DashboardScreen
             currentUser={currentUser}
             summary={dashboardSummary}
@@ -2471,7 +2824,8 @@ function App() {
             quickActions={quickActions}
           />
         ) : null}
-        {!accessDenied && activeView === "periods" ? (
+        {!accessDenied && activeView === "periods" && !periodDataLoaded ? <PageSkeleton label="Carregando períodos" /> : null}
+        {!accessDenied && activeView === "periods" && periodDataLoaded ? (
           <PeriodsScreen
             token={token}
             currentUser={currentUser}
@@ -2521,9 +2875,7 @@ function App() {
         {!accessDenied && activeView === "financeiro" ? (
           <Suspense
             fallback={
-              <section className="panel" aria-live="polite">
-                <p className="loading-note">Carregando financeiro...</p>
-              </section>
+              <PageSkeleton label="Carregando financeiro" />
             }
           >
             <FinanceiroScreen
@@ -2537,11 +2889,12 @@ function App() {
           </Suspense>
         ) : null}
         {!accessDenied && activeView === "faturamento" ? (
-          <Suspense fallback={<section className="panel"><p className="loading-note">Carregando faturamento...</p></section>}>
+          <Suspense fallback={<PageSkeleton label="Carregando faturamento" />}>
             <FaturamentoScreen token={token} currentUser={currentUser} />
           </Suspense>
         ) : null}
-        {!accessDenied && activeView === "pdfs" ? (
+        {!accessDenied && activeView === "pdfs" && (!uploadsLoaded || !periodDataLoaded) ? <PageSkeleton label="Carregando espelhos de pagamento" /> : null}
+        {!accessDenied && activeView === "pdfs" && uploadsLoaded && periodDataLoaded ? (
           <PdfsScreen
             uploads={uploads}
             uploadProgress={uploadProgress}
@@ -2553,11 +2906,14 @@ function App() {
             onOpenUploadHistory={handleOpenUploadHistory}
             onReplaceUpload={handleReplaceUpload}
             onUploadFiles={handleUploadFiles}
+            blockedPdfCount={negativePdfFailures.length}
+            onOpenBlockedPdfs={() => setNegativePdfModalOpen(true)}
             periods={paymentPeriods}
             bases={paymentBases}
           />
         ) : null}
-        {!accessDenied && activeView === "users" ? (
+        {!accessDenied && activeView === "users" && !usersLoaded ? <PageSkeleton label="Carregando usuários" /> : null}
+        {!accessDenied && activeView === "users" && usersLoaded ? (
           <UsersScreen
             users={users}
             onCreateUser={handleCreateUser}
@@ -2570,7 +2926,7 @@ function App() {
           />
         ) : null}
         {!accessDenied && activeView === "bases" ? (
-          <Suspense fallback={<section className="panel"><p className="loading-note">Carregando cadastros de bases...</p></section>}>
+          <Suspense fallback={<PageSkeleton label="Carregando cadastros de bases" />}>
             <BasesScreen token={token} bases={paymentBases} isLoading={!periodDataLoaded} onRefresh={loadPeriodData} onOpenEditor={openBaseEditor} onToggleActive={handleToggleBaseActive} />
           </Suspense>
         ) : null}
@@ -3310,6 +3666,8 @@ function PeriodsScreen({
   const [financeFinishedSearch, setFinanceFinishedSearch] = useState(periodsViewState.financeFinishedSearch);
   const [duplicateReviews, setDuplicateReviews] = useState<PeriodBaseReviewItem[]>([]);
   const [duplicateRedirectTargets, setDuplicateRedirectTargets] = useState<Record<string, string>>({});
+  const [periodPage, setPeriodPage] = useState(1);
+  const [baseManagementPage, setBaseManagementPage] = useState(1);
 
   useEffect(() => {
     writeStoredViewState(periodsViewStateKey, { activeTab, financeFinishedSearch });
@@ -3363,6 +3721,12 @@ function PeriodsScreen({
 
     return filteredFinanceFinishedPeriods;
   }, [activeTab, createdPeriods, financeActivePeriods, filteredFinanceFinishedPeriods]);
+  const paginatedPeriods = useMemo(() => paginateItems(visiblePeriods, periodPage, 5), [periodPage, visiblePeriods]);
+  const paginatedActiveBases = useMemo(() => paginateItems(activeBases, baseManagementPage, 15), [activeBases, baseManagementPage]);
+
+  useEffect(() => setPeriodPage(1), [activeTab, financeFinishedSearch]);
+  useEffect(() => setPeriodPage((current) => clampPage(current, visiblePeriods.length, 5)), [visiblePeriods.length]);
+  useEffect(() => setBaseManagementPage((current) => clampPage(current, activeBases.length, 15)), [activeBases.length]);
 
   const loadDuplicateReviews = async (periodId?: string | null) => {
     const data = await fetchPeriodBaseReviews(token, periodId || null);
@@ -3397,12 +3761,16 @@ function PeriodsScreen({
     }
   };
 
-  if (!currentUser || (currentUser.level !== "N3" && currentUser.level !== "N4")) {
+  if (!currentUser || (
+    currentUser.level !== "N3" &&
+    currentUser.level !== "N4" &&
+    !currentUser.modules.includes("periods")
+  )) {
     return (
       <div className="screen">
       <section className="panel">
           <h3>Acesso restrito</h3>
-          <p>Esta funcionalidade está liberada apenas para N3 e N4.</p>
+          <p>Esta funcionalidade não foi liberada no cadastro deste usuário.</p>
         </section>
       </div>
     );
@@ -3522,7 +3890,7 @@ function PeriodsScreen({
         ) : null}
 
         <div className="period-list">
-          {visiblePeriods.map((period) => {
+          {paginatedPeriods.map((period) => {
             const uploadedByBaseEntries = period.bases.map((base) => ({
               ...base,
               total: period.uploadedByBase[base.id] || 0
@@ -3629,6 +3997,7 @@ function PeriodsScreen({
             </div>
           ) : null}
         </div>
+        <Pagination page={periodPage} pageSize={5} totalItems={visiblePeriods.length} onPageChange={setPeriodPage} itemLabel="períodos" />
       </section>
 
       {isBasePanelOpen ? (
@@ -3665,7 +4034,7 @@ function PeriodsScreen({
                 <span>Status</span>
                 <span>Ações</span>
               </div>
-              {activeBases.map((base) => (
+              {paginatedActiveBases.map((base) => (
                 <div className="base-management-row" key={base.id}>
                   <div className="base-management-cell base-management-cell--strong">
                     <strong>{base.name}</strong>
@@ -3691,6 +4060,7 @@ function PeriodsScreen({
                 </div>
               ))}
             </div>
+            <Pagination page={baseManagementPage} pageSize={15} totalItems={activeBases.length} onPageChange={setBaseManagementPage} itemLabel="bases" />
 
             <div className="modal-card__actions">
               <button className="ghost-button" type="button" onClick={() => setIsBasePanelOpen(false)}>
@@ -3960,6 +4330,8 @@ function PdfsScreen({
   uploadHistory,
   onUploadFiles,
   onReplaceUpload,
+  blockedPdfCount,
+  onOpenBlockedPdfs,
   onDownloadUpload,
   onOpenUploadHistory,
   onDeleteUpload,
@@ -3973,6 +4345,8 @@ function PdfsScreen({
   uploadHistory: UploadHistoryState;
   onUploadFiles: (files: File[], fields?: { periodId?: string; basePaymentId?: string }) => Promise<void> | void;
   onReplaceUpload: (uploadId: string, file: File) => Promise<void> | void;
+  blockedPdfCount: number;
+  onOpenBlockedPdfs: () => void;
   onDownloadUpload: (upload: UploadRow) => Promise<void> | void;
   onOpenUploadHistory: (uploadId: string) => Promise<void> | void;
   onDeleteUpload: (upload: UploadRow) => void;
@@ -3995,6 +4369,7 @@ function PdfsScreen({
   const [selectedBaseId, setSelectedBaseId] = useState(pdfsViewState.selectedBaseId);
   const [expandedBatchKey, setExpandedBatchKey] = useState(pdfsViewState.expandedBatchKey);
   const [selectedUploadIds, setSelectedUploadIds] = useState<string[]>([]);
+  const [batchPage, setBatchPage] = useState(1);
 
   useEffect(() => {
     writeStoredViewState(pdfsViewStateKey, {
@@ -4021,10 +4396,19 @@ function PdfsScreen({
   }, [allowedBases, selectedBaseId, selectedPeriod]);
 
   const visibleUploads = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLocaleLowerCase("pt-BR");
+
     return uploads.filter((row) => {
+      const searchableFields = [
+        row.fileName,
+        row.owner,
+        row.baseName || "",
+        row.periodName || "",
+        `lote ${row.baseName || ""}`
+      ];
       const matchesSearch =
-        row.fileName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        row.owner.toLowerCase().includes(searchTerm.toLowerCase());
+        normalizedSearch.length === 0 ||
+        searchableFields.some((field) => field.toLocaleLowerCase("pt-BR").includes(normalizedSearch));
       const matchesStatus = statusFilter === "todos" || row.status === statusFilter;
 
       return matchesSearch && matchesStatus;
@@ -4053,7 +4437,11 @@ function PdfsScreen({
       .slice()
       .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())
       .forEach((row) => {
-        const key = `${row.periodId || "sem-periodo"}|${row.baseId || "sem-base"}|${row.owner}`;
+        // A lote is the operational scope period + base. The responsible user
+        // is metadata of the upload, not part of its identity. Including it
+        // here split late uploads/replacements into a second visual lote when
+        // another user performed the operation.
+        const key = `${row.periodId || "sem-periodo"}|${row.baseId || "sem-base"}`;
         const existing = grouped.get(key);
 
         if (existing) {
@@ -4080,7 +4468,30 @@ function PdfsScreen({
     );
   }, [visibleUploads]);
 
+  const effectiveUploadCount = useMemo(
+    () => visibleUploads.filter((row) => row.status !== "substituido").length,
+    [visibleUploads]
+  );
+
+  const visibleUploadBatches = useMemo(
+    () => paginateItems(uploadBatches, batchPage, 8),
+    [batchPage, uploadBatches]
+  );
+
+  useEffect(() => {
+    setBatchPage(1);
+    setExpandedBatchKey("");
+  }, [searchTerm, statusFilter]);
+
+  useEffect(() => {
+    setBatchPage((current) => clampPage(current, uploadBatches.length, 8));
+  }, [uploadBatches.length]);
+
   const uploadStatusLabel = (row: UploadRow) => {
+    if (row.status === "substituido") {
+      return "SUBSTITUÍDO";
+    }
+
     if (row.status !== "pendente" || !row.pendingReason) {
       return row.status;
     }
@@ -4091,6 +4502,14 @@ function PdfsScreen({
 
     if (row.pendingReason === "pre_cadastro_incompleto") {
       return "Pré-cadastro incompleto";
+    }
+
+    if (row.pendingReason === "pre_cadastro_inconsistente") {
+      return "Cadastro inconsistente";
+    }
+
+    if (row.pendingReason === "pre_cadastro_nao_encontrado") {
+      return "CADASTRO SEM GR";
     }
 
     return "Aguardando pré-cadastro";
@@ -4148,6 +4567,11 @@ function PdfsScreen({
             Novo upload
             <FileArrowUp size={18} weight="bold" />
           </button>
+          {blockedPdfCount > 0 ? (
+            <button className="ghost-button ghost-button--small" type="button" onClick={onOpenBlockedPdfs}>
+              Espelhos bloqueados ({blockedPdfCount})
+            </button>
+          ) : null}
         </div>
 
         <div className="period-tiles">
@@ -4182,7 +4606,7 @@ function PdfsScreen({
           <label className="search-field">
             <MagnifyingGlass size={18} />
             <input
-              placeholder="Buscar por arquivo ou responsável"
+              placeholder="Buscar por lote, arquivo ou responsável"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
             />
@@ -4218,7 +4642,7 @@ function PdfsScreen({
             <div>
               <h3>Fila de documentos</h3>
               <p>
-                {uploadBatches.length} lote(s) visivel(is) na fila operacional e {visibleUploads.length} documento(s) anexado(s)
+                {uploadBatches.length} lote(s) visível(is) na fila operacional e {effectiveUploadCount} documento(s) anexado(s)
               </p>
             </div>
           <div className="quick-meta">
@@ -4248,7 +4672,7 @@ function PdfsScreen({
         </div>
 
           <div className="upload-batches">
-            {uploadBatches.map((batch) => (
+            {visibleUploadBatches.map((batch) => (
               <article className="upload-batch" key={batch.key}>
                 <div className="upload-batch__header">
                   <div>
@@ -4269,7 +4693,7 @@ function PdfsScreen({
                   </button>
                 </div>
 
-                <p className="upload-batch__meta">Total: {batch.uploads.length} PDF(s)</p>
+                        <p className="upload-batch__meta">Total vigente: {batch.uploads.filter((row) => row.status !== "substituido").length} PDF(s)</p>
 
                 {expandedBatchKey === batch.key ? (
                   <div className="upload-batch__files">
@@ -4346,6 +4770,16 @@ function PdfsScreen({
 
             {uploadBatches.length === 0 ? <div className="crm-empty">Nenhum PDF na fila operacional para os filtros atuais.</div> : null}
           </div>
+          <Pagination
+            page={batchPage}
+            pageSize={8}
+            totalItems={uploadBatches.length}
+            onPageChange={(nextPage) => {
+              setBatchPage(nextPage);
+              setExpandedBatchKey("");
+            }}
+            itemLabel="lotes"
+          />
         </section>
 
       {uploadHistory ? (
@@ -4408,6 +4842,7 @@ function UsersScreen({
   const [searchTerm, setSearchTerm] = useState("");
   const [levelFilter, setLevelFilter] = useState("todos");
   const [statusFilter, setStatusFilter] = useState("todos");
+  const [page, setPage] = useState(1);
   const [formValues, setFormValues] = useState({
     name: "",
     email: "",
@@ -4467,6 +4902,10 @@ function UsersScreen({
       return matchesSearch && matchesLevel && matchesStatus;
     });
   }, [levelFilter, searchTerm, statusFilter, users]);
+  const visibleUsers = useMemo(() => paginateItems(filteredUsers, page, 10), [filteredUsers, page]);
+
+  useEffect(() => setPage(1), [levelFilter, searchTerm, statusFilter]);
+  useEffect(() => setPage((current) => clampPage(current, filteredUsers.length, 10)), [filteredUsers.length]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -4496,12 +4935,8 @@ function UsersScreen({
         <div>
           <p className="eyebrow">Administração</p>
           <h1>Cadastro de Usuários</h1>
-          <p>Gestão de níveis, status, módulos liberados e histórico operacional.</p>
+          <p>Usuários vêm do Archi. Aqui são ajustados apenas níveis e módulos liberados.</p>
         </div>
-        <button className="primary-button primary-button--inline cta-motion" type="button" onClick={openCreateModal}>
-          Novo usuário
-          <UserCirclePlus size={18} weight="bold" />
-        </button>
       </section>
 
       <section className="stats-grid stats-grid--three">
@@ -4600,7 +5035,7 @@ function UsersScreen({
               </tr>
             </thead>
             <tbody>
-              {filteredUsers.map((user) => (
+              {visibleUsers.map((user) => (
                 <tr key={user.id}>
                   <td>{user.name}</td>
                   <td>{user.email}</td>
@@ -4630,28 +5065,6 @@ function UsersScreen({
                         <PencilSimple size={16} />
                         Editar
                       </button>
-                      <button
-                        className="ghost-button ghost-button--small"
-                        type="button"
-                        onClick={() => void onToggleBlock(user)}
-                      >
-                        {user.blocked ? "Desbloquear" : "Bloquear"}
-                      </button>
-                      <button
-                        className="ghost-button ghost-button--small ghost-button--danger"
-                        type="button"
-                        onClick={() => onDeleteUser(user)}
-                      >
-                        <TrashSimple size={16} />
-                        Excluir
-                      </button>
-                      <button
-                        className="ghost-button ghost-button--small"
-                        type="button"
-                        onClick={() => void onResetPassword(user.id)}
-                      >
-                        Resetar senha
-                      </button>
                     </div>
                   </td>
                 </tr>
@@ -4659,6 +5072,7 @@ function UsersScreen({
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={10} totalItems={filteredUsers.length} onPageChange={setPage} itemLabel="usuários" />
       </section>
 
       {isModalOpen ? (
@@ -4673,8 +5087,8 @@ function UsersScreen({
             <div className="modal-card__header">
               <div>
                 <p className="eyebrow">Administração</p>
-                <h3 id="user-modal-title">{editingUserId ? "Editar usuário" : "Novo usuário"}</h3>
-                <p>Cadastro com senha temporária 0000 e controle de módulos por usuário</p>
+                <h3 id="user-modal-title">Permissões do usuário</h3>
+                <p>Identidade, status e senha são administrados no Archi.</p>
               </div>
               <button className="ghost-button ghost-button--small" type="button" onClick={closeModal}>
                 Fechar
@@ -4689,12 +5103,7 @@ function UsersScreen({
                   placeholder="Nome completo"
                   required
                   value={formValues.name}
-                  onChange={(event) =>
-                    setFormValues((current) => ({
-                      ...current,
-                      name: event.target.value
-                    }))
-                  }
+                  readOnly
                 />
               </label>
 
@@ -4706,12 +5115,7 @@ function UsersScreen({
                   placeholder="email@empresa.com"
                   required
                   value={formValues.email}
-                  onChange={(event) =>
-                    setFormValues((current) => ({
-                      ...current,
-                      email: event.target.value
-                    }))
-                  }
+                  readOnly
                 />
               </label>
 
@@ -4759,7 +5163,7 @@ function UsersScreen({
 
               <div className="admin-form__actions">
                 <button className="primary-button primary-button--inline" type="submit">
-                  {editingUserId ? "Salvar alterações" : "Criar usuário"}
+                  Salvar permissões
                   <ArrowRight size={18} weight="bold" />
                 </button>
 
@@ -4822,6 +5226,8 @@ function AtendimentoScreen({
   >(null);
   const [ticketFiles, setTicketFiles] = useState<File[]>([]);
   const searchTimerRef = useRef<number | null>(null);
+  const motoristaSearchRequestId = useRef(0);
+  const motoristaDetailRequestId = useRef(0);
 
   const filteredChamados = useMemo(() => {
     if (!detail) {
@@ -4927,28 +5333,32 @@ function AtendimentoScreen({
     const query = searchTerm.trim();
 
     if (query.length < 2) {
+      motoristaSearchRequestId.current += 1;
       setSearchResults([]);
       return;
     }
 
     searchTimerRef.current = window.setTimeout(() => {
       void (async () => {
+        const requestId = ++motoristaSearchRequestId.current;
         setLoading("Buscando motorista...");
 
         try {
           const results = await searchAtendimentoMotoristas(token, query);
+          if (requestId !== motoristaSearchRequestId.current) return;
           setSearchResults(results);
 
           if (results.length > 0 && !selectedMotoristaId) {
             setSelectedMotoristaId(results[0].id);
           }
         } catch (error) {
+          if (requestId !== motoristaSearchRequestId.current) return;
           setSearchResults([]);
           setDetail(null);
           setSelectedMotoristaId(null);
           setLoading(error instanceof Error ? error.message : "Falha ao buscar o motorista.");
         } finally {
-          setLoading("");
+          if (requestId === motoristaSearchRequestId.current) setLoading("");
         }
       })();
     }, 250);
@@ -4962,23 +5372,27 @@ function AtendimentoScreen({
 
   useEffect(() => {
     if (!token || !selectedMotoristaId) {
+      motoristaDetailRequestId.current += 1;
       setDetail(null);
       return;
     }
 
     void (async () => {
+      const requestId = ++motoristaDetailRequestId.current;
       setLoading("Carregando atendimento do motorista...");
 
       try {
         const motorista = await fetchAtendimentoMotorista(token, selectedMotoristaId);
+        if (requestId !== motoristaDetailRequestId.current) return;
         setDetail(motorista);
         setSelectedClassificacoes(motorista.motorista.classificacoes.map((item) => item.id));
         setNoteContent("");
       } catch (error) {
+        if (requestId !== motoristaDetailRequestId.current) return;
         setDetail(null);
         setLoading(error instanceof Error ? error.message : "Falha ao carregar o motorista.");
       } finally {
-        setLoading("");
+        if (requestId === motoristaDetailRequestId.current) setLoading("");
       }
     })();
   }, [selectedMotoristaId, token]);
@@ -5345,12 +5759,6 @@ function AtendimentoScreen({
               </div>
               <div className="crm-card__header-actions">
                 <span className="status-pill status-pill--active">{detail.motorista.statusCadastro}</span>
-                {isAdmin ? (
-                  <button className="ghost-button ghost-button--small" type="button" onClick={handleOpenMotoristaEdit}>
-                    Editar cadastro
-                    <PencilSimple size={16} />
-                  </button>
-                ) : null}
               </div>
             </div>
 

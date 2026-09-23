@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parsePaymentMirrorIdentity } from "./payment-mirror-pdf.js";
+import { parsePaymentMirrorIdentity, parsePaymentMirrorPeriodRange } from "./payment-mirror-pdf.js";
 
 test("extracts CNPJ and driver name from the payment mirror header", () => {
   const identity = parsePaymentMirrorIdentity(`
@@ -18,4 +18,15 @@ test("extracts CNPJ and driver name from the payment mirror header", () => {
 
 test("returns null when the PDF does not expose a structured identity", () => {
   assert.equal(parsePaymentMirrorIdentity("Documento sem identificação do agregado"), null);
+});
+
+test("extracts the exact payment period printed inside the mirror", () => {
+  assert.deepEqual(
+    parsePaymentMirrorPeriodRange("Relação De: 30/08/2026 Até: 05/09/2026 Total Geral"),
+    { startDate: "2026-08-30", endDate: "2026-09-05" }
+  );
+});
+
+test("does not invent a payment period when the range is absent", () => {
+  assert.equal(parsePaymentMirrorPeriodRange("Espelho sem datas do período"), null);
 });

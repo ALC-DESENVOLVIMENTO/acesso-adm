@@ -13,13 +13,17 @@ import {
   uploadObject
 } from "../../lib/storage.js";
 import {
+  deriveRegistrySearchFromFileName,
+  digitsOnly,
   ensureMotoristaFromRegistryMatch,
   normalizeText,
   resolveDriverRegistryByIdentity
 } from "../../lib/driver-registry.js";
 import { upsertDriverPdfReceivedFromUpload } from "../../lib/driver-pdf-received.js";
+import { notifyPdfOnline } from "../../lib/pdfonline-bridge.js";
 import { DocumentTypeCode, type DocumentTypeCode as DocumentTypeCodeValue } from "../../lib/document-types.js";
-import { extractPaymentMirrorIdentity } from "../../lib/payment-mirror-pdf.js";
+import { extractPaymentMirrorMetadata, type PaymentMirrorPeriodRange } from "../../lib/payment-mirror-pdf.js";
+import { extractTotalGeralValueFromSource } from "../../lib/financeiro-total-backfill.js";
 
 const router = Router();
 const MAX_UPLOAD_FILES_PER_REQUEST = 100;
@@ -74,7 +78,7 @@ function isPaymentMirrorUpload(upload: { documentType?: DocumentTypeCodeValue | 
     return false;
   }
 
-  return upload.status !== UploadStatus.removido;
+  return upload.status !== UploadStatus.removido && upload.status !== UploadStatus.substituido;
 }
 
 function resolvePaymentMirrorUrl(upload: { caminhoArquivo: string | null | undefined }) {
@@ -204,24 +208,64 @@ function normalizeFileIdentityOptions(body: Record<string, unknown>, fileName: s
   };
 }
 
+function normalizeIdentityNameForBase(value: string | null | undefined, selectedBaseName: string) {
+  const normalizedName = normalizeText(value || "");
+  const normalizedBase = normalizeText(selectedBaseName);
+
+  if (!normalizedName || !normalizedBase) {
+    return normalizedName;
+  }
+
+  const baseSuffix = ` ${normalizedBase}`;
+  return normalizedName.endsWith(baseSuffix)
+    ? normalizedName.slice(0, -baseSuffix.length).trim()
+    : normalizedName;
+}
+
+function describeUploadPendingReason(reason?: string) {
+  switch (reason) {
+    case "pre_cadastro_nao_encontrado":
+      return "Arquivo armazenado, mas o motorista não foi localizado como aprovado no ARCHI.";
+    case "pre_cadastro_ambiguo":
+      return "Arquivo armazenado, mas há mais de um cadastro compatível; confira nome, CNPJ e base.";
+    case "pre_cadastro_cnpj_divergente":
+      return "Arquivo armazenado, mas o CNPJ do espelho diverge do cadastro no ARCHI.";
+    case "pre_cadastro_cpf_confirmacao_divergente":
+      return "Arquivo armazenado, mas o CPF informado não confirmou o cadastro localizado.";
+    case "pre_cadastro_incompleto":
+      return "Arquivo armazenado, mas faltam dados para criar ou localizar o vínculo interno do motorista.";
+    case "pre_cadastro_inconsistente":
+      return "Arquivo armazenado, mas nome ou base diverge do cadastro no ARCHI.";
+    default:
+      return "Arquivo armazenado na fila, aguardando conferência do vínculo com o motorista.";
+  }
+}
+
 async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseName: string, body: Record<string, unknown>) {
   const providedIdentity = normalizeFileIdentityOptions(body, file.originalname);
-  const pdfIdentity = await extractPaymentMirrorIdentity(file.buffer);
+  const pdfMetadata = await extractPaymentMirrorMetadata(file.buffer);
+  const pdfIdentity = pdfMetadata.identity;
+  const fallbackName = deriveRegistrySearchFromFileName(file.originalname).name || file.originalname;
   const identity = {
     ...providedIdentity,
     name: pdfIdentity?.name || providedIdentity.name,
     cnpj: pdfIdentity?.cnpj || providedIdentity.cnpj
   };
-  const resolved = await resolveDriverRegistryByIdentity(identity);
+  const resolved = await resolveDriverRegistryByIdentity({
+    ...identity,
+    uploadIdentity: true,
+    base: selectedBaseName
+  });
 
   if (!resolved) {
     return {
       pending: true,
-      motoristaNome: identity.name || file.originalname,
+      motoristaNome: identity.name || fallbackName,
       motoristaCpf: identity.cpf || "",
       motoristaCnpj: identity.cnpj || null,
       baseName: selectedBaseName,
-      pendingReason: "pre_cadastro_nao_encontrado"
+      pendingReason: "pre_cadastro_nao_encontrado",
+      mirrorPeriodRange: pdfMetadata.periodRange
     } as const;
   }
 
@@ -235,7 +279,6 @@ async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseNam
       match = baseMatches[0];
     } else if (baseMatches.length > 1) {
       match =
-        baseMatches.find((item) => item.cpfDigits && identity.cpf && item.cpfDigits === identity.cpf.replace(/\D/g, "")) ||
         baseMatches.find((item) => item.cnpj && identity.cnpj && item.cnpj.replace(/\D/g, "") === identity.cnpj.replace(/\D/g, "")) ||
         null;
     }
@@ -243,11 +286,12 @@ async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseNam
     if (!match) {
       return {
         pending: true,
-        motoristaNome: identity.name || file.originalname,
+        motoristaNome: identity.name || fallbackName,
         motoristaCpf: identity.cpf || "",
         motoristaCnpj: identity.cnpj || null,
         baseName: selectedBaseName,
-        pendingReason: "pre_cadastro_ambiguo"
+        pendingReason: "pre_cadastro_ambiguo",
+        mirrorPeriodRange: pdfMetadata.periodRange
       } as const;
     }
   }
@@ -255,6 +299,77 @@ async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseNam
   if (!match) {
     return {
       error: `Não foi possível resolver o motorista do arquivo ${file.originalname}.`
+    } as const;
+  }
+
+  if (match.base && normalizeText(match.base) !== normalizeText(selectedBaseName)) {
+    return {
+      pending: true,
+      motoristaNome: identity.name || fallbackName,
+      motoristaCpf: identity.cpf || "",
+      motoristaCnpj: identity.cnpj || null,
+      baseName: selectedBaseName,
+      pendingReason: "pre_cadastro_inconsistente",
+      mirrorPeriodRange: pdfMetadata.periodRange
+    } as const;
+  }
+
+  const expectedCnpj = digitsOnly(identity.cnpj || "");
+  const archiCnpj = digitsOnly(match.cnpj || "");
+  if (expectedCnpj && archiCnpj && expectedCnpj !== archiCnpj) {
+    return {
+      pending: true,
+      motoristaNome: identity.name || fallbackName,
+      motoristaCpf: identity.cpf || "",
+      motoristaCnpj: identity.cnpj || null,
+      baseName: selectedBaseName,
+      pendingReason: "pre_cadastro_cnpj_divergente",
+      mirrorPeriodRange: pdfMetadata.periodRange
+    } as const;
+  }
+
+  // CPF is only a final cross-check when the upload explicitly provides it.
+  // Its absence never prevents an otherwise valid name/CNPJ/base match.
+  const providedCpf = digitsOnly(identity.cpf || "");
+  const archiCpf = digitsOnly(match.cpfDigits || match.cpf || "");
+  if (providedCpf && archiCpf && providedCpf !== archiCpf) {
+    return {
+      pending: true,
+      motoristaNome: identity.name || fallbackName,
+      motoristaCpf: identity.cpf || "",
+      motoristaCnpj: identity.cnpj || null,
+      baseName: selectedBaseName,
+      pendingReason: "pre_cadastro_cpf_confirmacao_divergente",
+      mirrorPeriodRange: pdfMetadata.periodRange
+    } as const;
+  }
+
+  // A payment mirror may be named after the beneficiary rather than the
+  // driver. Accept that only when ARCHI explicitly confirms the beneficiary;
+  // never attach a file merely because another record happened to match its CNPJ.
+  const cnpjMatches = Boolean(
+    identity.cnpj &&
+    match.cnpj &&
+    digitsOnly(identity.cnpj) === digitsOnly(match.cnpj)
+  );
+  // DDS has one known collision format where it appends the selected base to
+  // Rogério da Silva's name. Strip that suffix only after the exact base and
+  // CNPJ have already identified the same ARCHI record. Name-only uploads
+  // remain strict and never receive this normalization.
+  const identityName = cnpjMatches
+    ? normalizeIdentityNameForBase(identity.name, selectedBaseName)
+    : normalizeText(identity.name || "");
+  const driverName = normalizeText(match.nome || "");
+  const beneficiaryName = normalizeText(match.nomeFavorecido || "");
+  if (identityName && identityName !== driverName && identityName !== beneficiaryName) {
+    return {
+      pending: true,
+      motoristaNome: identity.name || fallbackName,
+      motoristaCpf: identity.cpf || "",
+      motoristaCnpj: identity.cnpj || null,
+      baseName: selectedBaseName,
+      pendingReason: "pre_cadastro_inconsistente",
+      mirrorPeriodRange: pdfMetadata.periodRange
     } as const;
   }
 
@@ -267,7 +382,8 @@ async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseNam
       motoristaCpf: match.cpfDigits || match.cpf || "",
       motoristaCnpj: match.cnpj || null,
       baseName: match.base || selectedBaseName,
-      pendingReason: "pre_cadastro_incompleto"
+      pendingReason: "pre_cadastro_incompleto",
+      mirrorPeriodRange: pdfMetadata.periodRange
     } as const;
   }
 
@@ -275,9 +391,85 @@ async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseNam
     motoristaId,
     motoristaNome: match.nome,
     motoristaCpf: match.cpfDigits || match.cpf,
-    motoristaCnpj: match.cnpj || null,
-    baseName: match.base || selectedBaseName
+    // Keep the CNPJ extracted from the mirror as the persisted document
+    // identity. ARCHI is used to validate it, while its beneficiary CNPJ is
+    // the authoritative value shown by Financeiro. Persisting only
+    // `match.cnpj` allowed an older registry value to overwrite a correct PDF
+    // value and later raised a false divergence warning.
+    motoristaCnpj: identity.cnpj || match.cnpj || null,
+    baseName: match.base || selectedBaseName,
+    mirrorPeriodRange: pdfMetadata.periodRange
   } as const;
+}
+
+function dateKey(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+function mirrorMatchesPeriod(range: PaymentMirrorPeriodRange | null | undefined, start: Date, end: Date) {
+  return !range || (range.startDate === dateKey(start) && range.endDate === dateKey(end));
+}
+
+function mirrorDuplicateKey(input: {
+  periodId: string;
+  basePaymentId: string;
+  motoristaId?: string | null;
+  fileName: string;
+}) {
+  const identity = input.motoristaId || normalizeText(input.fileName);
+  return `${input.periodId}|${input.basePaymentId}|${identity}`;
+}
+
+async function publishApprovedUpload(input: {
+  uploadPdfId: string;
+  motoristaId: string;
+  periodId: string;
+  basePaymentId: string;
+  fileName: string;
+  storageKey: string;
+  createdByUserId?: string | null;
+  version?: number;
+}) {
+  await upsertDriverPdfReceivedFromUpload({
+    uploadPdfId: input.uploadPdfId,
+    motoristaId: input.motoristaId,
+    periodId: input.periodId,
+    basePaymentId: input.basePaymentId,
+    fileName: input.fileName,
+    storageKey: input.storageKey,
+    createdByUserId: input.createdByUserId ?? null
+  });
+
+  await notifyPdfOnline(
+    "portal.upload.created",
+    {
+      id: input.uploadPdfId,
+      uploadId: input.uploadPdfId,
+      uploadPdfId: input.uploadPdfId,
+      periodId: input.periodId,
+      periodoPagamentoId: input.periodId,
+      basePaymentId: input.basePaymentId,
+      basePagamentoId: input.basePaymentId,
+      motoristaId: input.motoristaId,
+      nomeArquivo: input.fileName,
+      nomeOriginal: input.fileName,
+      caminhoArquivo: input.storageKey,
+      storageKey: input.storageKey,
+      status: "processado",
+      tipoArquivo: "application/pdf",
+      versao: input.version || 1
+    },
+    {
+      userId: input.createdByUserId || undefined,
+      periodId: input.periodId,
+      basePaymentId: input.basePaymentId
+    }
+  ).catch((error) => {
+    console.warn(
+      "PDF Online bridge upload-created failed:",
+      error instanceof Error ? error.message : error
+    );
+  });
 }
 
 export async function reconcilePendingUploadsFromRegistry() {
@@ -289,13 +481,16 @@ export async function reconcilePendingUploadsFromRegistry() {
       documentType: {
         not: DocumentTypeCode.nota_fiscal
       },
-      motoristaId: null,
       periodoPagamentoId: {
         not: null
       },
       basePagamentoId: {
         not: null
-      }
+      },
+      OR: [
+        { motoristaId: null },
+        { status: UploadStatus.pendente }
+      ]
     },
     select: {
       id: true,
@@ -311,6 +506,11 @@ export async function reconcilePendingUploadsFromRegistry() {
         select: {
           status: true
         }
+      },
+      basePagamento: {
+        select: {
+          nome: true
+        }
       }
     },
     orderBy: {
@@ -320,17 +520,75 @@ export async function reconcilePendingUploadsFromRegistry() {
   });
 
   for (const upload of pendingUploads) {
-    const resolved = await resolveDriverRegistryByIdentity({
-      fileName: upload.nomeOriginal,
-      name: upload.motoristaNomeExtraido || undefined,
-      cnpj: upload.motoristaCnpjExtraido || undefined
-    });
+    const resolved = upload.motoristaId
+      ? null
+      : await resolveDriverRegistryByIdentity({
+          fileName: upload.nomeOriginal,
+          name: upload.motoristaNomeExtraido || undefined,
+          cnpj: upload.motoristaCnpjExtraido || undefined,
+          uploadIdentity: true,
+          base: upload.basePagamento?.nome || undefined
+        });
 
-    if (!resolved || "ambiguous" in resolved) {
+    if (!upload.motoristaId && (!resolved || "ambiguous" in resolved)) {
       continue;
     }
 
-    const motoristaId = await ensureMotoristaFromRegistryMatch(resolved);
+    const selectedBaseName = upload.basePagamento?.nome || "";
+    const resolvedMatch = resolved && !("ambiguous" in resolved) ? resolved : null;
+    if (
+      !upload.motoristaId &&
+      resolvedMatch?.base &&
+      normalizeText(resolvedMatch.base) !== normalizeText(selectedBaseName)
+    ) {
+      await prisma.uploadPdf.updateMany({
+        where: { id: upload.id, motoristaId: null },
+        data: { motivoPendencia: "pre_cadastro_inconsistente" }
+      });
+      continue;
+    }
+
+    if (
+      !upload.motoristaId &&
+      upload.motoristaCnpjExtraido &&
+      resolvedMatch?.cnpj &&
+      digitsOnly(upload.motoristaCnpjExtraido) !== digitsOnly(resolvedMatch.cnpj)
+    ) {
+      await prisma.uploadPdf.updateMany({
+        where: { id: upload.id, motoristaId: null },
+        data: { motivoPendencia: "pre_cadastro_cnpj_divergente" }
+      });
+      continue;
+    }
+
+    const cnpjMatches = Boolean(
+      upload.motoristaCnpjExtraido &&
+      resolvedMatch?.cnpj &&
+      digitsOnly(upload.motoristaCnpjExtraido) === digitsOnly(resolvedMatch.cnpj)
+    );
+    const extractedName = cnpjMatches
+      ? normalizeIdentityNameForBase(upload.motoristaNomeExtraido, selectedBaseName)
+      : normalizeText(upload.motoristaNomeExtraido || "");
+
+    if (
+      !upload.motoristaId &&
+      resolvedMatch &&
+      extractedName &&
+      extractedName !== normalizeText(resolvedMatch.nome || "") &&
+      extractedName !== normalizeText(resolvedMatch.nomeFavorecido || "")
+    ) {
+      await prisma.uploadPdf.updateMany({
+        where: { id: upload.id, motoristaId: null },
+        data: { motivoPendencia: "pre_cadastro_inconsistente" }
+      });
+      continue;
+    }
+
+    const motoristaId = upload.motoristaId || (
+      resolvedMatch
+        ? await ensureMotoristaFromRegistryMatch(resolvedMatch)
+        : null
+    );
 
     if (!motoristaId) {
       continue;
@@ -339,13 +597,14 @@ export async function reconcilePendingUploadsFromRegistry() {
     const claimed = await prisma.uploadPdf.updateMany({
       where: {
         id: upload.id,
-        motoristaId: null,
         status: {
           in: [UploadStatus.pendente, UploadStatus.processado]
         }
       },
       data: {
         motoristaId,
+        motoristaNomeExtraido: resolvedMatch?.nome || upload.motoristaNomeExtraido,
+        motoristaCnpjExtraido: resolvedMatch?.cnpj || upload.motoristaCnpjExtraido,
         status: UploadStatus.processado,
         motivoPendencia: null
       }
@@ -356,7 +615,7 @@ export async function reconcilePendingUploadsFromRegistry() {
     }
 
     if (upload.periodoPagamento?.status === "aprovado") {
-      await upsertDriverPdfReceivedFromUpload({
+      await publishApprovedUpload({
         uploadPdfId: upload.id,
         motoristaId,
         periodId: upload.periodoPagamentoId || "",
@@ -404,15 +663,11 @@ router.get("/", (req, res) => {
     });
 
     const paymentUploads = uploads.filter((item) => item.documentType !== DocumentTypeCode.nota_fiscal);
-    const childReferences = new Set(
-      paymentUploads
-        .map((item) => item.substituiUploadId)
-        .filter((value): value is string => Boolean(value))
-    );
-
     res.json(
       paymentUploads
-        .filter((item) => !childReferences.has(item.id) && isPaymentMirrorUpload(item))
+        // Keep replaced versions visible so the operational queue clearly
+        // records that the previous mirror was superseded by a new upload.
+        .filter((item) => isPaymentMirrorUpload(item))
         .map(serializeUpload)
     );
   })().catch((error) => {
@@ -464,6 +719,7 @@ router.post("/", upload.array("files", MAX_UPLOAD_FILES_PER_REQUEST), (req, res)
     const files = (req.files as Express.Multer.File[]) || [];
     const periodId = String(req.body?.periodId || "").trim();
     const basePaymentId = String(req.body?.basePaymentId || "").trim();
+    const allowNegativeTotal = String(req.body?.allowNegativeTotal || "").toLowerCase() === "true";
 
     if (files.length === 0) {
       res.status(400).json({
@@ -535,26 +791,95 @@ router.post("/", upload.array("files", MAX_UPLOAD_FILES_PER_REQUEST), (req, res)
       STORAGE_UPLOAD_CONCURRENCY,
       async (file) => {
         const resolved = await resolveUploadMotorista(file, selectedBase.nome, req.body as Record<string, unknown>);
+        const totalValue = await extractTotalGeralValueFromSource({ content: file.buffer }).catch(() => null);
 
         return {
           file,
-          ...resolved
+          ...resolved,
+          totalValue
         };
       }
     );
 
-    const validationErrors = resolvedFiles.flatMap((item) =>
-      "error" in item
-        ? [
-            {
-              fileName: item.file.originalname,
-              message: item.error
-            }
-          ]
-        : []
+    const existingUploads = await prisma.uploadPdf.findMany({
+      where: {
+        periodoPagamentoId: periodId,
+        basePagamentoId: basePaymentId,
+        documentType: { not: DocumentTypeCode.nota_fiscal },
+        status: { not: UploadStatus.removido }
+      },
+      select: {
+        motoristaId: true,
+        nomeOriginal: true
+      }
+    });
+    const existingDuplicateKeys = new Set(
+      existingUploads.map((item) => mirrorDuplicateKey({
+        periodId,
+        basePaymentId,
+        motoristaId: item.motoristaId,
+        fileName: item.nomeOriginal
+      }))
     );
+    const requestDuplicateKeys = new Set<string>();
+    const duplicateIndexes = new Set<number>();
+    const periodMismatchIndexes = new Set<number>();
 
-    const validFiles = resolvedFiles.filter((item) => !("error" in item)) as Array<
+    const validationErrors = resolvedFiles.reduce<Array<{ fileName: string; message: string; code?: string }>>((errors, item, index) => {
+      if ("error" in item) {
+        errors.push({
+          fileName: item.file.originalname,
+          message: item.error || "Falha na validação do PDF."
+        });
+        return errors;
+      }
+
+      if (!mirrorMatchesPeriod(item.mirrorPeriodRange, period.dataInicio, period.dataFim)) {
+        periodMismatchIndexes.add(index);
+        errors.push({
+          fileName: item.file.originalname,
+          message: `Espelho bloqueado: o arquivo pertence ao período ${item.mirrorPeriodRange?.startDate} até ${item.mirrorPeriodRange?.endDate}, diferente do período selecionado.`,
+          code: "periodo_espelho_divergente"
+        });
+        return errors;
+      }
+
+      const duplicateKey = mirrorDuplicateKey({
+        periodId,
+        basePaymentId,
+        motoristaId: item.motoristaId,
+        fileName: item.file.originalname
+      });
+
+      if (existingDuplicateKeys.has(duplicateKey) || requestDuplicateKeys.has(duplicateKey)) {
+        duplicateIndexes.add(index);
+        errors.push({
+          fileName: item.file.originalname,
+          message: "Espelho de pagamento duplicado: já existe um espelho deste motorista neste período e base. Use Substituir para trocar o arquivo.",
+          code: "espelho_duplicado"
+        });
+        return errors;
+      }
+
+      requestDuplicateKeys.add(duplicateKey);
+
+      if (!allowNegativeTotal && item.totalValue !== null && item.totalValue < 0) {
+        errors.push({
+          fileName: item.file.originalname,
+          message: "Espelho de pagamento bloqueado: o Total Geral está negativo.",
+          code: "total_geral_negativo"
+        });
+      }
+
+      return errors;
+    }, []);
+
+    const validFiles = resolvedFiles.filter((item, index) =>
+      !("error" in item) &&
+      !duplicateIndexes.has(index) &&
+      !periodMismatchIndexes.has(index) &&
+      (allowNegativeTotal || item.totalValue === null || item.totalValue >= 0)
+    ) as Array<
       {
         file: Express.Multer.File;
         motoristaId?: string | null;
@@ -564,10 +889,28 @@ router.post("/", upload.array("files", MAX_UPLOAD_FILES_PER_REQUEST), (req, res)
         baseName: string;
         pending?: boolean;
         pendingReason?: string;
+        mirrorPeriodRange?: PaymentMirrorPeriodRange | null;
+        totalValue: number | null;
       }
     >;
 
     if (validFiles.length === 0) {
+      await prisma.logAuditoria.create({
+        data: {
+          usuarioId: auth.userId,
+          acao: "upload_pdfs_rejeitado",
+          entidade: "uploads_pdf",
+          entidadeId: periodId,
+          detalhes: {
+            periodoPagamentoId: periodId,
+            basePagamentoId: basePaymentId,
+            quantidadeTentada: files.length,
+            quantidadeEnviada: 0,
+            arquivos: files.map((file) => file.originalname),
+            falhas: validationErrors
+          }
+        }
+      });
       res.status(400).json({
         message: validationErrors[0]?.message || "Nenhum PDF valido para upload.",
         uploaded: 0,
@@ -591,6 +934,8 @@ router.post("/", upload.array("files", MAX_UPLOAD_FILES_PER_REQUEST), (req, res)
             contentType: file.mimetype
           });
 
+          // Persist the amount during upload so the summary and "A pagar"
+          // use the same source of truth without waiting for a restart.
           const created = await prisma.uploadPdf.create({
             data: {
               id: randomUUID(),
@@ -599,19 +944,33 @@ router.post("/", upload.array("files", MAX_UPLOAD_FILES_PER_REQUEST), (req, res)
               caminhoArquivo: storageKey,
               documentType: DocumentTypeCode.espelho,
               versao: 1,
-              status: UploadStatus.pendente,
+              status: motoristaId ? UploadStatus.processado : UploadStatus.pendente,
               usuarioId: auth.userId,
               motoristaId: motoristaId || null,
               motoristaNomeExtraido: motoristaNome,
               motoristaCnpjExtraido: motoristaCnpj,
               motivoPendencia: motoristaId ? null : pendingReason || "pre_cadastro_nao_encontrado",
               periodoPagamentoId: periodId,
-              basePagamentoId: basePaymentId
+              basePagamentoId: basePaymentId,
+              valorTotalPdf: item.totalValue === null ? undefined : new Prisma.Decimal(item.totalValue)
             },
             select: {
               id: true
             }
           });
+
+          if (period.status === "aprovado" && motoristaId) {
+            await publishApprovedUpload({
+              uploadPdfId: created.id,
+              motoristaId,
+              periodId,
+              basePaymentId,
+              fileName: file.originalname,
+              storageKey,
+              createdByUserId: auth.userId,
+              version: 1
+            });
+          }
 
           return {
             ok: true as const,
@@ -620,7 +979,8 @@ router.post("/", upload.array("files", MAX_UPLOAD_FILES_PER_REQUEST), (req, res)
             motoristaNome,
             motoristaCpf,
             baseName,
-            baseMismatch: normalizeText(baseName || "") !== normalizeText(selectedBase.nome)
+            baseMismatch: normalizeText(baseName || "") !== normalizeText(selectedBase.nome),
+            pendingReason: motoristaId ? null : pendingReason || "pre_cadastro_nao_encontrado"
           };
         } catch (error) {
           return {
@@ -633,15 +993,22 @@ router.post("/", upload.array("files", MAX_UPLOAD_FILES_PER_REQUEST), (req, res)
     );
 
     const uploadedFiles = processedFiles.filter((item) => item.ok);
-    const failedFiles = [
+    const failedFiles: Array<{ fileName: string; message: string; code?: string }> = [
       ...validationErrors,
       ...processedFiles
-        .filter((item) => !item.ok)
+        .filter((item) => item.ok === false)
         .map((item) => ({
           fileName: item.fileName,
           message: item.message
         }))
     ];
+    const pendingFiles = processedFiles
+      .filter((item) => item.ok && item.pendingReason)
+      .map((item) => ({
+        fileName: item.fileName,
+        message: describeUploadPendingReason(item.pendingReason || undefined),
+        code: item.pendingReason || undefined
+      }));
 
     await prisma.logAuditoria.create({
       data: {
@@ -661,13 +1028,14 @@ router.post("/", upload.array("files", MAX_UPLOAD_FILES_PER_REQUEST), (req, res)
       }
     });
 
-    res.status(failedFiles.length > 0 ? 207 : 201).json({
+    res.status(failedFiles.length > 0 || pendingFiles.length > 0 ? 207 : 201).json({
       message:
-        failedFiles.length > 0
-          ? `${uploadedFiles.length} PDF(s) enviado(s). ${failedFiles.length} arquivo(s) precisam de revisao.`
+        failedFiles.length > 0 || pendingFiles.length > 0
+          ? `${uploadedFiles.length} PDF(s) armazenado(s). ${failedFiles.length + pendingFiles.length} arquivo(s) precisam de revisao.`
           : "Upload concluido com sucesso.",
       uploaded: uploadedFiles.length,
-      failed: failedFiles
+      failed: failedFiles,
+      pending: pendingFiles
     });
   })().catch((error) => {
     res.status(500).json({
@@ -827,8 +1195,27 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
         status: true,
         usuarioId: true,
         motoristaId: true,
+        motoristaNomeExtraido: true,
+        motoristaCnpjExtraido: true,
         periodoPagamentoId: true,
-        basePagamentoId: true
+        basePagamentoId: true,
+        motorista: {
+          select: {
+            nome: true
+          }
+        },
+        periodoPagamento: {
+          select: {
+            dataInicio: true,
+            dataFim: true,
+            status: true
+          }
+        },
+        basePagamento: {
+          select: {
+            nome: true
+          }
+        }
       }
     });
 
@@ -858,6 +1245,97 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
       return;
     }
 
+    const replacementMetadata = await extractPaymentMirrorMetadata(file.buffer);
+    if (
+      currentUpload.periodoPagamento &&
+      !mirrorMatchesPeriod(
+        replacementMetadata.periodRange,
+        currentUpload.periodoPagamento.dataInicio,
+        currentUpload.periodoPagamento.dataFim
+      )
+    ) {
+      res.status(422).json({
+        message: "Substituição bloqueada: o período impresso no novo espelho é diferente do período do registro atual.",
+        code: "periodo_espelho_divergente"
+      });
+      return;
+    }
+
+    const replacementName = normalizeText(replacementMetadata.identity?.name || "");
+    const currentName = normalizeText(currentUpload.motorista?.nome || currentUpload.motoristaNomeExtraido || "");
+    const replacementCnpj = replacementMetadata.identity?.cnpj.replace(/\D/g, "") || "";
+    const currentCnpj = currentUpload.motoristaCnpjExtraido?.replace(/\D/g, "") || "";
+    const hasComparableCnpj = Boolean(replacementCnpj && currentCnpj);
+    if (
+      (hasComparableCnpj && replacementCnpj !== currentCnpj) ||
+      (!hasComparableCnpj && replacementName && currentName && replacementName !== currentName)
+    ) {
+      res.status(422).json({
+        message: "Substituição bloqueada: o novo espelho pertence a outro motorista ou favorecido.",
+        code: "motorista_espelho_divergente"
+      });
+      return;
+    }
+
+    // Never inherit a possibly stale motoristaId during substitution. Resolve
+    // the replacement against the authoritative ARCHI identity first; this
+    // prevents a file for one driver from remaining linked to a previous
+    // driver's record after a replacement/reprocess.
+    const replacementMatch = await resolveDriverRegistryByIdentity({
+      name: replacementMetadata.identity?.name || undefined,
+      cnpj: replacementCnpj || undefined,
+      cpf: String(req.body?.motoristaCpf || "").trim() || undefined,
+      uploadIdentity: true,
+      base: currentUpload.basePagamento?.nome || undefined
+    });
+    if (!replacementMatch || "ambiguous" in replacementMatch) {
+      res.status(422).json({
+        message: "Substituição bloqueada: não foi possível confirmar o motorista no ARCHI.",
+        code: "motorista_archi_nao_confirmado"
+      });
+      return;
+    }
+    if (replacementMatch.base && currentUpload.basePagamento?.nome &&
+      normalizeText(replacementMatch.base) !== normalizeText(currentUpload.basePagamento.nome)) {
+      res.status(422).json({
+        message: "Substituição bloqueada: a base do motorista diverge da base do período.",
+        code: "base_motorista_divergente"
+      });
+      return;
+    }
+    if (
+      replacementCnpj &&
+      replacementMatch.cnpj &&
+      replacementCnpj !== digitsOnly(replacementMatch.cnpj)
+    ) {
+      res.status(422).json({
+        message: "Substituição bloqueada: o CNPJ do espelho diverge do cadastro confirmado no ARCHI.",
+        code: "cnpj_motorista_divergente"
+      });
+      return;
+    }
+    const replacementCpf = digitsOnly(String(req.body?.motoristaCpf || ""));
+    const archiCpf = digitsOnly(replacementMatch.cpfDigits || replacementMatch.cpf || "");
+    if (replacementCpf && archiCpf && replacementCpf !== archiCpf) {
+      res.status(422).json({
+        message: "Substituição bloqueada: o CPF informado não confirma o motorista localizado pelo nome, CNPJ e base.",
+        code: "cpf_confirmacao_divergente"
+      });
+      return;
+    }
+    const replacementMotoristaId = await ensureMotoristaFromRegistryMatch(replacementMatch);
+
+    const totalValue = await extractTotalGeralValueFromSource({ content: file.buffer }).catch(() => null);
+
+    if (totalValue !== null && totalValue < 0) {
+      res.status(422).json({
+        message: "Espelho de pagamento bloqueado: o Total Geral está negativo.",
+        code: "total_geral_negativo",
+        fileName: file.originalname
+      });
+      return;
+    }
+
     const storageFolder = [
       "uploads",
       `periodos/${currentUpload.periodoPagamentoId || "sem-periodo"}`,
@@ -870,7 +1348,8 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
       contentType: file.mimetype
     });
 
-    const [_updatedUpload, newUpload] = await prisma.$transaction([
+    const replacementUploadId = randomUUID();
+    await prisma.$transaction([
       prisma.uploadPdf.update({
         where: {
           id: currentUpload.id
@@ -890,11 +1369,14 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
           "status",
           "usuario_id",
           "motorista_id",
+          "motorista_nome_extraido",
+          "motorista_cnpj_extraido",
           "periodo_pagamento_id",
           "base_pagamento_id",
-          "substitui_upload_id"
+          "substitui_upload_id",
+          "valor_total_pdf"
         ) values (
-          cast(${randomUUID()} as uuid),
+          cast(${replacementUploadId} as uuid),
           ${file.originalname},
           ${file.originalname},
           ${key},
@@ -902,13 +1384,34 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
           ${currentUpload.versao + 1},
           cast(${currentUpload.status} as "UploadStatus"),
           cast(${auth.userId} as uuid),
-          cast(${currentUpload.motoristaId} as uuid),
+          cast(${replacementMotoristaId} as uuid),
+          ${replacementMatch.nome || replacementMetadata.identity?.name || currentUpload.motoristaNomeExtraido},
+          ${replacementMatch.cnpj || replacementMetadata.identity?.cnpj || currentUpload.motoristaCnpjExtraido},
           cast(${currentUpload.periodoPagamentoId} as uuid),
           cast(${currentUpload.basePagamentoId} as uuid),
-          cast(${currentUpload.id} as uuid)
+          cast(${currentUpload.id} as uuid),
+          cast(${totalValue} as numeric)
         )
       `)
     ]);
+
+    if (
+      currentUpload.periodoPagamento?.status === "aprovado" &&
+      replacementMotoristaId &&
+      currentUpload.periodoPagamentoId &&
+      currentUpload.basePagamentoId
+    ) {
+      await publishApprovedUpload({
+        uploadPdfId: replacementUploadId,
+        motoristaId: replacementMotoristaId,
+        periodId: currentUpload.periodoPagamentoId,
+        basePaymentId: currentUpload.basePagamentoId,
+        fileName: file.originalname,
+        storageKey: key,
+        createdByUserId: auth.userId,
+        version: currentUpload.versao + 1
+      });
+    }
 
     // A versão anterior permanece no bucket para que o histórico continue permitindo download.
     // Ela já fica fora da fila operacional pelo status "substituido" e pelo vínculo de versão.
