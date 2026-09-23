@@ -469,6 +469,7 @@ function App() {
   const [negativePdfModalOpen, setNegativePdfModalOpen] = useState(false);
   const [uploadIssues, setUploadIssues] = useState<UploadIssue[]>([]);
   const [uploadIssuesModalOpen, setUploadIssuesModalOpen] = useState(false);
+  const [replacementError, setReplacementError] = useState<{ fileName: string; message: string; status?: number; code?: string } | null>(null);
   const [uploadHistory, setUploadHistory] = useState<UploadHistoryState>(null);
   const [baseEditorOpen, setBaseEditorOpen] = useState(false);
   const [editingBase, setEditingBase] = useState<PaymentBase | null>(null);
@@ -1736,13 +1737,14 @@ function App() {
         setUploadIssuesModalOpen(true);
       }
 
-      setFlashMessage({
-        type: uploadedTotal > 0 ? "success" : "error",
-        text:
-          failedFiles.length > 0
-          ? `${uploadedTotal} PDF(s) armazenado(s). ${failedFiles.length} arquivo(s) precisam de revisão ou vínculo.`
-            : `${uploadedTotal} PDF(s) enviado(s) com sucesso.`
-      });
+      if (failedFiles.length === 0) {
+        setFlashMessage({
+          type: "success",
+          text: `${uploadedTotal} PDF(s) enviado(s) com sucesso.`
+        });
+      } else {
+        setFlashMessage(null);
+      }
       await Promise.all([loadUploadsData(), loadDashboardSummary()]);
       navigateToRoute("pdfs");
     } catch (error) {
@@ -1759,10 +1761,7 @@ function App() {
           }));
       setUploadIssues(failedFiles);
       setUploadIssuesModalOpen(true);
-      setFlashMessage({
-        type: "error",
-        text: error instanceof Error ? error.message : "Falha ao enviar PDFs."
-      });
+      setFlashMessage(null);
     } finally {
       setLoadingMessage("");
       setUploadProgress(null);
@@ -1824,18 +1823,27 @@ function App() {
         });
       }
     } catch (error) {
+      const payload = error instanceof ApiError && error.payload && typeof error.payload === "object"
+        ? error.payload as { code?: string; message?: string }
+        : null;
+      setFlashMessage(null);
+      const isNegativeTotal = payload?.code === "total_geral_negativo";
+      if (!isNegativeTotal) {
+        setReplacementError({
+          fileName: file.name,
+          message: payload?.message || (error instanceof Error ? error.message : "Falha ao substituir o PDF."),
+          status: error instanceof ApiError ? error.status : undefined,
+          code: payload?.code
+        });
+      }
       if (error instanceof ApiError && error.payload && typeof error.payload === "object") {
-        const payload = error.payload as { code?: string; fileName?: string; message?: string };
-        if (payload.code === "total_geral_negativo" && payload.fileName) {
-          setNegativePdfFailures([{ fileName: payload.fileName, message: payload.message || error.message, file, fields: {} }]);
+        const errorPayload = error.payload as { code?: string; fileName?: string; message?: string };
+        if (errorPayload.code === "total_geral_negativo" && errorPayload.fileName) {
+          setNegativePdfFailures([{ fileName: errorPayload.fileName, message: errorPayload.message || error.message, file, fields: {} }]);
           setSelectedNegativePdfNames([]);
           setNegativePdfModalOpen(true);
         }
       }
-      setFlashMessage({
-        type: "error",
-        text: error instanceof Error ? error.message : "Falha ao substituir PDF."
-      });
     } finally {
       setLoadingMessage("");
       setUploadProgress(null);
@@ -2633,6 +2641,53 @@ function App() {
                     Revisar valores negativos
                   </button>
                 ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {replacementError ? (
+          <div className="modal-overlay" onClick={() => setReplacementError(null)}>
+            <div
+              className="modal-card modal-card--confirm upload-replacement-error"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="upload-replacement-error-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="modal-card__header">
+                <div>
+                  <p className="eyebrow">Substituição não concluída</p>
+                  <h3 id="upload-replacement-error-title">
+                    {replacementError.status === 422 ? "O PDF anterior continua vigente" : "Confira o status antes de reenviar"}
+                  </h3>
+                  <p>
+                    {replacementError.status === 422
+                      ? "O novo arquivo foi recusado e não substituiu o documento vigente."
+                      : "Não foi possível confirmar a substituição. Consulte o histórico antes de tentar novamente."}
+                  </p>
+                </div>
+                <button className="ghost-button ghost-button--small" type="button" onClick={() => setReplacementError(null)}>
+                  Fechar
+                </button>
+              </div>
+              <div className="modal-card__body">
+                <dl className="upload-replacement-error__details">
+                  <div><dt>Arquivo selecionado</dt><dd>{replacementError.fileName}</dd></div>
+                  <div><dt>Motivo informado pelo sistema</dt><dd>{replacementError.message}</dd></div>
+                  {replacementError.status ? <div><dt>Código HTTP</dt><dd>{replacementError.status}</dd></div> : null}
+                  {replacementError.code ? <div><dt>Código do erro</dt><dd>{replacementError.code}</dd></div> : null}
+                </dl>
+                <p className="upload-replacement-error__hint">
+                  {replacementError.status === 422
+                    ? "Confira o período, motorista, base e dados do espelho indicados no motivo antes de tentar novamente."
+                    : "Atualize a fila de documentos e confirme qual arquivo está vigente antes de reenviar."}
+                </p>
+              </div>
+              <div className="modal-card__actions">
+                <button className="primary-button primary-button--inline" type="button" onClick={() => setReplacementError(null)}>
+                  Entendi
+                </button>
               </div>
             </div>
           </div>
@@ -5269,7 +5324,9 @@ function AtendimentoScreen({
     });
   }, [detail, paymentHistoryQuery]);
 
-  const selectedMotoristaBase = detail?.motorista.base || detail?.motorista.empresaVinculada || "Base não informada";
+  const selectedMotoristaBase = detail?.motorista.bases?.length
+    ? detail.motorista.bases.join(" | ")
+    : detail?.motorista.base || detail?.motorista.empresaVinculada || "Base não informada";
 
   const buildMotoristaEditForm = (motorista: AtendimentoDetail["motorista"]): AtendimentoMotoristaUpdatePayload => ({
     nome: motorista.nome || "",
@@ -5806,7 +5863,7 @@ function AtendimentoScreen({
                     <div><strong>WhatsApp</strong><span>{detail.motorista.whatsapp || 'Não informado'}</span></div>
                     <div><strong>E-mail</strong><span>{detail.motorista.email || 'Não informado'}</span></div>
                     <div><strong>Endereço</strong><span>{detail.motorista.endereco || 'Não informado'}</span></div>
-                    <div><strong>Base</strong><span>{selectedMotoristaBase}</span></div>
+                    <div><strong>Bases vinculadas</strong><span>{selectedMotoristaBase}</span></div>
                     <div><strong>Favorecido</strong><span>{detail.motorista.nomeFavorecido || 'Não informado'}</span></div>
                     <div><strong>CPF/CNPJ favorecido</strong><span>{detail.motorista.cpfFavorecido || detail.motorista.cnpjFavorecido || 'Não informado'}</span></div>
                     <div><strong>E-mail do favorecido</strong><span>{detail.motorista.emailFavorecido || 'Não informado'}</span></div>

@@ -62,6 +62,7 @@ export type DriverRegistryMatch = {
   nomeFavorecido?: string | null;
   statusArchi?: string | null;
   base: string | null;
+  bases?: string[];
   raw: DriverRegistryRow;
 };
 
@@ -89,6 +90,24 @@ export function normalizeText(value: string) {
     .replace(/[_-]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+export function getDriverBases(row: DriverRegistryRow) {
+  const extraData = decodeExtraData(row.extra_data);
+  const additionalBases = Array.isArray(row.bases)
+    ? row.bases
+    : Array.isArray(extraData.bases)
+      ? extraData.bases
+      : [];
+  const primaryBase = getRecordValue(row, DRIVER_REGISTRY_BASE_CANDIDATES);
+  return Array.from(new Set([primaryBase, ...additionalBases]
+    .map((base) => String(base || "").trim())
+    .filter(Boolean)));
+}
+
+export function driverMatchesBase(row: DriverRegistryRow, base: string) {
+  const expected = normalizeText(base);
+  return Boolean(expected) && getDriverBases(row).some((candidate) => normalizeText(candidate) === expected);
 }
 
 export function digitsOnly(value: string | null | undefined) {
@@ -246,6 +265,7 @@ function mapRegistryRow(row: DriverRegistryRow): DriverRegistryMatch {
     getRecordValue(row, DRIVER_REGISTRY_DISPLAY_NAME_CANDIDATES)
   ].filter(isUsableDriverName).map((value) => String(value).trim());
   const authoritativeName = nameCandidates.sort((left, right) => right.length - left.length)[0] || "Sem nome";
+  const bases = getDriverBases({ ...row, extra_data: extraData });
 
   return {
     externalId: String(getRecordValue(row, ["id", "uuid", "codigo", "driver_id", "identificador"]) || ""),
@@ -256,7 +276,8 @@ function mapRegistryRow(row: DriverRegistryRow): DriverRegistryMatch {
     nomeFavorecido,
     statusArchi: getRecordValue(row, ["status", "status_cadastro", "statusCadastro", "situacao"]),
     base: getRecordValue(row, DRIVER_REGISTRY_BASE_CANDIDATES),
-    raw: { ...row, extra_data: extraData }
+    bases,
+    raw: { ...row, extra_data: extraData, bases }
   };
 }
 
@@ -538,7 +559,7 @@ export async function resolveDriverRegistryByIdentity(options: {
     if (matches.length === 0) return null;
 
     if (options.base) {
-      const exactBaseMatches = matches.filter((item) => normalizeText(item.base || "") === normalizeText(options.base || ""));
+      const exactBaseMatches = matches.filter((item) => driverMatchesBase(item.raw, options.base || ""));
       if (exactBaseMatches.length > 0) matches = exactBaseMatches;
     }
 

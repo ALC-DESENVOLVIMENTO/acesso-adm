@@ -3200,6 +3200,44 @@ button {
   width: min(760px, 100%);
 }
 
+.upload-replacement-error {
+  width: min(620px, 100%);
+}
+
+.upload-replacement-error__details {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0 0;
+}
+
+.upload-replacement-error__details div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(220, 53, 69, 0.18);
+  border-radius: 8px;
+  background: rgba(220, 53, 69, 0.045);
+}
+
+.upload-replacement-error__details dt {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.upload-replacement-error__details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+.upload-replacement-error__hint {
+  margin: 14px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .upload-issues-list {
   display: grid;
   gap: 10px;

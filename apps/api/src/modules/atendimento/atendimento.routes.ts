@@ -8,7 +8,7 @@ import {
   resolvePaymentProcessStatus
 } from "../../lib/financeiro-payment-status.js";
 import { buildStorageObjectUrl, createStorageKey, fetchObjectBuffer, uploadObject } from "../../lib/storage.js";
-import { searchArchiDriverMatches } from "../../lib/driver-registry.js";
+import { getDriverBases, searchArchiDriverMatches } from "../../lib/driver-registry.js";
 
 const router = Router();
 
@@ -590,6 +590,7 @@ function driverRegistryAsAtendimentoPayload(row: DriverRegistryRawRow) {
   const metadata = {
     id: getRecordValue(row, ["id", "uuid", "codigo", "driver_id", "identificador"]),
     base: getRecordValue(row, DRIVER_REGISTRY_BASE_CANDIDATES),
+    bases: getDriverBases(row),
     name: getRecordValue(row, ["display_name", "normalized_name", "nome", "name", "full_name", "nome_completo", "driver_name", "razao_social"]),
     cpf: getRecordValue(row, [...DRIVER_REGISTRY_CPF_CANDIDATES, "documento", "document_number", "documento_numero"]),
     cpfDigits: getRecordValue(row, ["cpf_digits", "cpf_numero"]),
@@ -623,6 +624,7 @@ function driverRegistryAsAtendimentoPayload(row: DriverRegistryRawRow) {
     cpfFormatado: formatCpf(metadata.cpf),
     rg: metadata.rg,
     base: metadata.base,
+    bases: metadata.bases,
     sexo: metadata.sexo,
     placa: metadata.placa,
     telefone: getRecordValue(row, ["telefone", "telefone_contato", "fone", "phone"]),
@@ -660,7 +662,7 @@ function mapDriverRegistryForSearch(row: DriverRegistryRawRow, localDriver?: { i
     name: mapped.nome,
     cpf: mapped.cpfFormatado || mapped.cpf || "",
     status: localDriver?.statusCadastro || mapped.statusCadastro,
-    base: mapped.base,
+    base: mapped.bases.join(" | ") || mapped.base,
     city: mapped.cidade,
     state: mapped.estado,
     company: mapped.empresaVinculada,

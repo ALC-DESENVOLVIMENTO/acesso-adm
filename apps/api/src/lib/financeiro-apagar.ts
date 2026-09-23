@@ -9,6 +9,7 @@ import { prisma } from "./prisma.js";
 import { buildStorageObjectUrl } from "./storage.js";
 import {
   digitsOnly,
+  driverMatchesBase,
   normalizeText,
   searchDriverRegistryMatchesByCpfDigits,
   type DriverRegistryMatch
@@ -326,8 +327,7 @@ function findRegistryMatch(
     return null;
   }
 
-  const normalizedBase = normalizeText(baseName || "");
-  const exactBaseMatches = matches.filter((match) => normalizeText(match.base || "") === normalizedBase);
+  const exactBaseMatches = matches.filter((match) => driverMatchesBase(match.raw, baseName || ""));
 
   if (exactBaseMatches.length === 1) {
     return exactBaseMatches[0];

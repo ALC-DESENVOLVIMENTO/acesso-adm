@@ -555,6 +555,7 @@ export type AtendimentoDetail = {
     ultimaAtualizacao: string;
     empresaVinculada: string | null;
     base: string | null;
+    bases: string[];
     sexo: string | null;
     placa: string | null;
     driverType: string | null;

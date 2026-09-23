@@ -15,6 +15,7 @@ import {
 import {
   deriveRegistrySearchFromFileName,
   digitsOnly,
+  driverMatchesBase,
   ensureMotoristaFromRegistryMatch,
   normalizeText,
   resolveDriverRegistryByIdentity
@@ -273,7 +274,7 @@ async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseNam
 
   if (!match && "ambiguous" in resolved) {
     const normalizedBase = normalizeText(selectedBaseName);
-    const baseMatches = resolved.matches.filter((item) => normalizeText(item.base || "") === normalizedBase);
+    const baseMatches = resolved.matches.filter((item) => driverMatchesBase(item.raw, normalizedBase));
 
     if (baseMatches.length === 1) {
       match = baseMatches[0];
@@ -302,7 +303,7 @@ async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseNam
     } as const;
   }
 
-  if (match.base && normalizeText(match.base) !== normalizeText(selectedBaseName)) {
+  if (match.base && !driverMatchesBase(match.raw, selectedBaseName)) {
     return {
       pending: true,
       motoristaNome: identity.name || fallbackName,
@@ -539,7 +540,7 @@ export async function reconcilePendingUploadsFromRegistry() {
     if (
       !upload.motoristaId &&
       resolvedMatch?.base &&
-      normalizeText(resolvedMatch.base) !== normalizeText(selectedBaseName)
+      !driverMatchesBase(resolvedMatch.raw, selectedBaseName)
     ) {
       await prisma.uploadPdf.updateMany({
         where: { id: upload.id, motoristaId: null },
@@ -1296,7 +1297,7 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
       return;
     }
     if (replacementMatch.base && currentUpload.basePagamento?.nome &&
-      normalizeText(replacementMatch.base) !== normalizeText(currentUpload.basePagamento.nome)) {
+      !driverMatchesBase(replacementMatch.raw, currentUpload.basePagamento.nome)) {
       res.status(422).json({
         message: "Substituição bloqueada: a base do motorista diverge da base do período.",
         code: "base_motorista_divergente"
