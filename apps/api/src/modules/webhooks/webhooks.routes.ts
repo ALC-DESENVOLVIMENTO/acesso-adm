@@ -13,6 +13,8 @@ import {
 } from "../../lib/driver-pdf-received.js";
 import { notifyAttendanceStatusToPdfOnline } from "../../lib/pdfonline-bridge.js";
 import { notifyArchi } from "../../lib/archi-bridge.js";
+import { listArchiBases, upsertArchiBase } from "../../lib/archi-base-catalog.js";
+import { requireAuth } from "../../middlewares/auth.middleware.js";
 import { syncDriverRegistryFromWebhook, type DriverRegistryWebhookPayload } from "../../lib/driver-registry.js";
 import { reconcilePendingUploadsFromRegistry } from "../uploads/uploads.routes.js";
 
@@ -22,6 +24,26 @@ const webhookEnvelopeSchema = z.object({
   event: z.string().min(1),
   data: z.record(z.unknown()).default({})
 }).passthrough();
+
+const archiBaseSchema = z.object({
+  externalId: z.string().trim().min(1).max(255),
+  code: z.string().default(""),
+  name: z.string().trim().min(1),
+  baseType: z.string().default(""),
+  location: z.string().default(""),
+  manager: z.string().default(""),
+  operation: z.string().default(""),
+  status: z.enum(["Ativo", "Inativo"]),
+  paymentFrequencies: z.array(z.enum(["Semanal", "Quinzenal", "Mensal"])).max(3),
+  createdAt: z.string().nullable().default(null)
+});
+
+const archiBaseEventSchema = z.object({
+  event: z.enum(["archi.base.created", "archi.base.updated", "archi.base.deleted"]),
+  eventId: z.string().trim().min(1).max(255),
+  data: archiBaseSchema,
+  meta: z.object({ source: z.literal("archi"), occurredAt: z.string().datetime() })
+});
 
 function readWebhookToken(req: Request) {
   const authorization = String(req.headers.authorization || "").trim();
@@ -55,7 +77,8 @@ function isAuthorized(req: Request) {
     return process.env.NODE_ENV !== "production" && process.env.RAILWAY_ENVIRONMENT_NAME !== "production";
   }
 
-  return readWebhookToken(req) === expectedToken;
+  const providedToken = readWebhookToken(req);
+  return providedToken.length === expectedToken.length && timingSafeEqual(Buffer.from(providedToken), Buffer.from(expectedToken));
 }
 
 function isValidWebhookSignature(req: Request) {
@@ -82,6 +105,81 @@ function isArchiDriverEvent(event: string) {
   const normalized = event.toLowerCase();
   return normalized.includes("motorista") || normalized.includes("driver") || normalized.includes("pre_cadastro") || normalized.includes("pre-cadastro");
 }
+
+router.post("/archi/bases", (req, res) => {
+  void (async () => {
+    if (!isAuthorized(req) || !isValidWebhookSignature(req)) {
+      res.status(401).json({ message: "Webhook do ARCHI nao autorizado." });
+      return;
+    }
+    const parsed = archiBaseEventSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ message: "Evento de base invalido." });
+      return;
+    }
+    const { event, eventId, data, meta } = parsed.data;
+    const applied = await upsertArchiBase(data, eventId, meta.occurredAt, event === "archi.base.deleted");
+    res.json({ ok: true, applied, externalId: data.externalId });
+  })().catch((error) => {
+    console.error("Falha no webhook de bases do ARCHI:", error instanceof Error ? error.message : error);
+    res.status(503).json({ message: "Nao foi possivel sincronizar a base." });
+  });
+});
+
+router.get("/archi/bases", requireAuth, (req, res) => {
+  if (!req.auth || req.auth.firstAccess || (!["N3", "N4"].includes(req.auth.level) && !req.auth.modules.some((module) => ["bases", "periods"].includes(module)))) {
+    res.status(403).json({ message: "Acesso ao catalogo de bases nao autorizado." });
+    return;
+  }
+  void listArchiBases().then((bases) => res.json({ bases })).catch((error) => {
+    console.error("Falha ao listar bases do ARCHI:", error instanceof Error ? error.message : error);
+    res.status(503).json({ message: "Catalogo de bases indisponivel." });
+  });
+});
+
+router.post("/archi/bases/sync", (req, res) => {
+  void (async () => {
+    if (!isAuthorized(req) || !isValidWebhookSignature(req)) {
+      res.status(401).json({ message: "Sincronizacao nao autorizada." });
+      return;
+    }
+    const token = resolveExpectedToken();
+    const archiUrl = String(process.env.ARCHI_BASE_URL || "https://alc-archi-production.up.railway.app").trim();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let response: globalThis.Response;
+    try {
+      response = await fetch(new URL("/api/integrations/access-adm/bases", archiUrl), {
+        headers: { "x-webhook-token": token },
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+    if (!response.ok) {
+      res.status(502).json({ message: `ARCHI recusou a consulta de bases (${response.status}).` });
+      return;
+    }
+    const parsed = z.object({ bases: z.array(archiBaseSchema) }).safeParse(await response.json());
+    if (!parsed.success) {
+      res.status(502).json({ message: "ARCHI retornou um catalogo de bases invalido." });
+      return;
+    }
+    const occurredAt = new Date().toISOString();
+    let applied = 0;
+    for (let index = 0; index < parsed.data.bases.length; index += 8) {
+      const batch = parsed.data.bases.slice(index, index + 8);
+      const results = await Promise.all(batch.map((base) => upsertArchiBase(
+        base, `archi:base:snapshot:${occurredAt}:${base.externalId}`, occurredAt, false
+      )));
+      applied += results.filter(Boolean).length;
+    }
+    res.json({ ok: true, received: parsed.data.bases.length, applied });
+  })().catch((error) => {
+    console.error("Falha ao importar catalogo de bases do ARCHI:", error instanceof Error ? error.message : error);
+    res.status(503).json({ message: "Nao foi possivel importar as bases." });
+  });
+});
 
 router.post("/archi/drivers", (req, res) => {
   void (async () => {
