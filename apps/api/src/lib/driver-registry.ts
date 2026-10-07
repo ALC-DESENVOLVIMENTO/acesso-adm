@@ -2,7 +2,8 @@ import { prisma } from "./prisma.js";
 import { randomUUID } from "node:crypto";
 import { gunzipSync } from "node:zlib";
 
-const DRIVER_REGISTRY_TABLE = process.env.ARCHI_DRIVER_SOURCE_ENABLED === "true"
+const ARCHI_DRIVER_SOURCE_ENABLED = process.env.ARCHI_DRIVER_SOURCE_ENABLED === "true";
+const DRIVER_REGISTRY_TABLE = ARCHI_DRIVER_SOURCE_ENABLED
   ? "driver_registry_effective"
   : "driver_registry_entities";
 const DRIVER_REGISTRY_SEARCH_NAME_CANDIDATES = [
@@ -777,130 +778,118 @@ function webhookValue(payload: DriverRegistryWebhookPayload, ...keys: Array<keyo
 
 /** Apply one authoritative ARCHI driver snapshot to the shared registry. */
 export async function syncDriverRegistryFromWebhook(payload: DriverRegistryWebhookPayload) {
-  const metadata = await getDriverRegistryMetadata();
-  if (!metadata) {
-    throw new Error("Tabela de pre-cadastro não encontrada.");
-  }
-
   const nome = webhookValue(payload, "nome", "name");
   const cpfDigits = digitsOnly(webhookValue(payload, "cpfDigits", "cpf"));
   const cnpjDigits = digitsOnly(webhookValue(payload, "cnpjDigits", "cnpj"));
-  const externalId = webhookValue(payload, "externalId");
-  const idColumn = getColumn(metadata, ["id", "uuid", "codigo", "driver_id", "identificador"]);
-  const nameColumn = getColumn(metadata, DRIVER_REGISTRY_SEARCH_NAME_CANDIDATES);
-  const cpfColumn = getColumn(metadata, DRIVER_REGISTRY_CPF_CANDIDATES);
-  const cpfDigitsColumn = getColumn(metadata, ["cpf_digits", "cpf_numero"]);
-  const cnpjColumn = getColumn(metadata, DRIVER_REGISTRY_CNPJ_CANDIDATES);
-  const cnpjDigitsColumn = getColumn(metadata, ["cnpj_digits"]);
-
-  const where: string[] = [];
-  const params: unknown[] = [];
-  const addWhere = (column: string | null, value: string, cast = "") => {
-    if (!column || !value) return;
-    params.push(value);
-    where.push(`${quoteIdentifier(column)}::text = $${params.length}${cast}`);
-  };
-
-  if (externalId) addWhere(idColumn, externalId);
-  if (where.length === 0 && cnpjDigits) {
-    if (cnpjDigitsColumn) addWhere(cnpjDigitsColumn, cnpjDigits);
-    else addWhere(cnpjColumn, cnpjDigits);
-  }
-  if (where.length === 0 && cpfDigits) {
-    if (cpfDigitsColumn) addWhere(cpfDigitsColumn, cpfDigits);
-    else addWhere(cpfColumn, cpfDigits);
-  }
-  if (where.length === 0 && nome && nameColumn) {
-    addWhere(nameColumn, nome);
-  }
-
-  if (where.length === 0) {
-    throw new Error("Evento de motorista sem identificador (id, CPF, CNPJ ou nome).");
-  }
-
-  const tableRef = buildTableRef(metadata.schema);
-  let rows = await prisma.$queryRawUnsafe<DriverRegistryRow[]>(
-    `SELECT * FROM ${tableRef} WHERE ${where.join(" AND ")} LIMIT 2`,
-    ...params
-  );
-  // ARCHI's external identifier is not necessarily the database UUID. If it
-  // does not resolve, fall back to the authoritative document before
-  // inserting, preventing duplicate registry rows.
-  if (rows.length === 0 && externalId && (cnpjDigits || cpfDigits)) {
-    const fallbackColumn = cnpjDigits ? (cnpjDigitsColumn || cnpjColumn) : (cpfDigitsColumn || cpfColumn);
-    const fallbackValue = cnpjDigits || cpfDigits;
-    if (fallbackColumn && fallbackValue) {
-      rows = await prisma.$queryRawUnsafe<DriverRegistryRow[]>(
-        `SELECT * FROM ${tableRef} WHERE regexp_replace(COALESCE(${quoteIdentifier(fallbackColumn)}, ''), '\\D', '', 'g') = $1 LIMIT 2`,
-        fallbackValue
-      );
-    }
-  }
-  const row = rows[0] || null;
-  if (rows.length > 1 && !externalId && !cpfDigits) {
-    throw new Error("Evento de motorista ambíguo; aguardando identificador único.");
-  }
-
   const active = registryStatusToActive(payload);
-  const values: Record<string, unknown> = {
-    display_name: nome || undefined,
-    normalized_name: nome ? normalizeText(nome) : undefined,
-    cpf: cpfDigits || undefined,
-    cpf_digits: cpfDigits || undefined,
-    cnpj: webhookValue(payload, "cnpj") || undefined,
-    cnpj_digits: cnpjDigits || undefined,
-    base: webhookValue(payload, "base") || undefined,
-    email: webhookValue(payload, "email") || undefined,
-    phone: webhookValue(payload, "telefone", "phone") || undefined,
-    driver_type: webhookValue(payload, "driverType") || undefined,
-    signup_policy: webhookValue(payload, "signupPolicy") || undefined,
-    active
-  };
+  let match: DriverRegistryMatch | { ambiguous: true; matches: DriverRegistryMatch[] } | null;
 
-  if (!row) {
-    if (!cpfDigits || !nome) {
-      throw new Error("Motorista novo precisa de nome e CPF para ser registrado com segurança.");
+  if (ARCHI_DRIVER_SOURCE_ENABLED) {
+    // driver_registry_effective is a UNION view. ARCHI itself is authoritative
+    // in this mode, so never attempt INSERT/UPDATE against that read-only view.
+    // Match by the driver's CPF only; a beneficiary CNPJ may belong to someone
+    // else and must not prevent the approved driver from being linked.
+    if (!cpfDigits) throw new Error("Evento ARCHI sem CPF do motorista; sincronização interrompida.");
+    const approvedMatches = await searchAuthoritativeArchiDriverMatches({ cpfDigits });
+    if (approvedMatches.length !== 1) {
+      throw new Error(approvedMatches.length === 0
+        ? "Motorista aprovado não encontrado na origem ARCHI pelo CPF."
+        : "CPF corresponde a mais de um cadastro aprovado no ARCHI.");
     }
-
-    const insertValues: Record<string, unknown> = {
-      id: /^[0-9a-f-]{36}$/i.test(externalId) ? externalId : randomUUID(),
-      ...values,
-      created_at: new Date(),
-      updated_at: new Date()
-    };
-    const entries = Object.entries(insertValues).filter(([column, value]) =>
-      metadata.columns.has(column) && value !== undefined
-    );
-    const placeholders = buildDriverRegistryInsertPlaceholders(
-      entries.map(([column]) => column),
-      metadata.columnTypes
-    );
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO ${tableRef} (${entries.map(([column]) => quoteIdentifier(column)).join(", ")}) VALUES (${placeholders.join(", ")})`,
-      ...entries.map(([, value]) => value)
-    );
+    match = approvedMatches[0] || null;
   } else {
-    const rowIdColumn = getColumn(metadata, ["id", "uuid", "codigo", "driver_id", "identificador"]);
-    const rowId = rowIdColumn ? getRecordValue(row, [rowIdColumn]) : null;
-    if (!rowIdColumn || !rowId) throw new Error("Registro de motorista sem chave primária.");
-    const entries = Object.entries(values).filter(([column, value]) =>
-      metadata.columns.has(column) && value !== undefined
+    const metadata = await getDriverRegistryMetadata();
+    if (!metadata) throw new Error("Tabela de pre-cadastro não encontrada.");
+
+    const externalId = webhookValue(payload, "externalId");
+    const idColumn = getColumn(metadata, ["id", "uuid", "codigo", "driver_id", "identificador"]);
+    const nameColumn = getColumn(metadata, DRIVER_REGISTRY_SEARCH_NAME_CANDIDATES);
+    const cpfColumn = getColumn(metadata, DRIVER_REGISTRY_CPF_CANDIDATES);
+    const cpfDigitsColumn = getColumn(metadata, ["cpf_digits", "cpf_numero"]);
+    const cnpjColumn = getColumn(metadata, DRIVER_REGISTRY_CNPJ_CANDIDATES);
+    const cnpjDigitsColumn = getColumn(metadata, ["cnpj_digits"]);
+    const where: string[] = [];
+    const params: unknown[] = [];
+    const addWhere = (column: string | null, value: string) => {
+      if (!column || !value) return;
+      params.push(value);
+      where.push(`${quoteIdentifier(column)}::text = $${params.length}`);
+    };
+
+    if (externalId) addWhere(idColumn, externalId);
+    if (where.length === 0 && cnpjDigits) addWhere(cnpjDigitsColumn || cnpjColumn, cnpjDigits);
+    if (where.length === 0 && cpfDigits) addWhere(cpfDigitsColumn || cpfColumn, cpfDigits);
+    if (where.length === 0 && nome) addWhere(nameColumn, nome);
+    if (where.length === 0) throw new Error("Evento de motorista sem identificador (id, CPF, CNPJ ou nome).");
+
+    const tableRef = buildTableRef(metadata.schema);
+    let rows = await prisma.$queryRawUnsafe<DriverRegistryRow[]>(
+      `SELECT * FROM ${tableRef} WHERE ${where.join(" AND ")} LIMIT 2`, ...params
     );
-    if (entries.length) {
-      const updateParams = entries.map(([, value]) => value);
-      updateParams.push(rowId);
-      const assignments = entries.map(([column], index) => `${quoteIdentifier(column)} = $${index + 1}`);
-      if (metadata.columns.has("updated_at")) {
-        assignments.push(`${quoteIdentifier("updated_at")} = NOW()`);
+    // External IDs and beneficiary CNPJs can differ from the registry key.
+    // Try the driver's CPF as a safe fallback before inserting a new row.
+    if (rows.length === 0 && externalId) {
+      const fallbackColumn = cpfDigitsColumn || cpfColumn;
+      if (fallbackColumn && cpfDigits) {
+        rows = await prisma.$queryRawUnsafe<DriverRegistryRow[]>(
+          `SELECT * FROM ${tableRef} WHERE regexp_replace(COALESCE(${quoteIdentifier(fallbackColumn)}, ''), '\\D', '', 'g') = $1 LIMIT 2`,
+          cpfDigits
+        );
       }
-      await prisma.$executeRawUnsafe(
-        `UPDATE ${tableRef} SET ${assignments.join(", ")} WHERE ${quoteIdentifier(rowIdColumn)}::text = $${updateParams.length}`,
-        ...updateParams
-      );
     }
+    const row = rows[0] || null;
+    if (rows.length > 1 && !externalId && !cpfDigits) {
+      throw new Error("Evento de motorista ambíguo; aguardando identificador único.");
+    }
+
+    const values: Record<string, unknown> = {
+      display_name: nome || undefined,
+      normalized_name: nome ? normalizeText(nome) : undefined,
+      cpf: cpfDigits || undefined,
+      cpf_digits: cpfDigits || undefined,
+      cnpj: webhookValue(payload, "cnpj") || undefined,
+      cnpj_digits: cnpjDigits || undefined,
+      base: webhookValue(payload, "base") || undefined,
+      email: webhookValue(payload, "email") || undefined,
+      phone: webhookValue(payload, "telefone", "phone") || undefined,
+      driver_type: webhookValue(payload, "driverType") || undefined,
+      signup_policy: webhookValue(payload, "signupPolicy") || undefined,
+      active
+    };
+
+    if (!row) {
+      if (!cpfDigits || !nome) throw new Error("Motorista novo precisa de nome e CPF para ser registrado com segurança.");
+      const insertValues: Record<string, unknown> = {
+        id: /^[0-9a-f-]{36}$/i.test(externalId) ? externalId : randomUUID(),
+        ...values,
+        created_at: new Date(),
+        updated_at: new Date()
+      };
+      const entries = Object.entries(insertValues).filter(([column, value]) => metadata.columns.has(column) && value !== undefined);
+      const placeholders = buildDriverRegistryInsertPlaceholders(entries.map(([column]) => column), metadata.columnTypes);
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO ${tableRef} (${entries.map(([column]) => quoteIdentifier(column)).join(", ")}) VALUES (${placeholders.join(", ")})`,
+        ...entries.map(([, value]) => value)
+      );
+    } else {
+      const rowIdColumn = getColumn(metadata, ["id", "uuid", "codigo", "driver_id", "identificador"]);
+      const rowId = rowIdColumn ? getRecordValue(row, [rowIdColumn]) : null;
+      if (!rowIdColumn || !rowId) throw new Error("Registro de motorista sem chave primária.");
+      const entries = Object.entries(values).filter(([column, value]) => metadata.columns.has(column) && value !== undefined);
+      if (entries.length) {
+        const updateParams = entries.map(([, value]) => value);
+        updateParams.push(rowId);
+        const assignments = entries.map(([column], index) => `${quoteIdentifier(column)} = $${index + 1}`);
+        if (metadata.columns.has("updated_at")) assignments.push(`${quoteIdentifier("updated_at")} = NOW()`);
+        await prisma.$executeRawUnsafe(
+          `UPDATE ${tableRef} SET ${assignments.join(", ")} WHERE ${quoteIdentifier(rowIdColumn)}::text = $${updateParams.length}`,
+          ...updateParams
+        );
+      }
+    }
+    match = await resolveDriverRegistryByIdentity({ name: nome, cpf: cpfDigits, cnpj: cnpjDigits });
   }
 
-  const match = await resolveDriverRegistryByIdentity({ name: nome, cpf: cpfDigits, cnpj: cnpjDigits });
   const motoristaId = match && "ambiguous" in match ? null : match ? await ensureMotoristaFromRegistryMatch(match) : null;
   // The webhook payload may contain the previous display name while ARCHI has
   // already persisted the corrected authoritative name. Prefer the unique
