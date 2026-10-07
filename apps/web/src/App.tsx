@@ -101,6 +101,9 @@ const FaturamentoScreen = lazy(() =>
 const BasesScreen = lazy(() =>
   import("./BasesScreen").then((module) => ({ default: module.BasesScreen }))
 );
+const RiskAnalystScreen = lazy(() =>
+  import("./RiskAnalystScreen").then((module) => ({ default: module.RiskAnalystScreen }))
+);
 
 type AccessLevel = "N1" | "N2" | "N3" | "N4";
 type AuthView = "login" | "first-access";
@@ -407,7 +410,7 @@ function getDefaultRoute(user: SessionUser | null) {
   }
 
   if (user.archiRole === "Analista de Risco") {
-    return "financeiro";
+    return "periods";
   }
 
   if (user.level === "N3" || user.level === "N4") {
@@ -427,7 +430,7 @@ function canAccessRoute(user: SessionUser | null, route: RouteView) {
   }
 
   if (user.archiRole === "Analista de Risco") {
-    return route === "financeiro";
+    return route === "periods";
   }
 
   if (user.level === "N3" || user.level === "N4") {
@@ -519,7 +522,7 @@ function App() {
     }
 
     if (currentUser.archiRole === "Analista de Risco") {
-      return menuItems.filter((item) => item.key === "financeiro");
+      return [{ ...menuItems.find((item) => item.key === "periods")!, label: "Divergências e períodos" }];
     }
 
     if (currentUser.level === "N3" || currentUser.level === "N4") {
@@ -693,8 +696,7 @@ function App() {
   const canSeeUsersData = useMemo(() => currentUser?.modules.includes("users") ?? false, [currentUser]);
   const canSeePeriodData = useMemo(
     () =>
-      currentUser?.archiRole !== "Analista de Risco" &&
-      (canSeePdfData ||
+      (currentUser?.archiRole === "Analista de Risco" || canSeePdfData ||
         currentUser?.modules.includes("financeiro") ||
         currentUser?.modules.includes("periods") ||
         currentUser?.modules.includes("bases") ||
@@ -828,6 +830,13 @@ function App() {
   };
 
   const loadPeriodData = async () => {
+    if (currentUser?.archiRole === "Analista de Risco") {
+      const periodsData = await fetchPaymentPeriods(token);
+      setPaymentPeriods(periodsData);
+      setPaymentBases([]);
+      setPeriodDataLoaded(true);
+      return;
+    }
     const [periodsData, basesData] = await Promise.all([fetchPaymentPeriods(token), fetchPaymentBases(token)]);
     setPaymentPeriods(periodsData);
     setPaymentBases(basesData);
@@ -2892,8 +2901,11 @@ function App() {
             quickActions={quickActions}
           />
         ) : null}
-        {!accessDenied && activeView === "periods" && !periodDataLoaded ? <PageSkeleton label="Carregando períodos" /> : null}
-        {!accessDenied && activeView === "periods" && periodDataLoaded ? (
+        {!accessDenied && currentUser?.archiRole === "Analista de Risco" && activeView === "periods" ? (
+          <RiskAnalystScreen token={token} />
+        ) : null}
+        {!accessDenied && currentUser?.archiRole !== "Analista de Risco" && activeView === "periods" && !periodDataLoaded ? <PageSkeleton label="Carregando períodos" /> : null}
+        {!accessDenied && currentUser?.archiRole !== "Analista de Risco" && activeView === "periods" && periodDataLoaded ? (
           <PeriodsScreen
             token={token}
             currentUser={currentUser}

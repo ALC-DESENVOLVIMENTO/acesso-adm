@@ -73,7 +73,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     token,
     userId: session.usuario.id,
     level: session.usuario.nivel.codigo,
-    modules: session.archiRole === "Analista de Risco" ? ["financeiro"] : resolveEffectiveModules(session.usuario),
+    modules: session.archiRole === "Analista de Risco" ? ["periods"] : resolveEffectiveModules(session.usuario),
     permissions: session.archiRole === "Analista de Risco" ? [] : resolveEffectivePermissions(session.usuario),
     firstAccess: session.usuario.primeiroAcesso,
     name: session.usuario.nome,
@@ -101,10 +101,6 @@ export function requirePermission(permissionCode: string) {
     }
 
     if (req.auth.archiRole === "Analista de Risco") {
-      if (permissionCode === "financeiro.apagar.consultar") {
-        next();
-        return;
-      }
       res.status(403).json({ message: "O perfil Analista de Risco possui acesso somente para consulta." });
       return;
     }
@@ -138,7 +134,7 @@ export function requireModuleAccess(moduleCode: string) {
 
     if (req.auth.archiRole === "Analista de Risco") {
       const isReadOnlyMethod = ["GET", "HEAD", "OPTIONS"].includes(req.method);
-      if (moduleCode === "financeiro" && isReadOnlyMethod) {
+      if (moduleCode === "periods" && isReadOnlyMethod) {
         next();
         return;
       }
@@ -162,6 +158,11 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
     res.status(401).json({
       message: "Sessão não autenticada."
     });
+    return;
+  }
+
+  if (req.auth.archiRole === "Analista de Risco") {
+    res.status(403).json({ message: "O perfil Analista de Risco possui acesso somente para consulta." });
     return;
   }
 

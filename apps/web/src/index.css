@@ -154,6 +154,28 @@ button {
   color: #eb0000;
 }
 
+.risk-review { display: grid; gap: 18px; }
+.risk-review__header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.risk-review__header h1 { margin: 2px 0 4px; font-size: 1.5rem; }
+.risk-review__header p:last-child { margin: 0; color: var(--muted); }
+.risk-review__tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--line); }
+.risk-review__tabs button { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; color: var(--muted); background: transparent; border-bottom: 2px solid transparent; }
+.risk-review__tabs button[aria-selected="true"] { color: var(--accent); border-color: var(--accent); font-weight: 700; }
+.risk-review__tabs span { padding: 1px 7px; border-radius: 12px; background: var(--line); color: var(--text); font-size: .78rem; }
+.risk-review__empty, .risk-review__message { padding: 22px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-solid); color: var(--muted); }
+.risk-review__message { display: flex; align-items: center; gap: 10px; color: #b42318; }
+.risk-review__table { min-width: 800px; }
+.risk-review__period-list { display: grid; gap: 8px; }
+.risk-review__period { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-solid); }
+.risk-review__period > div { display: grid; flex: 1; }
+.risk-review__period > div span { color: var(--muted); font-size: .9rem; }
+
+@media (max-width: 680px) {
+  .risk-review__header { align-items: flex-start; flex-direction: column; }
+  .risk-review__header h1 { font-size: 1.25rem; }
+  .risk-review__period { align-items: flex-start; flex-wrap: wrap; }
+}
+
 .auth-hero h1,
 .screen__intro h1 {
   margin: 0;

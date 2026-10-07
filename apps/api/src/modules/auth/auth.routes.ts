@@ -70,7 +70,7 @@ function serializeSessionUser(
     blocked: account.bloqueado,
     firstAccess: account.primeiroAcesso,
     permissions: isRiskAnalyst ? [] : resolveEffectivePermissions(account),
-    modules: isRiskAnalyst ? ["financeiro"] : modules,
+    modules: isRiskAnalyst ? ["periods"] : modules,
     archiRole
   };
 }

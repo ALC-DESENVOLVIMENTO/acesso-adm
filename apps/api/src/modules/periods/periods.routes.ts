@@ -29,6 +29,14 @@ router.use(requireAuth, (req, res, next) => {
     return;
   }
 
+  if (req.auth.archiRole === "Analista de Risco") {
+    const allowedRead = req.method === "GET" && ["/", "/review-queue"].includes(req.path);
+    if (!allowedRead) {
+      res.status(403).json({ message: "O Analista de Risco pode apenas consultar divergências e períodos." });
+      return;
+    }
+  }
+
   if (!["N3", "N4"].includes(req.auth.level) && !req.auth.modules.includes("periods") && !req.auth.modules.includes("bases")) {
     res.status(403).json({
       message: "Você não possui permissão para acessar este módulo."
@@ -601,6 +609,32 @@ router.delete("/bases/:id", requireAdmin, (req, res) => {
 
 router.get("/", (_req, res) => {
   void (async () => {
+    if (_req.auth?.archiRole === "Analista de Risco") {
+      const periods = await prisma.periodoPagamento.findMany({
+        select: {
+          id: true,
+          nome: true,
+          dataInicio: true,
+          dataFim: true,
+          tipo: true,
+          status: true,
+          ativo: true
+        },
+        orderBy: { dataInicio: "desc" }
+      });
+
+      res.json(periods.map((period) => ({
+        id: period.id,
+        name: period.nome,
+        startDate: toDateOnlyString(period.dataInicio),
+        endDate: toDateOnlyString(period.dataFim),
+        paymentType: period.tipo,
+        status: period.status,
+        active: period.ativo
+      })));
+      return;
+    }
+
     const periods = await prisma.periodoPagamento.findMany({
       include: {
         criadoPor: {
@@ -1146,10 +1180,32 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
   });
 });
 
-router.get("/review-queue", requireAdmin, (req, res) => {
+router.get("/review-queue", (req, res) => {
   void (async () => {
     const periodId = String(req.query.periodId || "").trim() || null;
-    res.json(await getDuplicateReviewQueue(periodId));
+    const queue = await getDuplicateReviewQueue(periodId);
+    if (req.auth?.archiRole === "Analista de Risco") {
+      const maskCpf = (value: string) => {
+        const digits = value.replace(/\D/g, "");
+        return digits.length === 11 ? `***.***.${digits.slice(6, 9)}-${digits.slice(9)}` : "Não informado";
+      };
+      res.json(queue.map((item) => ({
+        id: item.id,
+        motoristaNome: item.motoristaNome,
+        motoristaCpf: maskCpf(item.motoristaCpf),
+        baseRegistrada: item.baseRegistrada,
+        baseCadastrada: item.baseCadastrada,
+        cases: item.cases.map(({ periodId: casePeriodId, periodName, periodStatus, uploadedAt, baseEnviada }) => ({
+          periodId: casePeriodId,
+          periodName,
+          periodStatus,
+          uploadedAt,
+          baseEnviada
+        }))
+      })));
+      return;
+    }
+    res.json(queue);
   })().catch((error) => {
     res.status(500).json({
       message: "Falha ao listar revisoes de base.",
