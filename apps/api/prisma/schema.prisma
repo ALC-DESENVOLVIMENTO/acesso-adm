@@ -689,6 +689,7 @@ model Sessao {
   id          String    @id @default(uuid()) @db.Uuid
   usuarioId   String    @map("usuario_id") @db.Uuid
   tokenHash   String    @map("token_hash")
+  archiRole   String?   @map("archi_role") @db.VarChar(80)
   expiraEm    DateTime  @map("expira_em")
   revogadaEm  DateTime? @map("revogada_em")
   criadoEm    DateTime  @default(now()) @map("criado_em")

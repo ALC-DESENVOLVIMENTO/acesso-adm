@@ -406,6 +406,10 @@ function getDefaultRoute(user: SessionUser | null) {
     return "dashboard";
   }
 
+  if (user.archiRole === "Analista de Risco") {
+    return "financeiro";
+  }
+
   if (user.level === "N3" || user.level === "N4") {
     return "dashboard";
   }
@@ -420,6 +424,10 @@ function getDefaultRoute(user: SessionUser | null) {
 function canAccessRoute(user: SessionUser | null, route: RouteView) {
   if (!user) {
     return false;
+  }
+
+  if (user.archiRole === "Analista de Risco") {
+    return route === "financeiro";
   }
 
   if (user.level === "N3" || user.level === "N4") {
@@ -508,6 +516,10 @@ function App() {
   const allowedMenu = useMemo(() => {
     if (!currentUser) {
       return [];
+    }
+
+    if (currentUser.archiRole === "Analista de Risco") {
+      return menuItems.filter((item) => item.key === "financeiro");
     }
 
     if (currentUser.level === "N3" || currentUser.level === "N4") {
@@ -681,12 +693,13 @@ function App() {
   const canSeeUsersData = useMemo(() => currentUser?.modules.includes("users") ?? false, [currentUser]);
   const canSeePeriodData = useMemo(
     () =>
-      canSeePdfData ||
-      currentUser?.modules.includes("financeiro") ||
-      currentUser?.modules.includes("periods") ||
-      currentUser?.modules.includes("bases") ||
-      currentUser?.level === "N3" ||
-      currentUser?.level === "N4",
+      currentUser?.archiRole !== "Analista de Risco" &&
+      (canSeePdfData ||
+        currentUser?.modules.includes("financeiro") ||
+        currentUser?.modules.includes("periods") ||
+        currentUser?.modules.includes("bases") ||
+        currentUser?.level === "N3" ||
+        currentUser?.level === "N4"),
     [canSeePdfData, currentUser]
   );
   const visibleActivities = useMemo(() => paginateItems(activitiesResult, activitiesPage, 20), [activitiesPage, activitiesResult]);

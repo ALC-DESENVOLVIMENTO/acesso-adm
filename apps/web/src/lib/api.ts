@@ -32,6 +32,7 @@ export type LoginResponse = {
     active: boolean;
     blocked: boolean;
     firstAccess: boolean;
+    archiRole?: string | null;
     modules: string[];
     permissions: string[];
   };

@@ -81,6 +81,12 @@ const REQUIRED_UPLOAD_TABLE_COLUMNS: CompatibilityColumn[] = [
     column: "sigla",
     typeSql: "VARCHAR(255)",
     comment: "Adicionar sigla oficial às bases de pagamento"
+  },
+  {
+    table: "sessoes",
+    column: "archi_role",
+    typeSql: "VARCHAR(80)",
+    comment: "Persistir o perfil do Archi na sessão SSO"
   }
 ];
 

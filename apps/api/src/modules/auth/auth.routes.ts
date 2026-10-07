@@ -10,7 +10,7 @@ import {
 } from "../../lib/access.js";
 import { requireAuth } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
-import { isAllowedArchiSsoRole } from "../../lib/archi-sso.js";
+import { createArchiSsoExchangeCache, isAllowedArchiSsoRole } from "../../lib/archi-sso.js";
 import {
   buildStorageObjectUrl,
   createStorageKey,
@@ -19,7 +19,12 @@ import {
 } from "../../lib/storage.js";
 
 const router = Router();
-
+const ARCHI_RISK_ANALYST_ROLE = "Analista de Risco";
+const exchangeArchiSsoOnce = createArchiSsoExchangeCache<{
+  token: string;
+  firstAccess: boolean;
+  user: ReturnType<typeof serializeSessionUser>;
+}>();
 const profilePhotoUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -51,8 +56,10 @@ function serializeSessionUser(
     bloqueado: boolean;
     primeiroAcesso: boolean;
   },
-  modules: string[]
+  modules: string[],
+  archiRole: string | null = null
 ) {
+  const isRiskAnalyst = archiRole === ARCHI_RISK_ANALYST_ROLE;
   return {
     id: account.id,
     name: account.nome,
@@ -62,8 +69,9 @@ function serializeSessionUser(
     active: account.ativo,
     blocked: account.bloqueado,
     firstAccess: account.primeiroAcesso,
-    permissions: resolveEffectivePermissions(account),
-    modules
+    permissions: isRiskAnalyst ? [] : resolveEffectivePermissions(account),
+    modules: isRiskAnalyst ? ["financeiro"] : modules,
+    archiRole
   };
 }
 
@@ -80,8 +88,6 @@ type SsoPayload = {
   exp: number;
   jti: string;
 };
-
-const usedSsoTokens = new Map<string, number>();
 
 function getSsoSecret() {
   return String(process.env.ARCHI_ADMIN_PORTAL_SSO_SECRET || "").trim();
@@ -128,11 +134,6 @@ function verifySsoToken(token: string): SsoPayload | null {
       return null;
     }
 
-    for (const [jti, expiresAt] of usedSsoTokens) {
-      if (expiresAt <= now) usedSsoTokens.delete(jti);
-    }
-    if (usedSsoTokens.has(payload.jti)) return null;
-    usedSsoTokens.set(payload.jti, Number(payload.exp));
     return payload as SsoPayload;
   } catch {
     return null;
@@ -141,7 +142,7 @@ function verifySsoToken(token: string): SsoPayload | null {
 
 type PortalAccount = Parameters<typeof serializeSessionUser>[0];
 
-async function issueSessionForAccount(req: Request, account: PortalAccount) {
+async function issueSessionForAccount(req: Request, account: PortalAccount, archiRole: string | null = null) {
   const modules = resolveEffectiveModules(account);
   const { token, tokenHash } = generateSessionToken();
 
@@ -149,6 +150,7 @@ async function issueSessionForAccount(req: Request, account: PortalAccount) {
     data: {
       usuarioId: account.id,
       tokenHash,
+      archiRole,
       expiraEm: new Date(Date.now() + 1000 * 60 * 60 * 8)
     }
   });
@@ -161,7 +163,7 @@ async function issueSessionForAccount(req: Request, account: PortalAccount) {
   return {
     token,
     firstAccess: account.primeiroAcesso,
-    user: serializeSessionUser(account, modules),
+    user: serializeSessionUser(account, modules, archiRole),
     ipOrigem: req.ip,
     userAgent: req.get("user-agent") || null
   };
@@ -296,71 +298,81 @@ router.post("/sso/exchange", (req, res) => {
 
     const payload = verifySsoToken(parsed.data.token);
     if (!payload) {
-      res.status(401).json({ message: "A autorização do Archi é inválida, expirada ou já foi utilizada." });
+      res.status(401).json({ message: "A autorização do Archi é inválida ou expirou. Acesse o Portal novamente pelo Archi." });
       return;
     }
 
-    let account = await prisma.usuario.findUnique({
-      where: { email: payload.email.toLowerCase() },
-      include: getUserAccessInclude()
-    });
+    const response = await exchangeArchiSsoOnce(payload.jti, Number(payload.exp), async () => {
+      let account = await prisma.usuario.findUnique({
+        where: { email: payload.email.toLowerCase() },
+        include: getUserAccessInclude()
+      });
 
-    if (account && (account.bloqueado || !account.ativo)) {
-      res.status(403).json({ message: "Usuário bloqueado ou inativo no Portal Administrativo." });
-      return;
-    }
-
-    if (!account) {
-      const level = await prisma.nivel.findUnique({ where: { codigo: "N1" } });
-      if (!level) {
-        res.status(503).json({ message: "Níveis de acesso do Portal Administrativo ainda não foram configurados." });
-        return;
+      if (account && (account.bloqueado || !account.ativo)) {
+        throw Object.assign(new Error("Usuário bloqueado ou inativo no Portal Administrativo."), { statusCode: 403 });
       }
 
-      const passwordHash = await hashPassword(crypto.randomBytes(32).toString("hex"));
-      account = await prisma.usuario.create({
+      if (!account) {
+        const level = await prisma.nivel.findUnique({ where: { codigo: "N1" } });
+        if (!level) {
+          throw Object.assign(new Error("Níveis de acesso do Portal Administrativo ainda não foram configurados."), { statusCode: 503 });
+        }
+
+        const passwordHash = await hashPassword(crypto.randomBytes(32).toString("hex"));
+        account = await prisma.usuario.create({
+          data: {
+            nome: payload.name.trim().slice(0, 150) || payload.email,
+            email: payload.email.toLowerCase(),
+            senhaHash: passwordHash,
+            nivelId: level.id,
+            primeiroAcesso: false
+          },
+          include: getUserAccessInclude()
+        });
+      }
+
+      const archiName = payload.name.trim().slice(0, 150);
+      account = await prisma.usuario.update({
+        where: { id: account.id },
         data: {
-          nome: payload.name.trim().slice(0, 150) || payload.email,
-          email: payload.email.toLowerCase(),
-          senhaHash: passwordHash,
-          nivelId: level.id,
-          primeiroAcesso: false
+          primeiroAcesso: false,
+          ...(archiName && account.nome !== archiName ? { nome: archiName } : {})
         },
         include: getUserAccessInclude()
       });
-    } else if (payload.name.trim() && account.nome !== payload.name.trim().slice(0, 150)) {
-      account = await prisma.usuario.update({
-        where: { id: account.id },
-        data: { nome: payload.name.trim().slice(0, 150) },
-        include: getUserAccessInclude()
-      });
-    }
 
-    const session = await issueSessionForAccount(req, account);
-    await prisma.logAuditoria.create({
-      data: {
-        usuarioId: account.id,
-        acao: "login_sso_archi",
-        entidade: "usuarios",
-        entidadeId: account.id,
-        ipOrigem: session.ipOrigem,
-        userAgent: session.userAgent,
-        detalhes: {
-          archiUserId: payload.sub,
-          archiRole: payload.role,
-          archiBases: payload.bases || []
+      const session = await issueSessionForAccount(req, account, payload.role);
+      await prisma.logAuditoria.create({
+        data: {
+          usuarioId: account.id,
+          acao: "login_sso_archi",
+          entidade: "usuarios",
+          entidadeId: account.id,
+          ipOrigem: session.ipOrigem,
+          userAgent: session.userAgent,
+          detalhes: {
+            archiUserId: payload.sub,
+            archiRole: payload.role,
+            archiBases: payload.bases || []
+          }
         }
-      }
+      });
+
+      return {
+        token: session.token,
+        firstAccess: false,
+        user: session.user
+      };
     });
 
-    res.json({
-      token: session.token,
-      firstAccess: session.firstAccess,
-      user: session.user
-    });
+    if (!res.headersSent) res.json(response);
   })().catch((error) => {
     console.error("Falha ao trocar autorização SSO do Archi:", error);
-    res.status(500).json({ message: "Falha ao autenticar pelo Archi." });
+    if (!res.headersSent) {
+      const statusCode = Number((error as { statusCode?: number })?.statusCode) || 500;
+      const message = statusCode === 500 ? "Falha ao autenticar pelo Archi." : (error as Error).message;
+      res.status(statusCode).json({ message });
+    }
   });
 });
 
@@ -466,11 +478,12 @@ router.get("/me", requireAuth, (req, res) => {
     }
 
     const modules = resolveEffectiveModules(account);
+    const archiRole = req.auth.archiRole;
 
     res.json({
       token: req.auth.token,
       firstAccess: account.primeiroAcesso,
-      user: serializeSessionUser(account, modules)
+      user: serializeSessionUser(account, modules, archiRole)
     });
   })().catch((error) => {
     res.status(500).json({

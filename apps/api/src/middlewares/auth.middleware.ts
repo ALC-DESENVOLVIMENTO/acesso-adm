@@ -13,12 +13,13 @@ declare global {
       auth?: {
         token: string;
         userId: string;
-      level: "N1" | "N2" | "N3" | "N4";
-      modules: string[];
-      permissions: string[];
-      firstAccess: boolean;
-      name: string;
-      email: string;
+        level: "N1" | "N2" | "N3" | "N4";
+        modules: string[];
+        permissions: string[];
+        firstAccess: boolean;
+        name: string;
+        email: string;
+        archiRole: string | null;
       };
     }
   }
@@ -72,11 +73,12 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     token,
     userId: session.usuario.id,
     level: session.usuario.nivel.codigo,
-    modules: resolveEffectiveModules(session.usuario),
-    permissions: resolveEffectivePermissions(session.usuario),
+    modules: session.archiRole === "Analista de Risco" ? ["financeiro"] : resolveEffectiveModules(session.usuario),
+    permissions: session.archiRole === "Analista de Risco" ? [] : resolveEffectivePermissions(session.usuario),
     firstAccess: session.usuario.primeiroAcesso,
     name: session.usuario.nome,
-    email: session.usuario.email
+    email: session.usuario.email,
+    archiRole: session.archiRole
   };
 
   next();
@@ -95,6 +97,15 @@ export function requirePermission(permissionCode: string) {
       res.status(403).json({
         message: "Altere a senha inicial antes de acessar outros modulos."
       });
+      return;
+    }
+
+    if (req.auth.archiRole === "Analista de Risco") {
+      if (permissionCode === "financeiro.apagar.consultar") {
+        next();
+        return;
+      }
+      res.status(403).json({ message: "O perfil Analista de Risco possui acesso somente para consulta." });
       return;
     }
 
@@ -122,6 +133,16 @@ export function requireModuleAccess(moduleCode: string) {
       res.status(403).json({
         message: "Altere a senha inicial antes de acessar outros modulos."
       });
+      return;
+    }
+
+    if (req.auth.archiRole === "Analista de Risco") {
+      const isReadOnlyMethod = ["GET", "HEAD", "OPTIONS"].includes(req.method);
+      if (moduleCode === "financeiro" && isReadOnlyMethod) {
+        next();
+        return;
+      }
+      res.status(403).json({ message: "O perfil Analista de Risco possui acesso somente para consulta." });
       return;
     }
 
