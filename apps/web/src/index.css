@@ -3202,6 +3202,15 @@ button {
 
 .upload-replacement-error {
   width: min(620px, 100%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.upload-replacement-error .modal-card__body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
 }
 
 .upload-replacement-error__details {
@@ -3236,6 +3245,13 @@ button {
   margin: 14px 0 0;
   color: var(--muted);
   line-height: 1.5;
+}
+
+.upload-replacement-error .modal-card__actions {
+  flex: 0 0 auto;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(30, 41, 59, 0.08);
 }
 
 .upload-issues-list {
