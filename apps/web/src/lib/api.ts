@@ -202,6 +202,22 @@ export type PeriodBaseReviewItem = {
   }[];
 };
 
+export type RiskPeriodDiscrepancy = {
+  id: string;
+  motoristaNome: string;
+  motoristaCpf: string;
+  baseEnviada: string;
+  periodName: string;
+  uploadedAt: string;
+  categories: string[];
+};
+
+export type RiskPeriodReview = {
+  periodId: string;
+  periodName: string;
+  items: RiskPeriodDiscrepancy[];
+};
+
 export type FinanceiroSummary = {
   activePeriods: number;
   bases: number;
@@ -894,6 +910,12 @@ export function fetchPeriodBaseReviews(token: string, periodId?: string | null) 
     headers: {
       Authorization: `Bearer ${token}`
     }
+  });
+}
+
+export function fetchRiskPeriodReview(token: string, periodId: string) {
+  return request<RiskPeriodReview>(`/periods/${encodeURIComponent(periodId)}/risk-review`, {
+    headers: { Authorization: `Bearer ${token}` }
   });
 }
 

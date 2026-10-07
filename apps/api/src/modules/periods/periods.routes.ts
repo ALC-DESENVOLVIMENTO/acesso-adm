@@ -8,7 +8,10 @@ import { prisma } from "../../lib/prisma.js";
 import { deleteObject } from "../../lib/storage.js";
 import { upsertDriverPdfReceivedFromUpload } from "../../lib/driver-pdf-received.js";
 import { notifyPdfOnline } from "../../lib/pdfonline-bridge.js";
-import { normalizeText, resolveDriverRegistryByIdentity } from "../../lib/driver-registry.js";
+import { digitsOnly, normalizeText, resolveDriverRegistryByIdentity, searchArchiDriverMatchesBulk } from "../../lib/driver-registry.js";
+import { isPaymentMirrorStorageKey } from "../../lib/storage.js";
+import { resolveBeneficiaryCnpj } from "../../lib/financeiro-apagar.js";
+import { classifyRiskReview } from "../../lib/risk-review.js";
 import { syncBaseToOpenPaymentPeriods } from "../../lib/period-base-sync.js";
 
 const router = Router();
@@ -30,7 +33,7 @@ router.use(requireAuth, (req, res, next) => {
   }
 
   if (req.auth.archiRole === "Analista de Risco") {
-    const allowedRead = req.method === "GET" && ["/", "/review-queue"].includes(req.path);
+    const allowedRead = req.method === "GET" && (req.path === "/" || /^\/[0-9a-f-]{36}\/risk-review$/i.test(req.path));
     if (!allowedRead) {
       res.status(403).json({ message: "O Analista de Risco pode apenas consultar divergências e períodos." });
       return;
@@ -620,6 +623,7 @@ router.get("/", (_req, res) => {
           status: true,
           ativo: true
         },
+        where: { ativo: true },
         orderBy: { dataInicio: "desc" }
       });
 
@@ -1180,32 +1184,133 @@ router.patch("/:id/status", requireAdmin, (req, res) => {
   });
 });
 
+router.get("/:periodId/risk-review", (req, res) => {
+  void (async () => {
+    const periodId = z.string().uuid().safeParse(req.params.periodId);
+    if (!periodId.success) {
+      res.status(400).json({ message: "Período inválido." });
+      return;
+    }
+
+    const period = await prisma.periodoPagamento.findFirst({
+      where: { id: periodId.data, ativo: true },
+      select: { id: true, nome: true }
+    });
+    if (!period) {
+      res.status(404).json({ message: "Período não encontrado ou indisponível." });
+      return;
+    }
+
+    const uploads = await prisma.uploadPdf.findMany({
+      where: {
+        periodoPagamentoId: period.id,
+        status: { notIn: [UploadStatus.removido, UploadStatus.substituido] }
+      },
+      select: {
+        id: true,
+        nomeOriginal: true,
+        caminhoArquivo: true,
+        documentType: true,
+        motoristaId: true,
+        motoristaNomeExtraido: true,
+        motoristaCnpjExtraido: true,
+        criadoEm: true,
+        motorista: { select: { nome: true, cpf: true } },
+        basePagamento: { select: { nome: true } }
+      },
+      orderBy: { criadoEm: "desc" }
+    });
+
+    const latestByDriverBase = new Map<string, (typeof uploads)[number]>();
+    for (const upload of uploads) {
+      if (!isPaymentMirrorStorageKey(upload.caminhoArquivo) || upload.documentType === "nota_fiscal" || !upload.basePagamento) continue;
+      const driverName = upload.motorista?.nome || upload.motoristaNomeExtraido || "";
+      const identity = upload.motoristaId || normalizeText(driverName).replace(/[^a-z0-9]/g, "");
+      if (!identity) continue;
+      const key = `${identity}|${upload.basePagamento.nome}`;
+      if (!latestByDriverBase.has(key)) latestByDriverBase.set(key, upload);
+    }
+    const periodUploads = Array.from(latestByDriverBase.values());
+    const cleanDriverName = (value: string) => value
+      .replace(/\.[a-z0-9]{2,5}$/i, "")
+      .replace(/[-_]\d{2}[-/]\d{2}[-/]\d{2,4}$/g, "")
+      .trim();
+    const registryMatches = await searchArchiDriverMatchesBulk({
+      names: periodUploads.map((upload) => cleanDriverName(upload.motorista?.nome || upload.motoristaNomeExtraido || "")),
+      cnpjDigitsList: periodUploads.map((upload) => digitsOnly(upload.motoristaCnpjExtraido || "")),
+      approvedOnly: false
+    });
+    const normalizeIdentity = (value: string | null | undefined) => normalizeText(cleanDriverName(value || "")).replace(/[^a-z0-9]/g, "");
+    const maskCpf = (value: string | null | undefined) => {
+      const digits = digitsOnly(value || "");
+      return digits.length === 11 ? `***.***.${digits.slice(6, 9)}-${digits.slice(9)}` : "Não informado";
+    };
+    const items = periodUploads.map((upload) => {
+      const name = upload.motorista?.nome || upload.motoristaNomeExtraido || "Motorista não identificado";
+      const uploadedBase = upload.basePagamento?.nome || "Não informada";
+      const nameKey = normalizeIdentity(name);
+      const baseKey = normalizeIdentity(uploadedBase);
+      const nameMatches = registryMatches.filter((match) =>
+        [match.nome, match.nomeFavorecido].some((candidate) => normalizeIdentity(candidate) === nameKey)
+      );
+      const exactBaseMatches = nameMatches.filter((match) =>
+        [match.base, ...(match.bases || [])].some((candidate) => normalizeIdentity(candidate) === baseKey)
+      );
+      const cnpjDigits = digitsOnly(upload.motoristaCnpjExtraido || "");
+      const cnpjMatches = cnpjDigits
+        ? registryMatches.filter((match) => digitsOnly(resolveBeneficiaryCnpj(match) || match.cnpj || "") === cnpjDigits)
+        : [];
+      const exactBaseIdentityMatches = cnpjDigits
+        ? exactBaseMatches.filter((candidate) => digitsOnly(resolveBeneficiaryCnpj(candidate) || candidate.cnpj || "") === cnpjDigits)
+        : [];
+      const identityMatches = nameMatches.length
+        ? (cnpjDigits ? nameMatches.filter((candidate) => digitsOnly(resolveBeneficiaryCnpj(candidate) || candidate.cnpj || "") === cnpjDigits) : [])
+        : cnpjMatches;
+      const candidates = exactBaseIdentityMatches.length
+        ? exactBaseIdentityMatches
+        : exactBaseMatches.length && !cnpjDigits
+          ? exactBaseMatches
+        : identityMatches.length
+          ? identityMatches
+          : nameMatches.length
+            ? nameMatches
+            : cnpjMatches;
+      const match = candidates.length === 1 ? candidates[0] : null;
+      const officialCnpj = match ? resolveBeneficiaryCnpj(match) || match.cnpj : null;
+      const officialBases = match ? [match.base, ...(match.bases || [])] : [];
+      const categories = classifyRiskReview({
+        matched: Boolean(match),
+        ambiguous: !match && candidates.length > 1,
+        archiStatus: match?.statusArchi,
+        uploadedCnpj: cnpjDigits,
+        officialCnpj,
+        uploadedBase,
+        officialBases
+      });
+      return {
+        id: upload.id,
+        motoristaNome: name,
+        motoristaCpf: maskCpf(upload.motorista?.cpf),
+        baseEnviada: uploadedBase,
+        periodName: period.nome,
+        uploadedAt: upload.criadoEm,
+        categories
+      };
+    }).filter((item) => item.categories.length > 0);
+
+    res.json({ periodId: period.id, periodName: period.nome, items });
+  })().catch((error) => {
+    res.status(500).json({
+      message: "Falha ao consultar divergências do período.",
+      detail: error instanceof Error ? error.message : "Erro desconhecido"
+    });
+  });
+});
+
 router.get("/review-queue", (req, res) => {
   void (async () => {
     const periodId = String(req.query.periodId || "").trim() || null;
-    const queue = await getDuplicateReviewQueue(periodId);
-    if (req.auth?.archiRole === "Analista de Risco") {
-      const maskCpf = (value: string) => {
-        const digits = value.replace(/\D/g, "");
-        return digits.length === 11 ? `***.***.${digits.slice(6, 9)}-${digits.slice(9)}` : "Não informado";
-      };
-      res.json(queue.map((item) => ({
-        id: item.id,
-        motoristaNome: item.motoristaNome,
-        motoristaCpf: maskCpf(item.motoristaCpf),
-        baseRegistrada: item.baseRegistrada,
-        baseCadastrada: item.baseCadastrada,
-        cases: item.cases.map(({ periodId: casePeriodId, periodName, periodStatus, uploadedAt, baseEnviada }) => ({
-          periodId: casePeriodId,
-          periodName,
-          periodStatus,
-          uploadedAt,
-          baseEnviada
-        }))
-      })));
-      return;
-    }
-    res.json(queue);
+    res.json(await getDuplicateReviewQueue(periodId));
   })().catch((error) => {
     res.status(500).json({
       message: "Falha ao listar revisoes de base.",

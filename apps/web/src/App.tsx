@@ -1123,7 +1123,7 @@ function App() {
 
         if (activeView === "bases" && canSeePeriodData) {
           tasks.push(loadPaymentBasesData());
-        } else if ((activeView === "periods" || activeView === "financeiro") && canSeePeriodData) {
+        } else if (((activeView === "periods" && currentUser?.archiRole !== "Analista de Risco") || activeView === "financeiro") && canSeePeriodData) {
           tasks.push(loadPeriodData());
         }
 

@@ -1,9 +1,8 @@
-import { ArrowClockwise, CalendarBlank, WarningCircle } from "@phosphor-icons/react";
+import { ArrowClockwise, WarningCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
-import { fetchPaymentPeriods, fetchPeriodBaseReviews, type PaymentPeriod, type PeriodBaseReviewItem } from "./lib/api";
+import { fetchPaymentPeriods, fetchRiskPeriodReview, type PaymentPeriod, type RiskPeriodDiscrepancy } from "./lib/api";
 
 type RiskAnalystScreenProps = { token: string };
-type Tab = "divergencias" | "periodos";
 
 function formatDate(value: string) {
   const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -13,93 +12,95 @@ function formatDate(value: string) {
   return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("pt-BR").format(date);
 }
 
-function periodStatus(status: PaymentPeriod["status"]) {
-  return status.replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase());
+function periodLabel(period: PaymentPeriod) {
+  return `${period.name} · ${formatDate(period.startDate)} a ${formatDate(period.endDate)}`;
 }
 
 export function RiskAnalystScreen({ token }: RiskAnalystScreenProps) {
-  const [tab, setTab] = useState<Tab>("divergencias");
   const [periods, setPeriods] = useState<PaymentPeriod[]>([]);
-  const [reviews, setReviews] = useState<PeriodBaseReviewItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [selectedPeriodId, setSelectedPeriodId] = useState("");
+  const [items, setItems] = useState<RiskPeriodDiscrepancy[]>([]);
+  const [loadingPeriods, setLoadingPeriods] = useState(true);
+  const [loadingReview, setLoadingReview] = useState(false);
   const [error, setError] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refreshPeriods = useCallback(async () => {
+    setLoadingPeriods(true);
     setError("");
     try {
-      const [periodData, reviewData] = await Promise.all([
-        fetchPaymentPeriods(token),
-        fetchPeriodBaseReviews(token)
-      ]);
-      setPeriods(periodData);
-      setReviews(reviewData);
+      const result = await fetchPaymentPeriods(token);
+      setPeriods(result);
+      setSelectedPeriodId((current) => result.some((period) => period.id === current) ? current : result[0]?.id || "");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Não foi possível carregar os dados.");
+      setError(cause instanceof Error ? cause.message : "Não foi possível carregar os períodos.");
     } finally {
-      setLoading(false);
+      setLoadingPeriods(false);
     }
   }, [token]);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => { void refreshPeriods(); }, [refreshPeriods]);
+
+  useEffect(() => {
+    if (!token || !selectedPeriodId) {
+      setItems([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingReview(true);
+    setError("");
+    void fetchRiskPeriodReview(token, selectedPeriodId)
+      .then((result) => { if (!cancelled) setItems(result.items); })
+      .catch((cause) => { if (!cancelled) setError(cause instanceof Error ? cause.message : "Não foi possível consultar as divergências."); })
+      .finally(() => { if (!cancelled) setLoadingReview(false); });
+    return () => { cancelled = true; };
+  }, [refreshKey, selectedPeriodId, token]);
+
+  const loading = loadingPeriods || loadingReview;
 
   return (
     <section className="risk-review screen">
       <header className="risk-review__header">
         <div>
           <p className="eyebrow">Gerenciadora de Risco</p>
-          <h1>Divergências cadastrais</h1>
-          <p>Motoristas com divergência entre a base cadastrada e a base do período.</p>
+          <h1>Revisão de cadastros</h1>
         </div>
-        <button className="ghost-button" type="button" onClick={() => void refresh()} disabled={loading} title="Atualizar">
+        <button className="ghost-button" type="button" onClick={() => { setRefreshKey((value) => value + 1); void refreshPeriods(); }} disabled={loading} title="Atualizar">
           <ArrowClockwise size={17} /> Atualizar
         </button>
       </header>
 
-      <div className="risk-review__tabs" role="tablist" aria-label="Dados para consulta">
-        <button type="button" role="tab" aria-selected={tab === "divergencias"} onClick={() => setTab("divergencias")}>
-          Divergências <span>{reviews.length}</span>
-        </button>
-        <button type="button" role="tab" aria-selected={tab === "periodos"} onClick={() => setTab("periodos")}>
-          Períodos <span>{periods.length}</span>
-        </button>
+      <label className="risk-review__period-picker">
+        <span>Período disponível</span>
+        <select value={selectedPeriodId} onChange={(event) => setSelectedPeriodId(event.target.value)} disabled={loadingPeriods || periods.length === 0}>
+          {periods.length === 0 ? <option value="">Nenhum período disponível</option> : null}
+          {periods.map((period) => <option key={period.id} value={period.id}>{periodLabel(period)}</option>)}
+        </select>
+      </label>
+
+      <div className="risk-review__results-heading">
+        <strong>Divergências do período</strong>
+        {!loading ? <span>{items.length} {items.length === 1 ? "cadastro" : "cadastros"}</span> : null}
       </div>
 
       {error ? <div className="risk-review__message" role="alert"><WarningCircle size={18} />{error}</div> : null}
-      {loading ? <div className="risk-review__empty" role="status">Carregando dados...</div> : null}
-
-      {!loading && !error && tab === "divergencias" ? (
-        reviews.length ? (
-          <div className="table-wrap">
-            <table className="data-table risk-review__table">
-              <thead><tr><th>Motorista</th><th>CPF</th><th>Base cadastrada</th><th>Base no período</th><th>Período</th><th>Enviado em</th></tr></thead>
-              <tbody>{reviews.flatMap((review) => review.cases.map((item, index) => (
-                <tr key={`${review.id}-${item.periodId}-${index}`}>
-                  <td><strong>{review.motoristaNome}</strong></td>
-                  <td>{review.motoristaCpf}</td>
-                  <td>{review.baseRegistrada}</td>
-                  <td>{item.baseEnviada}</td>
-                  <td>{item.periodName}</td>
-                  <td>{formatDate(item.uploadedAt)}</td>
-                </tr>
-              )))}</tbody>
-            </table>
-          </div>
-        ) : <div className="risk-review__empty">Nenhuma divergência cadastral pendente.</div>
-      ) : null}
-
-      {!loading && !error && tab === "periodos" ? (
-        periods.length ? (
-          <div className="risk-review__period-list">
-            {periods.map((period) => (
-              <article className="risk-review__period" key={period.id}>
-                <CalendarBlank size={20} />
-                <div><strong>{period.name}</strong><span>{formatDate(period.startDate)} a {formatDate(period.endDate)} · {period.paymentType}</span></div>
-                <span className="finance-status-pill finance-status-pill--neutral">{periodStatus(period.status)}</span>
-              </article>
-            ))}
-          </div>
-        ) : <div className="risk-review__empty">Nenhum período cadastrado.</div>
+      {loading ? <div className="risk-review__empty" role="status">Carregando...</div> : null}
+      {!loading && !error && !items.length ? <div className="risk-review__empty">Nenhuma divergência encontrada neste período.</div> : null}
+      {!loading && !error && items.length ? (
+        <div className="table-wrap">
+          <table className="data-table risk-review__table">
+            <thead><tr><th>Motorista</th><th>CPF</th><th>Base do período</th><th>Divergência</th><th>Data</th></tr></thead>
+            <tbody>{items.map((item) => (
+              <tr key={item.id}>
+                <td><strong>{item.motoristaNome}</strong></td>
+                <td>{item.motoristaCpf}</td>
+                <td>{item.baseEnviada}</td>
+                <td><div className="risk-review__categories">{item.categories.map((category) => <span key={category}>{category}</span>)}</div></td>
+                <td>{formatDate(item.uploadedAt)}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
       ) : null}
     </section>
   );
