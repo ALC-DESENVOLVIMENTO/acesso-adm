@@ -16,6 +16,13 @@ function periodLabel(period: PaymentPeriod) {
   return `${period.name} · ${formatDate(period.startDate)} a ${formatDate(period.endDate)}`;
 }
 
+function formatDocument(value: string, kind: "cpf" | "cnpj") {
+  const digits = value.replace(/\D/g, "");
+  if (kind === "cpf" && digits.length === 11) return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  if (kind === "cnpj" && digits.length === 14) return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+  return value;
+}
+
 export function RiskAnalystScreen({ token }: RiskAnalystScreenProps) {
   const [periods, setPeriods] = useState<PaymentPeriod[]>([]);
   const [selectedPeriodId, setSelectedPeriodId] = useState("");
@@ -89,11 +96,13 @@ export function RiskAnalystScreen({ token }: RiskAnalystScreenProps) {
       {!loading && !error && items.length ? (
         <div className="table-wrap">
           <table className="data-table risk-review__table">
-            <thead><tr><th>Motorista</th><th>CPF</th><th>Base do período</th><th>Divergência</th><th>Data</th></tr></thead>
+            <thead><tr><th>Motorista</th><th>CPF</th><th>CNPJ do documento</th><th>CNPJ no ARCHI</th><th>Base do período</th><th>Divergência</th><th>Data</th></tr></thead>
             <tbody>{items.map((item) => (
               <tr key={item.id}>
                 <td><strong>{item.motoristaNome}</strong></td>
-                <td>{item.motoristaCpf}</td>
+                <td>{formatDocument(item.motoristaCpf, "cpf")}</td>
+                <td>{formatDocument(item.cnpjDocumento, "cnpj")}</td>
+                <td>{formatDocument(item.cnpjArchi, "cnpj")}</td>
                 <td>{item.baseEnviada}</td>
                 <td><div className="risk-review__categories">{item.categories.map((category) => <span key={category}>{category}</span>)}</div></td>
                 <td>{formatDate(item.uploadedAt)}</td>

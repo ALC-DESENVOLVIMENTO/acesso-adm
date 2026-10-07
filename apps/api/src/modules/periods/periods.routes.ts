@@ -623,7 +623,7 @@ router.get("/", (_req, res) => {
           status: true,
           ativo: true
         },
-        where: { ativo: true },
+        where: { ativo: true, status: "aprovado" },
         orderBy: { dataInicio: "desc" }
       });
 
@@ -1193,7 +1193,7 @@ router.get("/:periodId/risk-review", (req, res) => {
     }
 
     const period = await prisma.periodoPagamento.findFirst({
-      where: { id: periodId.data, ativo: true },
+      where: { id: periodId.data, ativo: true, status: "aprovado" },
       select: { id: true, nome: true }
     });
     if (!period) {
@@ -1212,6 +1212,7 @@ router.get("/:periodId/risk-review", (req, res) => {
         caminhoArquivo: true,
         documentType: true,
         motoristaId: true,
+        basePagamentoId: true,
         motoristaNomeExtraido: true,
         motoristaCnpjExtraido: true,
         criadoEm: true,
@@ -1221,30 +1222,43 @@ router.get("/:periodId/risk-review", (req, res) => {
       orderBy: { criadoEm: "desc" }
     });
 
-    const latestByDriverBase = new Map<string, (typeof uploads)[number]>();
-    for (const upload of uploads) {
-      if (!isPaymentMirrorStorageKey(upload.caminhoArquivo) || upload.documentType === "nota_fiscal" || !upload.basePagamento) continue;
-      const driverName = upload.motorista?.nome || upload.motoristaNomeExtraido || "";
-      const identity = upload.motoristaId || normalizeText(driverName).replace(/[^a-z0-9]/g, "");
-      if (!identity) continue;
-      const key = `${identity}|${upload.basePagamento.nome}`;
-      if (!latestByDriverBase.has(key)) latestByDriverBase.set(key, upload);
-    }
-    const periodUploads = Array.from(latestByDriverBase.values());
+    const mirrorUploads = uploads.filter((upload) =>
+      isPaymentMirrorStorageKey(upload.caminhoArquivo) && upload.documentType !== "nota_fiscal" && upload.basePagamento
+    );
     const cleanDriverName = (value: string) => value
       .replace(/\.[a-z0-9]{2,5}$/i, "")
       .replace(/[-_]\d{2}[-/]\d{2}[-/]\d{2,4}$/g, "")
       .trim();
+    const normalizeIdentity = (value: string | null | undefined) => normalizeText(cleanDriverName(value || "")).replace(/[^a-z0-9]/g, "");
+    const linkedDriverByNameScope = new Map<string, string | null>();
+    for (const upload of mirrorUploads) {
+      if (!upload.motoristaId || !upload.basePagamentoId) continue;
+      const nameKey = normalizeIdentity(upload.motorista?.nome || upload.motoristaNomeExtraido);
+      if (!nameKey) continue;
+      const scopeKey = `${period.id}|${upload.basePagamentoId}|${nameKey}`;
+      const previous = linkedDriverByNameScope.get(scopeKey);
+      if (previous && previous !== upload.motoristaId) linkedDriverByNameScope.set(scopeKey, null);
+      else if (!linkedDriverByNameScope.has(scopeKey)) linkedDriverByNameScope.set(scopeKey, upload.motoristaId);
+    }
+    const latestByDriverBase = new Map<string, (typeof mirrorUploads)[number]>();
+    for (const upload of mirrorUploads) {
+      if (!upload.basePagamentoId) continue;
+      const scopeKey = `${period.id}|${upload.basePagamentoId}`;
+      const nameKey = normalizeIdentity(upload.motorista?.nome || upload.motoristaNomeExtraido);
+      const linkedDriverId = nameKey ? linkedDriverByNameScope.get(`${scopeKey}|${nameKey}`) : undefined;
+      const effectiveDriverId = upload.motoristaId || linkedDriverId || null;
+      const key = effectiveDriverId
+        ? `${effectiveDriverId}|${upload.basePagamentoId}`
+        : `nome:${scopeKey}|${nameKey || upload.id}`;
+      const current = latestByDriverBase.get(key);
+      if (!current || (!current.motoristaId && Boolean(upload.motoristaId))) latestByDriverBase.set(key, upload);
+    }
+    const periodUploads = Array.from(latestByDriverBase.values());
     const registryMatches = await searchArchiDriverMatchesBulk({
       names: periodUploads.map((upload) => cleanDriverName(upload.motorista?.nome || upload.motoristaNomeExtraido || "")),
       cnpjDigitsList: periodUploads.map((upload) => digitsOnly(upload.motoristaCnpjExtraido || "")),
       approvedOnly: false
     });
-    const normalizeIdentity = (value: string | null | undefined) => normalizeText(cleanDriverName(value || "")).replace(/[^a-z0-9]/g, "");
-    const maskCpf = (value: string | null | undefined) => {
-      const digits = digitsOnly(value || "");
-      return digits.length === 11 ? `***.***.${digits.slice(6, 9)}-${digits.slice(9)}` : "Não informado";
-    };
     const items = periodUploads.map((upload) => {
       const name = upload.motorista?.nome || upload.motoristaNomeExtraido || "Motorista não identificado";
       const uploadedBase = upload.basePagamento?.nome || "Não informada";
@@ -1290,7 +1304,9 @@ router.get("/:periodId/risk-review", (req, res) => {
       return {
         id: upload.id,
         motoristaNome: name,
-        motoristaCpf: maskCpf(upload.motorista?.cpf),
+        motoristaCpf: upload.motorista?.cpf || "Não informado",
+        cnpjDocumento: upload.motoristaCnpjExtraido || "Não informado",
+        cnpjArchi: officialCnpj || "Não informado",
         baseEnviada: uploadedBase,
         periodName: period.nome,
         uploadedAt: upload.criadoEm,

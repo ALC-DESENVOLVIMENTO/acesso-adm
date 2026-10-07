@@ -206,6 +206,8 @@ export type RiskPeriodDiscrepancy = {
   id: string;
   motoristaNome: string;
   motoristaCpf: string;
+  cnpjDocumento: string;
+  cnpjArchi: string;
   baseEnviada: string;
   periodName: string;
   uploadedAt: string;
