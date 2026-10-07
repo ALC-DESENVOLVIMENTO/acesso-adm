@@ -49,6 +49,7 @@ const DRIVER_REGISTRY_BASE_CANDIDATES = ["base", "unidade", "filial", "base_oper
 type DriverRegistryMetadata = {
   schema: string;
   columns: Set<string>;
+  columnTypes: Map<string, string>;
 };
 
 export type DriverRegistryRow = Record<string, unknown>;
@@ -198,6 +199,13 @@ function getColumn(metadata: DriverRegistryMetadata, candidates: string[]) {
   return null;
 }
 
+export function buildDriverRegistryInsertPlaceholders(columns: string[], columnTypes: ReadonlyMap<string, string>) {
+  return columns.map((column, index) => {
+    const placeholder = `$${index + 1}`;
+    return columnTypes.get(column.toLowerCase()) === "uuid" ? `${placeholder}::uuid` : placeholder;
+  });
+}
+
 async function getDriverRegistryMetadata() {
   if (driverRegistryMetadata !== undefined) {
     return driverRegistryMetadata;
@@ -229,12 +237,14 @@ async function getDriverRegistryMetadata() {
   const columns = await prisma.$queryRaw<
     Array<{
       column_name: string;
+      data_type: string;
     }>
-  >`SELECT column_name FROM information_schema.columns WHERE table_schema = ${targetSchema} AND table_name = ${DRIVER_REGISTRY_TABLE}`;
+  >`SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = ${targetSchema} AND table_name = ${DRIVER_REGISTRY_TABLE}`;
 
   driverRegistryMetadata = {
     schema: targetSchema,
-    columns: new Set(columns.map((row) => row.column_name.toLowerCase()))
+    columns: new Set(columns.map((row) => row.column_name.toLowerCase())),
+    columnTypes: new Map(columns.map((row) => [row.column_name.toLowerCase(), row.data_type.toLowerCase()]))
   };
 
   return driverRegistryMetadata;
@@ -861,7 +871,10 @@ export async function syncDriverRegistryFromWebhook(payload: DriverRegistryWebho
     const entries = Object.entries(insertValues).filter(([column, value]) =>
       metadata.columns.has(column) && value !== undefined
     );
-    const placeholders = entries.map(([, value], index) => `$${index + 1}`);
+    const placeholders = buildDriverRegistryInsertPlaceholders(
+      entries.map(([column]) => column),
+      metadata.columnTypes
+    );
     await prisma.$executeRawUnsafe(
       `INSERT INTO ${tableRef} (${entries.map(([column]) => quoteIdentifier(column)).join(", ")}) VALUES (${placeholders.join(", ")})`,
       ...entries.map(([, value]) => value)
