@@ -10,6 +10,7 @@ import {
 } from "../../lib/access.js";
 import { requireAuth } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../lib/prisma.js";
+import { isAllowedArchiSsoRole } from "../../lib/archi-sso.js";
 import {
   buildStorageObjectUrl,
   createStorageKey,
@@ -117,7 +118,7 @@ function verifySsoToken(token: string): SsoPayload | null {
       payload.aud !== "portal-administrativo" ||
       !payload.sub ||
       !payload.email ||
-      !["Administrativo", "Administrador", "Fiscal & Financeiro"].includes(payload.role || "") ||
+      !isAllowedArchiSsoRole(payload.role) ||
       !payload.jti ||
       !Number.isFinite(payload.iat) ||
       !Number.isFinite(payload.exp) ||
