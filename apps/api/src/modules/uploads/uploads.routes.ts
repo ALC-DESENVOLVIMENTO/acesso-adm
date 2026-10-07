@@ -1296,11 +1296,17 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
       });
       return;
     }
-    if (replacementMatch.base && currentUpload.basePagamento?.nome &&
-      !driverMatchesBase(replacementMatch.raw, currentUpload.basePagamento.nome)) {
+    const hasBaseMismatch = Boolean(
+      replacementMatch.base && currentUpload.basePagamento?.nome &&
+      !driverMatchesBase(replacementMatch.raw, currentUpload.basePagamento.nome)
+    );
+    const allowBaseMismatch = String(req.body?.allowBaseMismatch || "").trim().toLowerCase() === "true";
+    if (hasBaseMismatch && !allowBaseMismatch) {
       res.status(422).json({
         message: "Substituição bloqueada: a base do motorista diverge da base do período.",
-        code: "base_motorista_divergente"
+        code: "base_motorista_divergente",
+        detectedBase: replacementMatch.base,
+        periodBase: currentUpload.basePagamento?.nome || null
       });
       return;
     }
@@ -1427,7 +1433,10 @@ router.post("/:id/replace", upload.single("file"), (req, res) => {
         userAgent: req.get("user-agent") || null,
         detalhes: {
           antigo: currentUpload.nomeOriginal,
-          novo: file.originalname
+          novo: file.originalname,
+          divergenciaBaseConfirmadaManualmente: hasBaseMismatch && allowBaseMismatch,
+          baseDetectadaNoArchi: hasBaseMismatch ? replacementMatch.base : null,
+          baseDoPeriodo: hasBaseMismatch ? currentUpload.basePagamento?.nome || null : null
         }
       }
     });

@@ -1363,7 +1363,8 @@ export function replaceUpload(
   token: string,
   uploadId: string,
   file: File,
-  onProgress?: (progress: UploadProgressState) => void
+  onProgress?: (progress: UploadProgressState) => void,
+  allowBaseMismatch = false
 ) {
   const formData = new FormData();
   formData.append("file", file);
@@ -1372,6 +1373,7 @@ export function replaceUpload(
     path: `/uploads/${uploadId}/replace`,
     token,
     body: formData,
+    fields: allowBaseMismatch ? { allowBaseMismatch: "true" } : undefined,
     onProgress
   });
 }

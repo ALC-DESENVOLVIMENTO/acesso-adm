@@ -469,7 +469,16 @@ function App() {
   const [negativePdfModalOpen, setNegativePdfModalOpen] = useState(false);
   const [uploadIssues, setUploadIssues] = useState<UploadIssue[]>([]);
   const [uploadIssuesModalOpen, setUploadIssuesModalOpen] = useState(false);
-  const [replacementError, setReplacementError] = useState<{ fileName: string; message: string; status?: number; code?: string } | null>(null);
+  const [replacementError, setReplacementError] = useState<{
+    fileName: string;
+    message: string;
+    status?: number;
+    code?: string;
+    uploadId: string;
+    file: File;
+    detectedBase?: string;
+    periodBase?: string;
+  } | null>(null);
   const [uploadHistory, setUploadHistory] = useState<UploadHistoryState>(null);
   const [baseEditorOpen, setBaseEditorOpen] = useState(false);
   const [editingBase, setEditingBase] = useState<PaymentBase | null>(null);
@@ -1792,7 +1801,7 @@ function App() {
     setNegativePdfModalOpen(false);
   };
 
-  const handleReplaceUpload = async (uploadId: string, file: File) => {
+  const handleReplaceUpload = async (uploadId: string, file: File, allowBaseMismatch = false) => {
     if (!token) {
       return;
     }
@@ -1811,7 +1820,8 @@ function App() {
           ...progress,
           label: "Substituindo PDF..."
         });
-      });
+      }, allowBaseMismatch);
+      setReplacementError(null);
       setFlashMessage({ type: "success", text: response.message });
       await Promise.all([loadUploadsData(), loadDashboardSummary()]);
 
@@ -1824,7 +1834,7 @@ function App() {
       }
     } catch (error) {
       const payload = error instanceof ApiError && error.payload && typeof error.payload === "object"
-        ? error.payload as { code?: string; message?: string }
+        ? error.payload as { code?: string; message?: string; detectedBase?: string | null; periodBase?: string | null }
         : null;
       setFlashMessage(null);
       const isNegativeTotal = payload?.code === "total_geral_negativo";
@@ -1833,7 +1843,11 @@ function App() {
           fileName: file.name,
           message: payload?.message || (error instanceof Error ? error.message : "Falha ao substituir o PDF."),
           status: error instanceof ApiError ? error.status : undefined,
-          code: payload?.code
+          code: payload?.code,
+          uploadId,
+          file,
+          detectedBase: payload?.detectedBase || undefined,
+          periodBase: payload?.periodBase || undefined
         });
       }
       if (error instanceof ApiError && error.payload && typeof error.payload === "object") {
@@ -2675,16 +2689,42 @@ function App() {
                 <dl className="upload-replacement-error__details">
                   <div><dt>Arquivo selecionado</dt><dd>{replacementError.fileName}</dd></div>
                   <div><dt>Motivo informado pelo sistema</dt><dd>{replacementError.message}</dd></div>
+                  {replacementError.code === "base_motorista_divergente" ? (
+                    <>
+                      {replacementError.periodBase ? <div><dt>Base do período</dt><dd>{replacementError.periodBase}</dd></div> : null}
+                      {replacementError.detectedBase ? <div><dt>Base identificada no cadastro</dt><dd>{replacementError.detectedBase}</dd></div> : null}
+                    </>
+                  ) : null}
                   {replacementError.status ? <div><dt>Código HTTP</dt><dd>{replacementError.status}</dd></div> : null}
                   {replacementError.code ? <div><dt>Código do erro</dt><dd>{replacementError.code}</dd></div> : null}
                 </dl>
                 <p className="upload-replacement-error__hint">
-                  {replacementError.status === 422
+                  {replacementError.code === "base_motorista_divergente"
+                    ? "Se você conferiu o motorista, o espelho e o período e a divergência de base é esperada, confirme o envio excepcional. As demais validações continuam ativas."
+                    : replacementError.status === 422
                     ? "Confira o período, motorista, base e dados do espelho indicados no motivo antes de tentar novamente."
                     : "Atualize a fila de documentos e confirme qual arquivo está vigente antes de reenviar."}
                 </p>
               </div>
               <div className="modal-card__actions">
+                {replacementError.code === "base_motorista_divergente" ? (
+                  <button
+                    className="primary-button primary-button--inline"
+                    type="button"
+                    disabled={Boolean(loadingMessage)}
+                    onClick={() => {
+                      const confirmed = window.confirm(
+                        `Confirmar envio apesar da divergência de base?\n\nBase identificada: ${replacementError.detectedBase || "não informada"}\nBase do período: ${replacementError.periodBase || "não informada"}\nArquivo: ${replacementError.fileName}\n\nA exceção será registrada na auditoria. As demais validações continuarão ativas.`
+                      );
+                      if (!confirmed) return;
+                      const { uploadId, file } = replacementError;
+                      setReplacementError(null);
+                      void handleReplaceUpload(uploadId, file, true);
+                    }}
+                  >
+                    Enviar mesmo assim
+                  </button>
+                ) : null}
                 <button className="primary-button primary-button--inline" type="button" onClick={() => setReplacementError(null)}>
                   Entendi
                 </button>
