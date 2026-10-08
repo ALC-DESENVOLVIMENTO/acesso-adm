@@ -113,6 +113,30 @@ export function driverMatchesBase(row: DriverRegistryRow, base: string) {
   return Boolean(expected) && getDriverBases(row).some((candidate) => normalizeText(candidate) === expected);
 }
 
+/**
+ * Permit a payment mirror to be associated despite a base mismatch only when
+ * ARCHI returns one uniquely resolved driver's exact personal name and CNPJ.
+ * CPF remains a confirmation when supplied on both sides, never a requirement.
+ */
+export function confirmsDriverIdentityAcrossBase(
+  match: Pick<DriverRegistryMatch, "nome" | "cnpj" | "cpfDigits" | "cpf">,
+  identity: { name?: string | null; cnpj?: string | null; cpf?: string | null }
+) {
+  const nameMatches = Boolean(
+    identity.name && normalizeText(identity.name) === normalizeText(match.nome)
+  );
+  const cnpjMatches = Boolean(
+    digitsOnly(identity.cnpj) &&
+    digitsOnly(match.cnpj) &&
+    digitsOnly(identity.cnpj) === digitsOnly(match.cnpj)
+  );
+  const providedCpf = digitsOnly(identity.cpf);
+  const registryCpf = digitsOnly(match.cpfDigits || match.cpf);
+  const cpfConflicts = Boolean(providedCpf && registryCpf && providedCpf !== registryCpf);
+
+  return nameMatches && cnpjMatches && !cpfConflicts;
+}
+
 export function digitsOnly(value: string | null | undefined) {
   return String(value || "").replace(/\D/g, "");
 }

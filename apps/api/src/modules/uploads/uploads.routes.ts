@@ -14,6 +14,7 @@ import {
 } from "../../lib/storage.js";
 import {
   deriveRegistrySearchFromFileName,
+  confirmsDriverIdentityAcrossBase,
   digitsOnly,
   driverMatchesBase,
   ensureMotoristaFromRegistryMatch,
@@ -303,7 +304,11 @@ async function resolveUploadMotorista(file: Express.Multer.File, selectedBaseNam
     } as const;
   }
 
-  if (match.base && !driverMatchesBase(match.raw, selectedBaseName)) {
+  if (
+    match.base &&
+    !driverMatchesBase(match.raw, selectedBaseName) &&
+    !confirmsDriverIdentityAcrossBase(match, identity)
+  ) {
     return {
       pending: true,
       motoristaNome: identity.name || fallbackName,
@@ -540,7 +545,11 @@ export async function reconcilePendingUploadsFromRegistry() {
     if (
       !upload.motoristaId &&
       resolvedMatch?.base &&
-      !driverMatchesBase(resolvedMatch.raw, selectedBaseName)
+      !driverMatchesBase(resolvedMatch.raw, selectedBaseName) &&
+      !confirmsDriverIdentityAcrossBase(resolvedMatch, {
+        name: upload.motoristaNomeExtraido,
+        cnpj: upload.motoristaCnpjExtraido
+      })
     ) {
       await prisma.uploadPdf.updateMany({
         where: { id: upload.id, motoristaId: null },
