@@ -30,6 +30,8 @@ import { extractTotalGeralValueFromSource } from "../../lib/financeiro-total-bac
 const router = Router();
 const MAX_UPLOAD_FILES_PER_REQUEST = 100;
 const STORAGE_UPLOAD_CONCURRENCY = 5;
+const PENDING_UPLOAD_RECONCILIATION_BATCH_SIZE = 100;
+let pendingUploadReconciliationCursor: { id: string; criadoEm: Date } | null = null;
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -479,27 +481,42 @@ async function publishApprovedUpload(input: {
 }
 
 export async function reconcilePendingUploadsFromRegistry() {
-  const pendingUploads = await prisma.uploadPdf.findMany({
-    where: {
-      status: {
-        in: [UploadStatus.pendente, UploadStatus.processado]
-      },
-      documentType: {
-        not: DocumentTypeCode.nota_fiscal
-      },
-      periodoPagamentoId: {
-        not: null
-      },
-      basePagamentoId: {
-        not: null
-      },
-      OR: [
-        { motoristaId: null },
-        { status: UploadStatus.pendente }
-      ]
+  const pendingUploadScope = {
+    status: {
+      in: [UploadStatus.pendente, UploadStatus.processado]
     },
+    documentType: {
+      not: DocumentTypeCode.nota_fiscal
+    },
+    periodoPagamentoId: {
+      not: null
+    },
+    basePagamentoId: {
+      not: null
+    },
+    OR: [
+      { motoristaId: null },
+      { status: UploadStatus.pendente }
+    ]
+  };
+  const cursor = pendingUploadReconciliationCursor;
+  const pendingUploads = await prisma.uploadPdf.findMany({
+    where: cursor
+      ? {
+          AND: [
+            pendingUploadScope,
+            {
+              OR: [
+                { criadoEm: { gt: cursor.criadoEm } },
+                { criadoEm: cursor.criadoEm, id: { gt: cursor.id } }
+              ]
+            }
+          ]
+        }
+      : pendingUploadScope,
     select: {
       id: true,
+      criadoEm: true,
       nomeOriginal: true,
       caminhoArquivo: true,
       motoristaNomeExtraido: true,
@@ -519,11 +536,15 @@ export async function reconcilePendingUploadsFromRegistry() {
         }
       }
     },
-    orderBy: {
-      criadoEm: "asc"
-    },
-    take: 100
+    orderBy: [{ criadoEm: "asc" }, { id: "asc" }],
+    take: PENDING_UPLOAD_RECONCILIATION_BATCH_SIZE
   });
+
+  const lastUpload = pendingUploads[pendingUploads.length - 1];
+  pendingUploadReconciliationCursor =
+    pendingUploads.length === PENDING_UPLOAD_RECONCILIATION_BATCH_SIZE && lastUpload
+      ? { id: lastUpload.id, criadoEm: lastUpload.criadoEm }
+      : null;
 
   for (const upload of pendingUploads) {
     const resolved = upload.motoristaId
