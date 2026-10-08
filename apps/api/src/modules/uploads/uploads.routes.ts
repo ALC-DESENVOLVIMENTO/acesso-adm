@@ -480,7 +480,8 @@ async function publishApprovedUpload(input: {
   });
 }
 
-export async function reconcilePendingUploadsFromRegistry() {
+export async function reconcilePendingUploadsFromRegistry(options: { driverName?: string } = {}) {
+  const driverName = String(options.driverName || "").trim();
   const pendingUploadScope = {
     status: {
       in: [UploadStatus.pendente, UploadStatus.processado]
@@ -499,21 +500,32 @@ export async function reconcilePendingUploadsFromRegistry() {
       { status: UploadStatus.pendente }
     ]
   };
-  const cursor = pendingUploadReconciliationCursor;
+  // A driver update should immediately retry that driver's mirrors regardless
+  // of where the background reconciliation cursor currently sits.
+  const cursor = driverName ? null : pendingUploadReconciliationCursor;
   const pendingUploads = await prisma.uploadPdf.findMany({
-    where: cursor
-      ? {
-          AND: [
-            pendingUploadScope,
-            {
+    where: {
+      AND: [
+        pendingUploadScope,
+        ...(cursor
+          ? [{
               OR: [
                 { criadoEm: { gt: cursor.criadoEm } },
                 { criadoEm: cursor.criadoEm, id: { gt: cursor.id } }
               ]
-            }
-          ]
-        }
-      : pendingUploadScope,
+            }]
+          : []),
+        ...(driverName
+          ? [{
+              OR: [
+                { motoristaNomeExtraido: { contains: driverName, mode: "insensitive" as const } },
+                { nomeOriginal: { contains: driverName.replace(/\s+/g, "_"), mode: "insensitive" as const } },
+                { nomeOriginal: { contains: driverName.replace(/\s+/g, "-"), mode: "insensitive" as const } }
+              ]
+            }]
+          : [])
+      ]
+    },
     select: {
       id: true,
       criadoEm: true,
@@ -541,10 +553,12 @@ export async function reconcilePendingUploadsFromRegistry() {
   });
 
   const lastUpload = pendingUploads[pendingUploads.length - 1];
-  pendingUploadReconciliationCursor =
-    pendingUploads.length === PENDING_UPLOAD_RECONCILIATION_BATCH_SIZE && lastUpload
-      ? { id: lastUpload.id, criadoEm: lastUpload.criadoEm }
-      : null;
+  if (!driverName) {
+    pendingUploadReconciliationCursor =
+      pendingUploads.length === PENDING_UPLOAD_RECONCILIATION_BATCH_SIZE && lastUpload
+        ? { id: lastUpload.id, criadoEm: lastUpload.criadoEm }
+        : null;
+  }
 
   for (const upload of pendingUploads) {
     const resolved = upload.motoristaId

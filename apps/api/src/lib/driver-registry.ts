@@ -279,7 +279,7 @@ function buildTableRef(schema: string) {
   return `${quoteIdentifier(schema)}.${quoteIdentifier(DRIVER_REGISTRY_TABLE)}`;
 }
 
-function mapRegistryRow(row: DriverRegistryRow): DriverRegistryMatch {
+export function mapRegistryRow(row: DriverRegistryRow): DriverRegistryMatch {
   const cpf = getRecordValue(row, [...DRIVER_REGISTRY_CPF_CANDIDATES, "documento", "document_number", "documento_numero"]) || "";
   const extraData = decodeExtraData(row.extra_data);
   const formPayload = decodeExtraData(row.form_payload);
@@ -294,14 +294,15 @@ function mapRegistryRow(row: DriverRegistryRow): DriverRegistryMatch {
       extraData.beneficiary_name
     ]);
 
-  const nameCandidates = [
+  // ARCHI's registry `name`/`display_name` fields identify the driver. A
+  // razão social in extra_data identifies the payee and must never override
+  // the driver's name during mirror reconciliation.
+  const authoritativeName = firstNonEmpty([
+    getRecordValue(row, DRIVER_REGISTRY_DISPLAY_NAME_CANDIDATES),
     extraData.nome,
     extraData.name,
-    extraData.display_name,
-    extraData.razaoSocial,
-    getRecordValue(row, DRIVER_REGISTRY_DISPLAY_NAME_CANDIDATES)
-  ].filter(isUsableDriverName).map((value) => String(value).trim());
-  const authoritativeName = nameCandidates.sort((left, right) => right.length - left.length)[0] || "Sem nome";
+    extraData.display_name
+  ].filter(isUsableDriverName)) || "Sem nome";
   const bases = getDriverBases({ ...row, extra_data: extraData, form_payload: formPayload });
 
   return {
@@ -763,6 +764,7 @@ export type DriverRegistryWebhookPayload = {
   cnpj?: string;
   cnpjDigits?: string;
   base?: string;
+  bases?: string[];
   email?: string;
   telefone?: string;
   phone?: string;

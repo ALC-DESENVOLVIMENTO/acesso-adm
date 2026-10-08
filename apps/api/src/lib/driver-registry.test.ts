@@ -7,8 +7,10 @@ const {
   buildDriverRegistryInsertPlaceholders,
   confirmsDriverIdentityAcrossBase,
   driverMatchesBase,
-  getDriverBases
+  getDriverBases,
+  mapRegistryRow
 } = await import("./driver-registry.js");
+const { buildWebhookDedupeKey } = await import("./webhook-idempotency.js");
 
 test("casts UUID registry IDs when building parameterized insert placeholders", () => {
   assert.deepEqual(
@@ -39,6 +41,28 @@ test("reads additional bases from ARCHI compressed driver form payload", () => {
 
   assert.deepEqual(getDriverBases(row), ["CRAVINHOS", "RIBEIRAO PRETO"]);
   assert.equal(driverMatchesBase(row, "RIBEIRAO PRETO"), true);
+});
+
+test("keeps the driver's ARCHI name separate from the payee's legal name", () => {
+  const match = mapRegistryRow({
+    id: "driver-1",
+    name: "EDUARDO JUSTINO RAMOS",
+    display_name: "EDUARDO JUSTINO RAMOS",
+    cpf: "12345678900",
+    base: "CRAVINHOS",
+    extra_data: { razaoSocial: "ALEXSANDER ROBERT DA SILVA URBANO" }
+  });
+
+  assert.equal(match.nome, "EDUARDO JUSTINO RAMOS");
+});
+
+test("deduplicates identical ARCHI retries but accepts an updated base snapshot", () => {
+  const initial = { nome: "EDUARDO JUSTINO RAMOS", bases: ["CRAVINHOS"] };
+  const updated = { nome: "EDUARDO JUSTINO RAMOS", bases: ["CRAVINHOS", "RIBEIRAO PRETO"] };
+  const firstKey = buildWebhookDedupeKey("archi", "archi.motorista.atualizado", "reused-id", initial);
+
+  assert.equal(buildWebhookDedupeKey("archi", "archi.motorista.atualizado", "reused-id", initial), firstKey);
+  assert.notEqual(buildWebhookDedupeKey("archi", "archi.motorista.atualizado", "reused-id", updated), firstKey);
 });
 
 test("allows a base mismatch only when exact driver name and CNPJ confirm identity", () => {

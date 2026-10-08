@@ -16,6 +16,7 @@ import { notifyArchi } from "../../lib/archi-bridge.js";
 import { listArchiBases, upsertArchiBase } from "../../lib/archi-base-catalog.js";
 import { requireAuth } from "../../middlewares/auth.middleware.js";
 import { syncDriverRegistryFromWebhook, type DriverRegistryWebhookPayload } from "../../lib/driver-registry.js";
+import { buildWebhookDedupeKey } from "../../lib/webhook-idempotency.js";
 import { reconcilePendingUploadsFromRegistry } from "../uploads/uploads.routes.js";
 
 const router = Router();
@@ -208,7 +209,11 @@ router.post("/archi/drivers", (req, res) => {
       data.externalId,
       data.id
     ) || `${parsed.data.event}:${createHash("sha256").update(JSON.stringify(data)).digest("hex").slice(0, 24)}`;
-    const storedEventId = `archi:${eventId}`;
+    // Some ARCHI versions can reuse an eventId when updatedAt is serialized
+    // as an object. Include the event snapshot in the idempotency key so a
+    // real later change (for example, adding a base) is not discarded as a
+    // duplicate, while byte-equivalent retries remain idempotent.
+    const storedEventId = buildWebhookDedupeKey("archi", parsed.data.event, eventId, data);
     const duplicate = await prisma.webhookEvento.findUnique({ where: { eventId: storedEventId }, select: { id: true } });
     if (duplicate) {
       res.json({ message: "Atualizacao do ARCHI ja processada anteriormente.", duplicate: true });
@@ -240,7 +245,7 @@ router.post("/archi/drivers", (req, res) => {
 
     // Webhook is the fast path; the existing reconciliation remains a safe
     // fallback for uploads that arrived before the driver event.
-    await reconcilePendingUploadsFromRegistry();
+    await reconcilePendingUploadsFromRegistry({ driverName: readString(data.nome || data.name) || result.nome });
     const confirmation = await notifyArchi("acesso_adm.motorista_sincronizado", {
       externalId: readString(data.externalId || data.id) || null,
       motoristaId: result.motoristaId,
